@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #0f0c29 0%, #1a1a3e 30%, #24243e 60%, #1e1b4b 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            position: relative;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle at 30% 40%, rgba(99, 102, 241, 0.08) 0%, transparent 50%),
+                        radial-gradient(circle at 70% 60%, rgba(168, 85, 247, 0.06) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .card {
+            position: relative;
+            z-index: 1;
+            background: rgba(255, 255, 255, 0.97);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-radius: 24px;
+            box-shadow: 0 30px 80px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.08);
+            padding: 48px 44px;
+            width: 100%;
+            max-width: 440px;
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 8px;
+        }
+
+        .brand-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #6366f1, #a855f7);
+            display: inline-block;
+        }
+
+        .card h1 {
+            font-size: 30px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #1e1b4b, #4c1d95);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-align: center;
+            letter-spacing: -1px;
+        }
+
+        .card .sub {
+            text-align: center;
+            color: #8b8ca7;
+            font-size: 15px;
+            font-weight: 500;
+            margin-bottom: 36px;
+        }
+
+        .login-form {
+            width: 100%;
+        }
+
+        .field {
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        .field label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            color: #4b5563;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .field input {
+            width: 100%;
+            padding: 14px 16px;
+            font-size: 15px;
+            font-family: 'Inter', sans-serif;
+            border: 2px solid #e5e7eb;
+            border-radius: 14px;
+            background: #f9fafb;
+            color: #111827;
+            outline: none;
+            transition: border 0.3s ease, box-shadow 0.3s ease, background 0.3s ease;
+        }
+
+        .field input:focus {
+            border-color: #6366f1;
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.12);
+            background: #ffffff;
+        }
+
+        .field input::placeholder {
+            color: #adb5bd;
+            font-weight: 400;
+        }
+
+        .field .pw-wrap {
+            position: relative;
+        }
+
+        .field .pw-wrap input {
+            padding-right: 48px;
+        }
+
+        .field .pw-toggle {
+            position: absolute;
+            right: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            font-size: 18px;
+            user-select: none;
+            color: #9ca3af;
+            transition: color 0.2s ease;
+            line-height: 1;
+            background: none;
+            border: none;
+            padding: 4px;
+        }
+
+        .field .pw-toggle:hover {
+            color: #4b5563;
+        }
+
+        .submit-wrap {
+            position: relative;
+            margin-top: 12px;
+        }
+
+        button[type="submit"] {
+            width: 100%;
+            padding: 16px;
+            font-size: 16px;
+            font-weight: 700;
+            font-family: 'Inter', sans-serif;
+            border: none;
+            border-radius: 14px;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: #fff;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            min-height: 56px;
+        }
+
+        button[type="submit"]:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 28px rgba(99, 102, 241, 0.35);
+        }
+
+        button[type="submit"]:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        button[type="submit"]:disabled {
+            opacity: 0.8;
+            cursor: not-allowed;
+        }
+
+        .spinner {
+            width: 22px;
+            height: 22px;
+            border: 3px solid rgba(255, 255, 255, 0.25);
+            border-top-color: #ffffff;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            display: none;
+        }
+
+        .spinner.active {
+            display: inline-block;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .btn-text {
+            transition: all 0.25s ease;
+        }
+
+        /* TOAST */
+        #toastContainer {
+            position: fixed;
+            top: 24px;
+            right: 24px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            pointer-events: none;
+        }
+
+        .toast {
+            pointer-events: auto;
+            padding: 16px 20px 16px 16px;
+            border-radius: 16px;
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            font-weight: 500;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+            transform: translateX(120%);
+            opacity: 0;
+            transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s ease;
+            max-width: 400px;
+            min-width: 280px;
+        }
+
+        .toast.show {
+            transform: translateX(0);
+            opacity: 1;
+        }
+
+        .toast.hide {
+            transform: translateX(120%);
+            opacity: 0;
+        }
+
+        .toast.success {
+            background: linear-gradient(135deg, #059669, #10b981);
+            border-left: 4px solid #34d399;
+        }
+
+        .toast.error {
+            background: linear-gradient(135deg, #dc2626, #ef4444);
+            border-left: 4px solid #fca5a5;
+        }
+
+        .toast.info {
+            background: linear-gradient(135deg, #1e40af, #3b82f6);
+            border-left: 4px solid #60a5fa;
+        }
+
+        .toast-icon {
+            font-size: 22px;
+            flex-shrink: 0;
+        }
+
+        .toast-content {
+            flex: 1;
+        }
+
+        .toast-title {
+            font-weight: 700;
+            font-size: 14px;
+            margin-bottom: 2px;
+        }
+
+        .toast-message {
+            font-size: 13px;
+            opacity: 0.9;
+            font-weight: 400;
+        }
+
+        .toast-close {
+            background: none;
+            border: none;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 18px;
+            cursor: pointer;
+            padding: 2px 6px;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+            flex-shrink: 0;
+        }
+
+        .toast-close:hover {
+            background: rgba(255, 255, 255, 0.15);
+            color: #fff;
+        }
+
+        #dashboardSection {
+            width: 100%;
+            max-width: 960px;
+            margin: 0 auto;
+            position: relative;
+            z-index: 1;
+        }
+
+        .dash-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px 28px;
+            background: rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-radius: 20px;
+            margin-bottom: 40px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .dash-header img {
+            height: 44px;
+            width: auto;
+            object-fit: contain;
+            filter: brightness(0) invert(1);
+        }
+
+        .btn-logout {
+            padding: 10px 24px;
+            font-size: 14px;
+            font-weight: 600;
+            font-family: 'Inter', sans-serif;
+            border: 1.5px solid rgba(255, 255, 255, 0.15);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.06);
+            color: rgba(255, 255, 255, 0.85);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-logout:hover {
+            border-color: rgba(239, 68, 68, 0.5);
+            background: rgba(239, 68, 68, 0.12);
+            color: #fca5a5;
+        }
+
+        .dash-title {
+            color: #fff;
+            font-size: 22px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            margin-bottom: 28px;
+        }
+
+        .nav-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+            gap: 20px;
+        }
+
+        .nav-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 36px 24px;
+            background: rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 20px;
+            font-size: 17px;
+            font-weight: 600;
+            color: #fff;
+            text-decoration: none;
+            text-align: center;
+            transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+            cursor: pointer;
+            min-height: 150px;
+            line-height: 1.5;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .nav-btn::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 20px;
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(168, 85, 247, 0.08));
+            opacity: 0;
+            transition: opacity 0.35s ease;
+        }
+
+        .nav-btn:hover {
+            transform: translateY(-6px);
+            border-color: rgba(99, 102, 241, 0.35);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(99, 102, 241, 0.15);
+        }
+
+        .nav-btn:hover::before {
+            opacity: 1;
+        }
+
+        .nav-btn:active {
+            transform: translateY(-2px);
+        }
+
+        .nav-btn .icon {
+            font-size: 30px;
+            margin-bottom: 12px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .nav-btn .label {
+            position: relative;
+            z-index: 1;
+        }
+
+        #dashboardSection {
+            display: none;
+        }
+
+        #loginSection {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            z-index: 1;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        @media (max-width: 600px) {
+            .card {
+                padding: 36px 24px;
+            }
+            .nav-grid {
+                grid-template-columns: 1fr 1fr;
+                gap: 14px;
+            }
+            .nav-btn {
+                min-height: 120px;
+                padding: 24px 16px;
+                font-size: 15px;
+            }
+            .dash-header {
+                flex-direction: column;
+                gap: 16px;
+                padding: 16px 20px;
+            }
+            #toastContainer {
+                left: 16px;
+                right: 16px;
+                top: 16px;
+            }
+            .toast {
+                max-width: 100%;
+                min-width: 0;
+            }
+        }
+
+        @media (max-width: 440px) {
+            .nav-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="toastContainer"></div>
+
+    <div id="loginSection">
+        <div class="card">
+            <div class="brand">
+                <span class="brand-dot"></span>
+                <h1>Admin</h1>
+                <span class="brand-dot"></span>
+            </div>
+            <p class="sub">Sign in to your account</p>
+
+            <form class="login-form" id="loginForm">
+                <div class="field">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" placeholder="your@email.com" autocomplete="email" required>
+                </div>
+
+                <div class="field">
+                    <label for="password">Password</label>
+                    <div class="pw-wrap">
+                        <input type="password" id="password" placeholder="Enter your password" autocomplete="current-password" required>
+                        <button class="pw-toggle" id="togglePassword" type="button" aria-label="Toggle password visibility">👁️</button>
+                    </div>
+                </div>
+
+                <div class="submit-wrap">
+                    <button type="submit" id="submitBtn">
+                        <span class="spinner" id="spinner"></span>
+                        <span class="btn-text" id="btnText">Submit</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="dashboardSection">
+        <div class="dash-header">
+            <img src="logo.png" alt="Logo" id="logo">
+            <button class="btn-logout" id="logoutBtn">Logout</button>
+        </div>
+        <p class="dash-title">Navigation</p>
+        <div class="nav-grid">
+            <a class="nav-btn" href="check.html">
+                <span class="icon">👤</span>
+                <span class="label">Check User</span>
+            </a>
+            <a class="nav-btn" href="all.html">
+                <span class="icon">📊</span>
+                <span class="label">All User Analysis</span>
+            </a>
+            <a class="nav-btn" href="moth.html">
+                <span class="icon">📈</span>
+                <span class="label">Moth Analysis</span>
+            </a>
+            <a class="nav-btn" href="dataprice.html">
+                <span class="icon">💰</span>
+                <span class="label">Data Price</span>
+            </a>
+        </div>
+    </div>
+
+    <script type="module">
+        import { supabase } from '/supabase.js';
+
+        const AUTH_EMAILS = [
+            '686172756e616c6177616c693535323240676d61696c2e636f6d',
+            '6c6177616c69686172756e6139343340676d61696c2e636f6d',
+            '707572656461746139393640676d61696c2e636f6d'
+        ];
+
+        function decodeHex(hex) {
+            let out = '';
+            for (let i = 0; i < hex.length; i += 2) {
+                out += String.fromCharCode(parseInt(hex.substr(i, 2), 16));
+            }
+            return out;
+        }
+
+        const authorizedEmails = AUTH_EMAILS.map(decodeHex);
+
+        const loginSection = document.getElementById('loginSection');
+        const dashboardSection = document.getElementById('dashboardSection');
+        const loginForm = document.getElementById('loginForm');
+        const emailInput = document.getElementById('email');
+        const passwordInput = document.getElementById('password');
+        const togglePassword = document.getElementById('togglePassword');
+        const submitBtn = document.getElementById('submitBtn');
+        const spinner = document.getElementById('spinner');
+        const btnText = document.getElementById('btnText');
+        const logoutBtn = document.getElementById('logoutBtn');
+        const toastContainer = document.getElementById('toastContainer');
+
+        togglePassword.addEventListener('click', () => {
+            const t = passwordInput.getAttribute('type');
+            passwordInput.setAttribute('type', t === 'password' ? 'text' : 'password');
+        });
+
+        function showToast(type, title, message, duration) {
+            const icons = {
+                success: '✓',
+                error: '✕',
+                info: 'ℹ'
+            };
+
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `
+                <span class="toast-icon">${icons[type] || ''}</span>
+                <div class="toast-content">
+                    <div class="toast-title">${title}</div>
+                    <div class="toast-message">${message}</div>
+                </div>
+                <button class="toast-close" type="button">×</button>
+            `;
+
+            toast.querySelector('.toast-close').addEventListener('click', () => {
+                toast.classList.remove('show');
+                toast.classList.add('hide');
+                setTimeout(() => toast.remove(), 500);
+            });
+
+            toastContainer.appendChild(toast);
+
+            requestAnimationFrame(() => {
+                toast.classList.add('show');
+            });
+
+            const t = duration || 5000;
+            const autoTimer = setTimeout(() => {
+                toast.classList.remove('show');
+                toast.classList.add('hide');
+                setTimeout(() => toast.remove(), 500);
+            }, t);
+
+            toast.addEventListener('mouseenter', () => clearTimeout(autoTimer));
+
+            return toast;
+        }
+
+        function setLoading(isLoading) {
+            if (isLoading) {
+                spinner.classList.add('active');
+                btnText.textContent = 'Signing in';
+                submitBtn.disabled = true;
+            } else {
+                spinner.classList.remove('active');
+                btnText.textContent = 'Submit';
+                submitBtn.disabled = false;
+            }
+        }
+
+        function isAuthorized(email) {
+            return authorizedEmails.includes(email.toLowerCase().trim());
+        }
+
+        function showDashboard() {
+            loginSection.style.display = 'none';
+            dashboardSection.style.display = 'block';
+        }
+
+        function showLogin() {
+            loginSection.style.display = 'flex';
+            dashboardSection.style.display = 'none';
+        }
+
+        async function handleLogin(email, password) {
+            if (submitBtn.disabled) return;
+
+            setLoading(true);
+
+            if (!isAuthorized(email)) {
+                setLoading(false);
+                showToast('error', 'Access Denied', 'You are not authorized to access this page.');
+                return;
+            }
+
+            try {
+                const { data, error } = await supabase.auth.signInWithPassword({
+                    email: email.trim(),
+                    password: password
+                });
+
+                setLoading(false);
+
+                if (error) {
+                    let msg = error.message;
+                    if (error.message === 'Invalid login credentials') {
+                        msg = 'The email or password you entered is incorrect.';
+                    }
+                    showToast('error', 'Login Failed', msg);
+                    return;
+                }
+
+                if (!data || !data.user || !isAuthorized(data.user.email)) {
+                    if (data && data.user) {
+                        await supabase.auth.signOut();
+                    }
+                    showToast('error', 'Access Denied', 'You are not authorized to access this page.');
+                    return;
+                }
+
+                showToast('success', 'Welcome Back', 'You have been signed in successfully.', 3000);
+                setTimeout(() => showDashboard(), 600);
+            } catch (err) {
+                setLoading(false);
+                showToast('error', 'Connection Error', 'Unable to connect to the server. Please check your network.');
+            }
+        }
+
+        async function checkSession() {
+            try {
+                const { data: { session }, error } = await supabase.auth.getSession();
+
+                if (error) {
+                    showLogin();
+                    return;
+                }
+
+                if (session && session.user && isAuthorized(session.user.email)) {
+                    showDashboard();
+                } else {
+                    if (session) {
+                        await supabase.auth.signOut();
+                    }
+                    showLogin();
+                }
+            } catch {
+                showLogin();
+            }
+        }
+
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = emailInput.value.trim();
+            const password = passwordInput.value;
+
+            if (!email) {
+                showToast('error', 'Validation Error', 'Please enter your email address.');
+                emailInput.focus();
+                return;
+            }
+
+            if (!password) {
+                showToast('error', 'Validation Error', 'Please enter your password.');
+                passwordInput.focus();
+                return;
+            }
+
+            await handleLogin(email, password);
+        });
+
+        logoutBtn.addEventListener('click', async () => {
+            try {
+                await supabase.auth.signOut();
+            } catch {}
+            emailInput.value = '';
+            passwordInput.value = '';
+            showToast('info', 'Signed Out', 'You have been signed out successfully.', 3000);
+            setTimeout(() => showLogin(), 400);
+        });
+
+        checkSession();
+    </script>
+</body>
+</html>

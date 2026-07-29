@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Transaction History - AmanData</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #6c5ce7;
+            --primary-dark: #4834d4;
+            --accent: #00cec9;
+            --bg-dark: #0f172a;
+            --card-bg: #1e293b;
+            --text-light: #f8fafc;
+            --text-muted: #94a3b8;
+            --border: #334155;
+            --success: #10b981;
+            --danger: #ef4444;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-light);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow-x: hidden;
+        }
+
+        .scene {
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            background-color: var(--bg-dark);
+            transition: opacity 0.6s ease, visibility 0.6s;
+        }
+
+        .scene.hidden {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        .bg {
+            position: absolute;
+            inset: 0;
+            background-color: var(--bg-dark);
+            opacity: 0;
+            transition: opacity 0.6s ease;
+        }
+
+        .bg.show {
+            opacity: 1;
+        }
+
+        .liquid {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            height: 0%;
+            background: linear-gradient(180deg, var(--primary) 0%, var(--primary-dark) 100%);
+            transition: height 1.6s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .liquid.fill {
+            height: 100%;
+        }
+
+        .wave {
+            position: absolute;
+            top: -40px;
+            left: 0;
+            right: 0;
+            height: 80px;
+            width: 200%;
+        }
+
+        .wave svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        .wave path {
+            fill: var(--primary);
+        }
+
+        .wave-2 {
+            animation: drift 3s linear infinite;
+        }
+
+        .wave-1 {
+            animation: drift 5s linear infinite reverse;
+            opacity: 0.5;
+        }
+
+        @keyframes drift {
+            from { transform: translateX(0); }
+            to   { transform: translateX(-50%); }
+        }
+
+        .brand {
+            position: fixed;
+            top: 55%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 10000;
+            color: #fff;
+            font-size: 14px;
+            letter-spacing: 6px;
+            font-weight: 200;
+            text-transform: uppercase;
+            transition: opacity 0.6s ease;
+        }
+
+        .brand.hide {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .brand .bdot {
+            display: inline-block;
+            animation: blink 1.4s infinite;
+        }
+
+        .brand .bdot:nth-child(2) { animation-delay: 0.2s; }
+        .brand .bdot:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes blink {
+            0%, 60%, 100% { opacity: 0.2; }
+            30% { opacity: 1; }
+        }
+
+        .loader-logo {
+            max-width: 140px;
+            height: auto;
+            opacity: 0.95;
+            position: absolute;
+            top: 40%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 10000;
+            transition: opacity 0.6s ease;
+        }
+
+        .loader-logo.hide {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 480px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1), transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+            padding-bottom: 40px;
+        }
+
+        .app-container.ready {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 0;
+        }
+
+        .btn-back {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            color: var(--text-light);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background 0.2s;
+        }
+
+        .btn-back:active {
+            background: var(--border);
+        }
+
+        .page-logo {
+            height: 40px;
+            width: auto;
+            opacity: 0.95;
+        }
+
+        .filter-tabs {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 6px;
+        }
+
+        .tab-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            padding: 12px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .tab-btn.active {
+            background: var(--primary);
+            color: white;
+        }
+
+        .history-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .transaction-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 18px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            transition: transform 0.2s, border-color 0.2s;
+        }
+
+        .transaction-card:active {
+            transform: scale(0.98);
+            border-color: var(--primary);
+        }
+
+        .tx-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .tx-icon-frame {
+            width: 48px;
+            height: 48px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+
+        .tx-icon-frame.deposit {
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--success);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+        }
+
+        .tx-icon-frame.spending {
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--danger);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+        }
+
+        .tx-meta {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .tx-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--text-light);
+        }
+
+        .tx-date {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .tx-right {
+            text-align: right;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .tx-amount {
+            font-size: 16px;
+            font-weight: 700;
+        }
+
+        .tx-amount.deposit {
+            color: var(--success);
+        }
+
+        .tx-amount.spending {
+            color: var(--text-light);
+        }
+
+        .tx-status {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            padding: 60px 20px;
+            text-align: center;
+        }
+
+        .empty-icon {
+            font-size: 56px;
+            color: var(--text-muted);
+            opacity: 0.4;
+        }
+
+        .empty-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-light);
+        }
+
+        .empty-desc {
+            font-size: 14px;
+            color: var(--text-muted);
+            max-width: 320px;
+            line-height: 1.6;
+        }
+
+        .overlay-details {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.95);
+            z-index: 1000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .overlay-details.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .detail-card {
+            width: 100%;
+            max-width: 400px;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            transform: scale(0.9);
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .overlay-details.active .detail-card {
+            transform: scale(1);
+        }
+
+        .detail-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 16px;
+        }
+
+        .detail-header-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-light);
+        }
+
+        .btn-close-detail {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 20px;
+            cursor: pointer;
+        }
+
+        .detail-rows {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 14px;
+        }
+
+        .detail-row-label {
+            color: var(--text-muted);
+        }
+
+        .detail-row-val {
+            font-weight: 600;
+            color: var(--text-light);
+            text-align: right;
+            word-break: break-all;
+            max-width: 200px;
+        }
+
+        .detail-row-val.success-color {
+            color: var(--success);
+        }
+
+        .toast-container {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            z-index: 10001;
+            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5);
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            pointer-events: none;
+            width: calc(100% - 40px);
+            max-width: 400px;
+        }
+
+        .toast-container.active {
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .toast-icon {
+            font-size: 18px;
+            color: var(--danger);
+        }
+
+        .toast-message {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-light);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="scene" id="scene">
+        <div class="bg" id="bg"></div>
+        <img src="image/logo.png" class="loader-logo" id="loaderLogo" alt="Logo">
+        <div class="liquid" id="liquid">
+            <div class="wave wave-1">
+                <svg viewBox="0 0 1200 80" preserveAspectRatio="none">
+                    <path d="M0,40 C200,80 400,0 600,40 C800,80 1000,0 1200,40 L1200,80 L0,80 Z"></path>
+                </svg>
+            </div>
+            <div class="wave wave-2">
+                <svg viewBox="0 0 1200 80" preserveAspectRatio="none">
+                    <path d="M0,40 C200,80 400,0 600,40 C800,80 1000,0 1200,40 L1200,80 L0,80 Z"></path>
+                </svg>
+            </div>
+        </div>
+    </div>
+
+    <div class="brand" id="brand">
+        Loading<span class="bdot">.</span><span class="bdot">.</span><span class="bdot">.</span>
+    </div>
+
+    <div class="app-container" id="appContainer">
+        <header>
+            <a href="dashboard.html" class="btn-back">
+                <i class="fa-solid fa-arrow-left"></i>
+            </a>
+            <img src="image/logo.png" class="page-logo" alt="AmanData Logo">
+        </header>
+
+        <section class="filter-tabs">
+            <button class="tab-btn active" id="tabAll">All</button>
+            <button class="tab-btn" id="tabIn">Deposits</button>
+            <button class="tab-btn" id="tabOut">Spending</button>
+        </section>
+
+        <main class="history-list" id="historyList"></main>
+    </div>
+
+    <div class="overlay-details" id="detailsOverlay">
+        <div class="detail-card">
+            <div class="detail-header">
+                <h3 class="detail-header-title">Transaction Receipt</h3>
+                <button class="btn-close-detail" id="btnCloseDetails"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="detail-rows">
+                <div class="detail-row">
+                    <span class="detail-row-label">Transaction Type</span>
+                    <span class="detail-row-val" id="detType">---</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-row-label">Amount</span>
+                    <span class="detail-row-val" id="detAmount">---</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-row-label">Reference ID</span>
+                    <span class="detail-row-val" id="detRef">---</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-row-label">Execution Date</span>
+                    <span class="detail-row-val" id="detDate">---</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-row-label">Execution Time</span>
+                    <span class="detail-row-val" id="detTime">---</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-row-label">Status</span>
+                    <span class="detail-row-val success-color" id="detStatus">Successful</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast-container" id="toastContainer">
+        <i class="fa-solid fa-circle-exclamation toast-icon"></i>
+        <span class="toast-message" id="toastMessage">An error occurred</span>
+    </div>
+
+    <script type="module" src="history.js"></script>
+</body>
+</html>

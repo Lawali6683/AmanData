@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="ha">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AmanData - Help Center</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #6c5ce7;
+            --primary-dark: #4834d4;
+            --whatsapp: #25d366;
+            --business: #0f172a;
+            --bg-light: #f8fafc;
+            --text-dark: #0f172a;
+            --text-muted: #64748b;
+            --card-bg: #ffffff;
+            --border: #e2e8f0;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-light);
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60' viewBox='0 0 60 60'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg stroke='%236c5ce7' stroke-width='0.15' stroke-opacity='0.3'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+            color: var(--text-dark);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .help-container {
+            width: 100%;
+            max-width: 440px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            margin-top: 10px;
+            animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+      
+        .lang-switcher {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            width: 100%;
+        }
+
+        .lang-btn {
+            background: #e2e8f0;
+            border: none;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .lang-btn.active {
+            background: var(--primary);
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(108, 92, 231, 0.3);
+        }
+
+        .promo-banner {
+            width: 100%;
+            border-radius: 24px;
+            overflow: hidden;
+            box-shadow: 0 10px 25px -5px rgba(108, 92, 231, 0.15);
+            border: 1px solid var(--border);
+            background: #fff;
+            aspect-ratio: 16 / 9;
+        }
+
+        .promo-banner img {
+            width: 100%;
+            height: 100%;
+            
+            display: block;
+        }
+
+        .header-section {
+            text-align: center;
+            padding: 5px 0;
+        }
+
+        .header-title {
+            font-size: 24px;
+            font-weight: 800;
+            color: var(--text-dark);
+            letter-spacing: -0.5px;
+            margin-bottom: 6px;
+        }
+
+        .header-desc {
+            font-size: 14px;
+            color: var(--text-muted);
+            line-height: 1.5;
+        }
+
+        .support-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            box-shadow: 0 4px 18px rgba(15, 23, 42, 0.03);
+            transition: transform 0.2s;
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .icon-box {
+            width: 48px;
+            height: 48px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            color: #fff;
+        }
+
+        .icon-box.customer-care {
+            background: var(--whatsapp);
+            box-shadow: 0 8px 16px rgba(37, 211, 102, 0.2);
+        }
+
+        .icon-box.b2b {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            box-shadow: 0 8px 16px rgba(108, 92, 231, 0.2);
+        }
+
+        .channel-info {
+            flex: 1;
+            text-align: left;
+        }
+
+        .channel-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text-dark);
+            margin-bottom: 2px;
+        }
+
+        .channel-tag {
+            font-size: 12px;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .channel-body {
+            font-size: 13.5px;
+            color: #475569;
+            line-height: 1.5;
+            text-align: left;
+            background: var(--bg-light);
+            padding: 12px 16px;
+            border-radius: 14px;
+            border: 1px solid var(--border);
+        }
+
+        .btn-action {
+            width: 100%;
+            border: none;
+            padding: 14px;
+            border-radius: 14px;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            text-decoration: none;
+            transition: opacity 0.2s, transform 0.1s;
+        }
+
+        .btn-action:active {
+            transform: scale(0.98);
+        }
+
+        .btn-whatsapp {
+            background: var(--whatsapp);
+            color: #fff;
+        }
+
+        .btn-business {
+            background: var(--business);
+            color: #fff;
+        }
+
+        .footer-brand {
+            text-align: center;
+            font-size: 11px;
+            color: var(--text-muted);
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin-top: 15px;
+            font-weight: 600;
+        }
+
+        /* Hiding elements for clean toggle */
+        [data-lang] {
+            display: none;
+        }
+        
+        html[lang="ha"] [data-lang="ha"] {
+            display: block;
+        }
+        
+        html[lang="ha"] span[data-lang="ha"] {
+            display: inline;
+        }
+
+        html[lang="en"] [data-lang="en"] {
+            display: block;
+        }
+        
+        html[lang="en"] span[data-lang="en"] {
+            display: inline;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="help-container">
+        
+       
+        <div class="lang-switcher">
+            <button class="lang-btn active" onclick="switchLang('ha')" id="btn-ha">Hausa</button>
+            <button class="lang-btn" onclick="switchLang('en')" id="btn-en">English</button>
+        </div>
+        
+        <div class="promo-banner">
+            <img src="image/t1.png" alt="AmanData Advertisement">
+        </div>
+
+        <div class="header-section">
+            <h2 class="header-title">AmanData Help Center</h2>
+            <p class="header-desc" data-lang="ha">Kuna buƙatar taimako ko kuna son haɗin gwiwa? Zaɓi sashen da kuke buƙata domin tuntuɓar mu kai tsaye.</p>
+            <p class="header-desc" data-lang="en">Do you need help or want to partner with us? Select the appropriate department to contact us directly.</p>
+        </div>
+
+        
+        <div class="support-card">
+            <div class="card-header">
+                <div class="icon-box customer-care">
+                    <i class="fa-brands fa-whatsapp"></i>
+                </div>
+                <div class="channel-info">
+                    <h3 class="channel-title" data-lang="ha">Taimakon Abokan Ciniki</h3>
+                    <h3 class="channel-title" data-lang="en">Customer Care Support</h3>
+                    
+                    <span class="channel-tag" data-lang="ha">Korafe-korafe da Taimako</span>
+                    <span class="channel-tag" data-lang="en">Complaints & Enquiries</span>
+                </div>
+            </div>
+            <p class="channel-body" data-lang="ha">
+                Idan kuna buƙatar taimako game da amfani da AmanData app, tura kuɗi, sayen data, ko matsalar network, tuntuɓi sashen abokan ciniki yanzu.
+            </p>
+            <p class="channel-body" data-lang="en">
+                If you need assistance with using the AmanData app, money transfers, data purchasing, or network issues, please contact our customer care desk now.
+            </p>
+            <a href="https://wa.me/2347060739494?text=I%20am%20in%20need%20of%20help%20from%20the%20AmanData%20app" 
+               target="_blank" 
+               class="btn-action btn-whatsapp">
+                <i class="fa-brands fa-whatsapp"></i>
+                <span data-lang="ha">Yi Magana da Mu a WhatsApp</span>
+                <span data-lang="en">Chat on WhatsApp</span>
+            </a>
+        </div>
+
+        
+        <div class="support-card">
+            <div class="card-header">
+                <div class="icon-box b2b">
+                    <i class="fa-solid fa-code"></i>
+                </div>
+                <div class="channel-info">
+                    <h3 class="channel-title" data-lang="ha">Hadin Gwiwa & Masu Ginin App</h3>
+                    <h3 class="channel-title" data-lang="en">Business & Developer Portal</h3>
+                    
+                    <span class="channel-tag" data-lang="ha">Samun API da Kasuwanci</span>
+                    <span class="channel-tag" data-lang="en">API Integration & Partnership</span>
+                </div>
+            </div>
+            <p class="channel-body" data-lang="ha">
+                Domin kamfanoni ko developers masu son haɗin gwiwar kasuwanci, samun ainihin API na data/services, ko gina irin wannan application ɗin.
+            </p>
+            <p class="channel-body" data-lang="en">
+                For corporate organizations or developers looking for business partnerships, direct VTU/Data API documentation, or custom app development.
+            </p>
+            <a href="https://wa.me/2348166836059?text=I%20am%20interested%20in%20AmanData%20business%20partnership%20and%20API%20integration" 
+               target="_blank" 
+               class="btn-action btn-business">
+                <i class="fa-brands fa-whatsapp"></i>
+                <span data-lang="ha">Tuntuɓi Sashen API / Developer</span>
+                <span data-lang="en">Contact Developer Desk</span>
+            </a>
+        </div>
+
+        <div class="footer-brand">AmanData Tech Labs &copy; 2026</div>
+
+    </div>
+
+    
+    <script>
+        function switchLang(lang) {
+           
+            document.documentElement.lang = lang;
+            
+           
+            document.getElementById('btn-ha').classList.remove('active');
+            document.getElementById('btn-en').classList.remove('active');
+            
+            
+            document.getElementById('btn-' + lang).classList.add('active');
+        }
+    </script>
+</body>
+</html>

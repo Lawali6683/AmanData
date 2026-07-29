@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AmanData - Access Portal</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background: #001233;
+            color: #1e293b;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 300px;
+            background: radial-gradient(circle at top, #002b75 0%, rgba(0,18,51,0) 70%);
+            z-index: 1;
+        }
+
+        .page-container {
+            width: 100%;
+            max-width: 450px;
+            background: #ffffff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            padding: 30px 24px;
+            position: relative;
+            z-index: 2;
+            box-shadow: 0 0 40px rgba(0,0,0,0.15);
+        }
+
+        .back-nav {
+            margin-bottom: 20px;
+        }
+
+        .back-nav a {
+            color: #0c1a30;
+            font-size: 20px;
+            text-decoration: none;
+        }
+
+        .brand-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .brand-logo {
+            max-width: 220px;
+            height: auto;
+            margin-bottom: 15px;
+        }
+
+        .auth-title {
+            font-size: 24px;
+            font-weight: 700;
+            color: #0c1a30;
+            margin-bottom: 4px;
+        }
+
+        .auth-subtitle {
+            font-size: 14px;
+            color: #6b7280;
+        }
+
+        .tab-wrapper {
+            display: flex;
+            background: #f1f5f9;
+            padding: 4px;
+            border-radius: 30px;
+            margin-bottom: 30px;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            background: transparent;
+            font-size: 15px;
+            font-weight: 600;
+            color: #64748b;
+            border-radius: 26px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .tab-btn.active {
+            background: #ffffff;
+            color: #0066ff;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+        }
+
+        .auth-form {
+            display: none;
+            flex-direction: column;
+            gap: 18px;
+        }
+
+        .auth-form.active {
+            display: flex;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .input-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #334155;
+        }
+
+        .field-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .field-wrapper i.prefix-icon {
+            position: absolute;
+            left: 16px;
+            color: #94a3b8;
+            font-size: 16px;
+        }
+
+        .field-wrapper input {
+            width: 100%;
+            padding: 14px 16px 14px 44px;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 15px;
+            background: #f8fafc;
+            color: #0f172a;
+            outline: none;
+            transition: all 0.2s ease;
+        }
+
+        .field-wrapper input:focus {
+            border-color: #0066ff;
+            background: #ffffff;
+            box-shadow: 0 0 0 3px rgba(0,102,255,0.1);
+        }
+
+        .field-wrapper .toggle-password {
+            position: absolute;
+            right: 16px;
+            color: #94a3b8;
+            cursor: pointer;
+            padding: 4px;
+        }
+
+
+
+
+.pin-container {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 6px;
+    max-width: 220px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.pin-box {
+    width: 45px;
+    height: 45px;
+    text-align: center;
+    font-size: 18px;
+    font-weight: 700;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 10px;
+    background: #f8fafc;
+    color: #0c1a30;
+    outline: none;
+    transition: all 0.2s ease;
+}
+
+.pin-box:focus {
+    border-color: #0066ff;
+    background: #ffffff;
+    box-shadow: 0 0 0 3px rgba(0, 102, 255, 0.15);
+}
+
+       
+        .forgot-link-wrap {
+            text-align: right;
+            margin-top: -6px;
+        }
+
+        .forgot-link {
+            font-size: 13px;
+            color: #0066ff;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .policy-agreement {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            margin-top: 5px;
+            cursor: pointer;
+        }
+
+        .policy-agreement input {
+            margin-top: 3px;
+            width: 16px;
+            height: 16px;
+            accent-color: #0066ff;
+        }
+
+        .policy-text {
+            font-size: 13px;
+            color: #64748b;
+            line-height: 1.4;
+        }
+
+        .policy-text a {
+            color: #0066ff;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .action-btn {
+            width: 100%;
+            background: #0066ff;
+            color: #ffffff;
+            border: none;
+            border-radius: 50px;
+            padding: 16px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 10px;
+            box-shadow: 0 4px 15px rgba(0, 102, 255, 0.25);
+            transition: all 0.2s ease;
+        }
+
+        .action-btn:active {
+            transform: scale(0.98);
+        }
+
+        .footer-waves {
+            margin-top: auto;
+            padding-top: 5px;
+            text-align: center;
+            background-image: url('');
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: bottom;
+            min-height: 90px;
+        }
+
+        .secure-tag {
+            font-size: 12px;
+            color: #94a3b8;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            font-weight: 500;
+        }
+
+        .toast-box {
+            position: fixed;
+            top: -100px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: calc(100% - 40px);
+            max-width: 400px;
+            background: #1e293b;
+            color: #ffffff;
+            padding: 16px 20px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            z-index: 10000;
+            transition: top 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .toast-box.active {
+            top: 24px;
+        }
+
+        .toast-icon {
+            font-size: 18px;
+        }
+
+        .toast-icon.success { color: #10b981; }
+        .toast-icon.error { color: #ef4444; }
+
+        .toast-msg {
+            font-size: 14px;
+            font-weight: 500;
+            flex-grow: 1;
+            line-height: 1.4;
+        }
+
+        .loader-overlay {
+            position: fixed;
+            inset: 0;
+            background: #001233;
+            z-index: 99999;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .loader-overlay.active {
+            display: flex;
+        }
+
+        .loader-logo {
+            max-width: 140px;
+            height: auto;
+            opacity: 0.9;
+            position: absolute;
+            top: 40%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 100;
+        }
+
+        .liquid-container {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            height: 0%;
+            background: linear-gradient(180deg, #0066ff 0%, #0033aa 100%);
+            transition: height 1.6s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .liquid-wave {
+            position: absolute;
+            top: -40px;
+            left: 0;
+            right: 0;
+            height: 80px;
+            width: 200%;
+        }
+
+        .liquid-wave svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        .liquid-wave path {
+            fill: #0066ff;
+        }
+
+        .wave-fast {
+            animation: moveWave 3s linear infinite;
+        }
+
+        .wave-slow {
+            animation: moveWave 5s linear infinite reverse;
+            opacity: 0.5;
+        }
+
+        @keyframes moveWave {
+            from { transform: translateX(0); }
+            to { transform: translateX(-50%); }
+        }
+
+        .status-txt {
+            position: absolute;
+            top: 60%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 101;
+            color: #ffffff;
+            font-size: 13px;
+            letter-spacing: 4px;
+            font-weight: 500;
+            text-transform: uppercase;
+        }
+
+        .status-txt span {
+            display: inline-block;
+            animation: pulseDot 1.4s infinite;
+        }
+
+        .status-txt span:nth-child(2) { animation-delay: 0.2s; }
+        .status-txt span:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes pulseDot {
+            0%, 60%, 100% { opacity: 0.2; }
+            30% { opacity: 1; }
+        }
+
+        @media (min-width: 768px) {
+            body {
+                padding: 40px 0;
+            }
+            .page-container {
+                min-height: auto;
+                border-radius: 24px;
+            }
+        }
+        
+        
+        
+      .page-container {
+    position: relative;
+    overflow: hidden;
+    background-color: #ffffff;
+    background-image: 
+        radial-gradient(circle at 100% 0%, rgba(0, 102, 255, 0.05) 0%, transparent 40%),
+        radial-gradient(circle at 0% 100%, rgba(0, 102, 255, 0.08) 0%, transparent 50%);
+}
+
+.page-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 100px;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 120' preserveAspectRatio='none'%3E%3Cpath d='M0,0V46.29c47.79,22.2,103.59,32.17,158,28,70.36-5.37,136.33-33.31,206.8-37.5C438.64,32.43,512.34,53.67,583,72.05c69.27,18,138.3,24.88,209.4,13.08,36.15-6,69.85-17.84,104.45-29.34C989.49,25,1113-14.29,1200,42.4V0Z' fill='%230066ff' fill-opacity='0.08'/%3E%3C/svg%3E") no-repeat top;
+    background-size: cover;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.page-container::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 100px;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 120' preserveAspectRatio='none'%3E%3Cpath d='M0,0V120H1200V0C1113,56.69,989.49,17.4,896.85,46.19c-34.6,11.5-68.3,23.38-104.45,29.34-71.1,11.8-140.13,4.92-209.4-13.08C512.34,44.07,438.64,22.83,364.8,26.79c-70.47,4.19-136.44,32.13-206.8,37.5C103.59,68.46,47.79,58.49,0,36.29Z' fill='%230066ff' fill-opacity='0.06'/%3E%3C/svg%3E") no-repeat bottom;
+    background-size: cover;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.pin-container {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    max-width: 260px;
+    margin: 8px auto 0 auto;
+}
+
+.pin-box {
+    flex: 1;
+    height: 50px;
+    text-align: center;
+    font-size: 20px;
+    font-weight: 700;
+    border: 2px solid #94a3b8;
+    border-radius: 12px;
+    background: #ffffff;
+    color: #0c1a30;
+    outline: none;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+}
+
+.pin-box:focus {
+    border-color: #0066ff;
+    box-shadow: 0 0 0 4px rgba(0, 102, 255, 0.15);
+    background: #ffffff;
+}
+
+.policy-agreement {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 10px;
+    cursor: pointer;
+    padding: 4px 0;
+}
+
+.policy-agreement input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 20px;
+    height: 20px;
+    border: 2px solid #94a3b8;
+    border-radius: 6px;
+    background: #ffffff;
+    cursor: pointer;
+    display: grid;
+    place-content: center;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.policy-agreement input[type="checkbox"]::before {
+    content: "\f00c";
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+    font-size: 11px;
+    color: #ffffff;
+    transform: scale(0);
+    transition: transform 0.1s ease;
+}
+
+.policy-agreement input[type="checkbox"]:checked {
+    background: #0066ff;
+    border-color: #0066ff;
+    box-shadow: 0 2px 6px rgba(0, 102, 255, 0.2);
+}
+
+.policy-agreement input[type="checkbox"]:checked::before {
+    transform: scale(1);
+}
+
+.policy-agreement input[type="checkbox"]:focus {
+    border-color: #0066ff;
+    box-shadow: 0 0 0 3px rgba(0, 102, 255, 0.15);
+}
+    
+    
+             
+
+.field-wrapper input {
+    border: 1.8px solid #cbd5e1;
+    background: #ffffff;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.02);
+    font-weight: 500;
+}
+
+.field-wrapper input:focus {
+    border-color: #0066ff;
+    background: #ffffff;
+    box-shadow: 0 0 0 4px rgba(0, 102, 255, 0.15), 0 4px 12px rgba(0, 102, 255, 0.08);
+}
+
+.input-group:focus-within .input-label {
+    color: #0066ff;
+}
+
+.tab-wrapper {
+    border: 1px solid #e2e8f0;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.03);
+}
+
+.action-btn {
+    background: linear-gradient(135deg, #0066ff 0%, #0044cc 100%);
+    border: none;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.action-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0, 102, 255, 0.4);
+    background: linear-gradient(135deg, #0077ff 0%, #0055dd 100%);
+}
+
+.action-btn:active {
+    transform: translateY(1px);
+}    
+    </style>
+</head>
+<body>
+
+    <div class="page-container">
+        <div class="back-nav">
+            <a href="index.html"><i class="fa-solid fa-arrow-left"></i></a>
+        </div>
+
+        <div class="brand-header">
+            <img src="image/logo2.png" alt="AmanData" class="brand-logo">
+            <div class="auth-title" id="pageTitle">Welcome Back!</div>
+            <div class="auth-subtitle" id="pageSubtitle">Login to your account</div>
+        </div>
+
+        <div class="tab-wrapper">
+            <button class="tab-btn active" id="tabLoginBtn">Login</button>
+            <button class="tab-btn" id="tabRegisterBtn">Register</button>
+        </div>
+
+        <form class="auth-form active" id="formLogin" onsubmit="return false;">
+            <div class="input-group">
+                <label class="input-label">Email Address</label>
+                <div class="field-wrapper">
+                    <i class="fa-solid fa-envelope prefix-icon"></i>
+                    <input type="email" id="loginEmail" placeholder="Enter your email" required>
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label class="input-label">Password</label>
+                <div class="field-wrapper">
+                    <i class="fa-solid fa-lock prefix-icon"></i>
+                    <input type="password" id="loginPassword" placeholder="Enter your password" required>
+                    <i class="fa-solid fa-eye toggle-password" data-target="loginPassword"></i>
+                </div>
+            </div>
+
+            <div class="forgot-link-wrap">
+                <a href="forget.html" class="forgot-link">Forgot password?</a>
+            </div>
+
+            <button type="submit" class="action-btn" id="executeLoginBtn">
+                Login <i class="fa-solid fa-arrow-right"></i>
+            </button>
+        </form>
+
+        <form class="auth-form" id="formRegister" onsubmit="return false;">
+            <div class="input-group">
+                <label class="input-label">Full Name</label>
+                <div class="field-wrapper">
+                    <i class="fa-solid fa-user prefix-icon"></i>
+                    <input type="text" id="regName" placeholder="Enter your full name" required>
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label class="input-label">Email Address</label>
+                <div class="field-wrapper">
+                    <i class="fa-solid fa-envelope prefix-icon"></i>
+                    <input type="email" id="regEmail" placeholder="Enter your email" required>
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label class="input-label">Phone Number</label>
+                <div class="field-wrapper">
+                    <i class="fa-solid fa-phone prefix-icon"></i>
+                    <input type="tel" id="regPhone" placeholder="Enter your phone number" required>
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label class="input-label">Referral Code (Optional)</label>
+                <div class="field-wrapper">
+                    <i class="fa-solid fa-users prefix-icon"></i>
+                    <input type="text" id="regRef" placeholder="Enter referral code">
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label class="input-label">Security PIN</label>
+                <div class="pin-container">
+                    <input type="password" class="pin-box" maxlength="1" pattern="\d*" inputmode="numeric" required>
+                    <input type="password" class="pin-box" maxlength="1" pattern="\d*" inputmode="numeric" required>
+                    <input type="password" class="pin-box" maxlength="1" pattern="\d*" inputmode="numeric" required>
+                    <input type="password" class="pin-box" maxlength="1" pattern="\d*" inputmode="numeric" required>
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label class="input-label">Password</label>
+                <div class="field-wrapper">
+                    <i class="fa-solid fa-lock prefix-icon"></i>
+                    <input type="password" id="regPassword" placeholder="Create a password" required>
+                    <i class="fa-solid fa-eye toggle-password" data-target="regPassword"></i>
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label class="input-label">Confirm Password</label>
+                <div class="field-wrapper">
+                    <i class="fa-solid fa-lock prefix-icon"></i>
+                    <input type="password" id="regConfirmPassword" placeholder="Confirm your password" required>
+                    <i class="fa-solid fa-eye toggle-password" data-target="regConfirmPassword"></i>
+                </div>
+            </div>
+
+            <label class="policy-agreement">
+                <input type="checkbox" id="regTerms" required>
+                <span class="policy-text">I agree to the <a href="policy.html">Terms & Conditions</a></span>
+            </label>
+
+            <button type="submit" class="action-btn" id="executeRegisterBtn">
+                Create Account <i class="fa-solid fa-arrow-right"></i>
+            </button>
+        </form>
+
+        <div class="footer-waves">
+            <div class="secure-tag">
+                <i class="fa-solid fa-shield-halved"></i> Your data is 100% secure with us
+            </div>
+        </div>
+    </div>
+
+    <div class="toast-box" id="toastContainer">
+        <i class="fa-solid id-toast-icon toast-icon"></i>
+        <div class="toast-msg" id="toastMessage"></div>
+    </div>
+
+    <div class="loader-overlay" id="loaderOverlay">
+        <img src="image/logo.png" class="loader-logo" alt="Loading">
+        <div class="liquid-container" id="liquidFill">
+            <div class="liquid-wave wave-slow">
+                <svg viewBox="0 0 1200 80" preserveAspectRatio="none">
+                    <path d="M0,40 C200,80 400,0 600,40 C800,80 1000,0 1200,40 L1200,80 L0,80 Z"></path>
+                </svg>
+            </div>
+            <div class="liquid-wave wave-fast">
+                <svg viewBox="0 0 1200 80" preserveAspectRatio="none">
+                    <path d="M0,40 C200,80 400,0 600,40 C800,80 1000,0 1200,40 L1200,80 L0,80 Z"></path>
+                </svg>
+            </div>
+        </div>
+        <div class="status-txt">Loading<span>.</span><span>.</span><span>.</span></div>
+    </div>
+
+   
+    
+  
+ <script type="module" src="register.js"></script>
+ 
+   <div id="pd-whatsapp-widget" class="pd-wa-container">
+    <div class="pd-wa-pulse-ring"></div>
+    <a href="https://wa.me/2347060739494?text=I%20am%20in%20need%20of%20help%20from%20the%20AmanData%20app" 
+       target="_blank" 
+       class="pd-wa-link" 
+       id="pd-wa-link"
+       draggable="false">
+        <img src="image/whatsapp.png" alt="WhatsApp Support" class="pd-wa-icon" draggable="false">
+    </a>
+</div>
+
+<style>
+    .pd-wa-container {
+        position: fixed;
+        bottom: 570px;
+        right: 24px;
+        width: 60px;
+        height: 60px;
+        z-index: 9;
+        cursor: grab;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        user-select: none;
+        -webkit-user-drag: none;
+        touch-action: none;
+    }
+Dan u   .pd-wa-container:active {
+        cursor: grabbing;
+    }
+
+    .pd-wa-link {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        
+        box-shadow: 0 8px 24px rgba(37, 211, 102, 0.35);
+        transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        -webkit-user-drag: none;
+    }
+
+    .pd-wa-link:active {
+        transform: scale(0.9);
+    }
+
+    .pd-wa-icon {
+        width: 60px;
+        height: 60px;
+        object-fit: contain;
+        pointer-events: none;
+        animation: pd-wa-bounce 3s ease-in-out infinite;
+    }
+
+    .pd-wa-pulse-ring {
+        position: absolute;
+        inset: 0;
+        border-radius: 50%;
+        background-color: #25d366;
+        opacity: 0.4;
+        z-index: -1;
+        animation: pd-wa-ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+        pointer-events: none;
+    }
+
+    @keyframes pd-wa-ping {
+        75%, 100% {
+            transform: scale(1.6);
+            opacity: 0;
+        }
+    }
+
+    @keyframes pd-wa-bounce {
+        0%, 100% {
+            transform: translateY(0);
+        }
+        50% {
+            transform: translateY(-5px);
+        }
+    }
+</style>
+
+<script>
+    
+    (function() {
+    const widget = document.getElementById('pd-whatsapp-widget');
+    const link = document.getElementById('pd-wa-link');
+    
+    let isDragging = false;
+    let startX, startY;
+    let initialX, initialY;
+    let hasMoved = false;
+
+    widget.addEventListener('mousedown', dragStart);
+    document.addEventListener('mousemove', drag);
+    document.addEventListener('mouseup', dragEnd);
+
+    widget.addEventListener('touchstart', dragStart, { passive: false });
+    document.addEventListener('touchmove', drag, { passive: false });
+    document.addEventListener('touchend', dragEnd);
+
+    link.addEventListener('click', function(e) {
+        if (hasMoved) {
+            e.preventDefault();
+        }
+    });
+
+    function dragStart(e) {
+        hasMoved = false;
+        isDragging = true;
+        
+        const clientX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
+        const clientY = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
+
+        const rect = widget.getBoundingClientRect();
+        initialX = rect.left;
+        initialY = rect.top;
+
+        startX = clientX;
+        startY = clientY;
+    }
+
+    function drag(e) {
+        if (!isDragging) return;
+        
+        if (e.cancelable) {
+            e.preventDefault();
+        }
+
+        const clientX = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX;
+        const clientY = e.type === 'touchmove' ? e.touches[0].clientY : e.clientY;
+
+        const dx = clientX - startX;
+        const dy = clientY - startY;
+
+        if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+            hasMoved = true;
+        }
+
+        let newX = initialX + dx;
+        let newY = initialY + dy;
+
+        const widgetWidth = widget.offsetWidth;
+        const widgetHeight = widget.offsetHeight;
+        const windowWidth = window.innerWidth;
+        const windowHeight = window.innerHeight;
+
+        if (newX < 10) newX = 10;
+        if (newX > windowWidth - widgetWidth - 10) newX = windowWidth - widgetWidth - 10;
+        if (newY < 10) newY = 10;
+        if (newY > windowHeight - widgetHeight - 10) newY = windowHeight - widgetHeight - 10;
+
+        widget.style.left = `${newX}px`;
+        widget.style.top = `${newY}px`;
+        widget.style.bottom = 'auto';
+        widget.style.right = 'auto';
+    }
+
+    function dragEnd() {
+        isDragging = false;
+    }
+})();
+    
+</script>
+
+</body>
+</html>

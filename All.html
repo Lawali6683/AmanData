@@ -1,0 +1,1373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>All User Analysis – Admin</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #0f0c29 0%, #1a1a3e 30%, #24243e 60%, #1e1b4b 100%);
+            min-height: 100vh;
+            padding: 20px;
+            position: relative;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle at 30% 40%, rgba(99, 102, 241, 0.08) 0%, transparent 50%),
+                        radial-gradient(circle at 70% 60%, rgba(168, 85, 247, 0.06) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        #appContainer {
+            position: relative;
+            z-index: 1;
+            max-width: 1060px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.97);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-radius: 24px;
+            box-shadow: 0 30px 80px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.08);
+            padding: 48px 44px;
+            width: 100%;
+            max-width: 440px;
+            margin: 0 auto;
+            position: relative;
+            top: 50%;
+            transform: translateY(30vh);
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 8px;
+        }
+
+        .brand-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #6366f1, #a855f7);
+            display: inline-block;
+        }
+
+        .card h1 {
+            font-size: 30px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #1e1b4b, #4c1d95);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-align: center;
+            letter-spacing: -1px;
+        }
+
+        .card .sub {
+            text-align: center;
+            color: #8b8ca7;
+            font-size: 15px;
+            font-weight: 500;
+            margin-bottom: 36px;
+        }
+
+        .login-form {
+            width: 100%;
+        }
+
+        .field {
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        .field label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            color: #4b5563;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .field input {
+            width: 100%;
+            padding: 14px 16px;
+            font-size: 15px;
+            font-family: 'Inter', sans-serif;
+            border: 2px solid #e5e7eb;
+            border-radius: 14px;
+            background: #f9fafb;
+            color: #111827;
+            outline: none;
+            transition: border 0.3s ease, box-shadow 0.3s ease, background 0.3s ease;
+        }
+
+        .field input:focus {
+            border-color: #6366f1;
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.12);
+            background: #ffffff;
+        }
+
+        .field input::placeholder {
+            color: #adb5bd;
+            font-weight: 400;
+        }
+
+        .field .pw-wrap {
+            position: relative;
+        }
+
+        .field .pw-wrap input {
+            padding-right: 48px;
+        }
+
+        .field .pw-toggle {
+            position: absolute;
+            right: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            font-size: 18px;
+            user-select: none;
+            color: #9ca3af;
+            transition: color 0.2s ease;
+            line-height: 1;
+            background: none;
+            border: none;
+            padding: 4px;
+        }
+
+        .field .pw-toggle:hover {
+            color: #4b5563;
+        }
+
+        .submit-wrap {
+            position: relative;
+            margin-top: 12px;
+        }
+
+        button[type="submit"] {
+            width: 100%;
+            padding: 16px;
+            font-size: 16px;
+            font-weight: 700;
+            font-family: 'Inter', sans-serif;
+            border: none;
+            border-radius: 14px;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: #fff;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            min-height: 56px;
+        }
+
+        button[type="submit"]:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 28px rgba(99, 102, 241, 0.35);
+        }
+
+        button[type="submit"]:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        button[type="submit"]:disabled {
+            opacity: 0.8;
+            cursor: not-allowed;
+        }
+
+        .spinner {
+            width: 22px;
+            height: 22px;
+            border: 3px solid rgba(255, 255, 255, 0.25);
+            border-top-color: #ffffff;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            display: none;
+        }
+
+        .spinner.active {
+            display: inline-block;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        #loginSection {
+            width: 100%;
+        }
+
+        #mainSection {
+            display: none;
+        }
+
+        #toastContainer {
+            position: fixed;
+            top: 24px;
+            right: 24px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            pointer-events: none;
+        }
+
+        .toast {
+            pointer-events: auto;
+            padding: 16px 20px 16px 16px;
+            border-radius: 16px;
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            font-weight: 500;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+            transform: translateX(120%);
+            opacity: 0;
+            transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s ease;
+            max-width: 420px;
+            min-width: 300px;
+        }
+
+        .toast.show {
+            transform: translateX(0);
+            opacity: 1;
+        }
+
+        .toast.hide {
+            transform: translateX(120%);
+            opacity: 0;
+        }
+
+        .toast.success {
+            background: linear-gradient(135deg, #059669, #10b981);
+            border-left: 4px solid #34d399;
+        }
+
+        .toast.error {
+            background: linear-gradient(135deg, #dc2626, #ef4444);
+            border-left: 4px solid #fca5a5;
+        }
+
+        .toast.info {
+            background: linear-gradient(135deg, #1e40af, #3b82f6);
+            border-left: 4px solid #60a5fa;
+        }
+
+        .toast-icon {
+            font-size: 22px;
+            flex-shrink: 0;
+        }
+
+        .toast-content {
+            flex: 1;
+        }
+
+        .toast-title {
+            font-weight: 700;
+            font-size: 14px;
+            margin-bottom: 2px;
+        }
+
+        .toast-message {
+            font-size: 13px;
+            opacity: 0.9;
+            font-weight: 400;
+        }
+
+        .toast-close {
+            background: none;
+            border: none;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 18px;
+            cursor: pointer;
+            padding: 2px 6px;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+            flex-shrink: 0;
+        }
+
+        .toast-close:hover {
+            background: rgba(255, 255, 255, 0.15);
+            color: #fff;
+        }
+
+        .main-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px 28px;
+            background: rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-radius: 20px;
+            margin-bottom: 28px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .main-header img {
+            height: 44px;
+            width: auto;
+            object-fit: contain;
+            filter: brightness(0) invert(1);
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .btn-back {
+            padding: 10px 20px;
+            font-size: 14px;
+            font-weight: 600;
+            font-family: 'Inter', sans-serif;
+            border: 1.5px solid rgba(255, 255, 255, 0.15);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.06);
+            color: rgba(255, 255, 255, 0.85);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-back:hover {
+            border-color: rgba(99, 102, 241, 0.5);
+            background: rgba(99, 102, 241, 0.12);
+            color: #a5b4fc;
+        }
+
+        .btn-logout {
+            padding: 10px 24px;
+            font-size: 14px;
+            font-weight: 600;
+            font-family: 'Inter', sans-serif;
+            border: 1.5px solid rgba(255, 255, 255, 0.15);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.06);
+            color: rgba(255, 255, 255, 0.85);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-logout:hover {
+            border-color: rgba(239, 68, 68, 0.5);
+            background: rgba(239, 68, 68, 0.12);
+            color: #fca5a5;
+        }
+
+        .analysis-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 18px;
+            margin-bottom: 28px;
+        }
+
+        .analysis-card {
+            background: rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 18px;
+            padding: 28px 24px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .analysis-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 18px;
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(168, 85, 247, 0.05));
+            opacity: 0;
+            transition: opacity 0.35s ease;
+        }
+
+        .analysis-card:hover {
+            transform: translateY(-4px);
+            border-color: rgba(99, 102, 241, 0.25);
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.2);
+        }
+
+        .analysis-card:hover::before {
+            opacity: 1;
+        }
+
+        .analysis-card .card-value {
+            font-size: 36px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .analysis-card .card-label {
+            font-size: 13px;
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.55);
+            margin-top: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .analysis-card .card-sub {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.3);
+            margin-top: 2px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .accent-purple .card-value {
+            background: linear-gradient(135deg, #6366f1, #a855f7);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .accent-green .card-value {
+            background: linear-gradient(135deg, #10b981, #34d399);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .accent-amber .card-value {
+            background: linear-gradient(135deg, #f59e0b, #fbbf24);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .accent-cyan .card-value {
+            background: linear-gradient(135deg, #06b6d4, #22d3ee);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .accent-rose .card-value {
+            background: linear-gradient(135deg, #f43f5e, #fb7185);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .section-container {
+            background: rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 18px;
+            padding: 28px;
+            margin-bottom: 24px;
+        }
+
+        .section-container .section-title {
+            color: #fff;
+            font-size: 17px;
+            font-weight: 700;
+            margin-bottom: 20px;
+            letter-spacing: -0.3px;
+        }
+
+        .referrer-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .referrer-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 18px;
+            background: rgba(255, 255, 255, 0.04);
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            transition: all 0.25s ease;
+        }
+
+        .referrer-item:hover {
+            background: rgba(255, 255, 255, 0.07);
+            border-color: rgba(255, 255, 255, 0.08);
+        }
+
+        .referrer-item .referrer-rank {
+            font-size: 14px;
+            font-weight: 700;
+            color: rgba(255, 255, 255, 0.3);
+            min-width: 30px;
+        }
+
+        .referrer-item .referrer-name {
+            flex: 1;
+            color: #fff;
+            font-weight: 600;
+            font-size: 15px;
+        }
+
+        .referrer-item .referrer-code {
+            font-size: 12px;
+            font-family: monospace;
+            color: rgba(255, 255, 255, 0.4);
+            margin: 0 12px;
+        }
+
+        .referrer-item .referrer-count {
+            font-size: 18px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #f59e0b, #fbbf24);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            min-width: 30px;
+            text-align: right;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 30px 20px;
+            color: rgba(255, 255, 255, 0.35);
+            font-size: 14px;
+        }
+
+        .empty-state .empty-icon {
+            font-size: 32px;
+            margin-bottom: 10px;
+            opacity: 0.5;
+        }
+
+        /* OVERLAY / MODAL */
+        .overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 8000;
+            background: rgba(0, 0, 0, 0.65);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            animation: fadeIn 0.25s ease;
+        }
+
+        .overlay.open {
+            display: flex;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(30px) scale(0.96); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .overlay-panel {
+            background: rgba(20, 18, 45, 0.97);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border-radius: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            width: 100%;
+            max-width: 900px;
+            max-height: 85vh;
+            display: flex;
+            flex-direction: column;
+            animation: slideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+            box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
+        }
+
+        .overlay-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 22px 28px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            flex-shrink: 0;
+        }
+
+        .overlay-header .overlay-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: #fff;
+            letter-spacing: -0.3px;
+        }
+
+        .overlay-header .overlay-count {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.4);
+            font-weight: 500;
+            margin-left: 12px;
+        }
+
+        .overlay-close {
+            width: 38px;
+            height: 38px;
+            border-radius: 12px;
+            border: 1.5px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.04);
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .overlay-close:hover {
+            background: rgba(239, 68, 68, 0.15);
+            border-color: rgba(239, 68, 68, 0.3);
+            color: #fca5a5;
+        }
+
+        .overlay-body {
+            padding: 20px 28px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .overlay-body::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .overlay-body::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .overlay-body::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .data-table thead th {
+            text-align: left;
+            padding: 12px 14px;
+            font-size: 11px;
+            font-weight: 700;
+            color: rgba(255, 255, 255, 0.4);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            position: sticky;
+            top: 0;
+            background: rgba(20, 18, 45, 0.98);
+        }
+
+        .data-table tbody tr {
+            transition: background 0.2s ease;
+        }
+
+        .data-table tbody tr:hover {
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .data-table tbody td {
+            padding: 12px 14px;
+            font-size: 13px;
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.8);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+            vertical-align: middle;
+        }
+
+        .data-table tbody td .td-mono {
+            font-family: monospace;
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .data-table tbody td .td-balance {
+            font-weight: 700;
+            color: #34d399;
+        }
+
+        .data-table tbody td .td-zero {
+            color: rgba(255, 255, 255, 0.25);
+        }
+
+        @media (max-width: 900px) {
+            .analysis-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .data-table {
+                font-size: 12px;
+            }
+            .data-table thead th,
+            .data-table tbody td {
+                padding: 10px 10px;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .analysis-grid {
+                grid-template-columns: 1fr;
+                gap: 12px;
+            }
+            .main-header {
+                flex-direction: column;
+                gap: 16px;
+                padding: 16px 20px;
+            }
+            .header-actions {
+                width: 100%;
+                justify-content: space-between;
+            }
+            .overlay-panel {
+                max-height: 90vh;
+                border-radius: 16px;
+            }
+            .overlay-header {
+                padding: 16px 18px;
+            }
+            .overlay-body {
+                padding: 12px 14px;
+            }
+            .data-table thead th,
+            .data-table tbody td {
+                padding: 8px 8px;
+                font-size: 11px;
+            }
+            .section-container {
+                padding: 20px;
+            }
+            #toastContainer {
+                left: 16px;
+                right: 16px;
+                top: 16px;
+            }
+            .toast {
+                max-width: 100%;
+                min-width: 0;
+            }
+            .card {
+                transform: translateY(10vh);
+                padding: 32px 24px;
+            }
+        }
+
+        @media (max-width: 440px) {
+            .data-table {
+                display: block;
+                overflow-x: auto;
+            }
+            .referrer-item {
+                flex-wrap: wrap;
+                gap: 6px;
+            }
+            .referrer-item .referrer-code {
+                margin: 0 6px;
+                font-size: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="toastContainer"></div>
+
+    <div id="appContainer">
+
+        <div id="loginSection">
+            <div class="card">
+                <div class="brand">
+                    <span class="brand-dot"></span>
+                    <h1>Admin</h1>
+                    <span class="brand-dot"></span>
+                </div>
+                <p class="sub">Sign in to continue</p>
+
+                <form class="login-form" id="loginForm">
+                    <div class="field">
+                        <label for="email">Email</label>
+                        <input type="email" id="email" placeholder="your@email.com" autocomplete="email" required>
+                    </div>
+
+                    <div class="field">
+                        <label for="password">Password</label>
+                        <div class="pw-wrap">
+                            <input type="password" id="password" placeholder="Enter your password" autocomplete="current-password" required>
+                            <button class="pw-toggle" id="togglePassword" type="button" aria-label="Toggle password visibility">👁️</button>
+                        </div>
+                    </div>
+
+                    <div class="submit-wrap">
+                        <button type="submit" id="loginBtn">
+                            <span class="spinner" id="loginSpinner"></span>
+                            <span class="btn-text" id="loginBtnText">Submit</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div id="mainSection">
+
+            <div class="main-header">
+                <img src="logo.png" alt="Logo" id="logo">
+                <div class="header-actions">
+                    <a href="admin.html" class="btn-back">← Back</a>
+                    <button class="btn-logout" id="logoutBtn">Logout</button>
+                </div>
+            </div>
+
+            <div class="analysis-grid" id="analysisGrid">
+                <div class="analysis-card accent-purple" id="cardTotalUsers">
+                    <div class="card-value" id="totalUsers">0</div>
+                    <div class="card-label">Total Registered Users</div>
+                    <div class="card-sub">Click to view all</div>
+                </div>
+                <div class="analysis-card accent-green" id="cardUsersWithBalance">
+                    <div class="card-value" id="usersWithBalance">0</div>
+                    <div class="card-label">Users With Balance</div>
+                </div>
+                <div class="analysis-card accent-amber">
+                    <div class="card-value" id="totalBalanceSum">$0.00</div>
+                    <div class="card-label">Total Balance (All Users)</div>
+                </div>
+                <div class="analysis-card accent-cyan" id="cardDataPurchased">
+                    <div class="card-value" id="totalDataPurchased">0</div>
+                    <div class="card-label">Total Data Purchased</div>
+                </div>
+                <div class="analysis-card accent-rose">
+                    <div class="card-value" id="avgBalance">$0.00</div>
+                    <div class="card-label">Average Balance Per User</div>
+                </div>
+                <div class="analysis-card accent-purple">
+                    <div class="card-value" id="zeroBalanceUsers">0</div>
+                    <div class="card-label">Users With Zero Balance</div>
+                </div>
+            </div>
+
+            <div class="section-container" id="topReferrersSection">
+                <div class="section-title">Top Referrers</div>
+                <div class="referrer-list" id="referrerList">
+                    <div class="empty-state">
+                        <div class="empty-icon">🏆</div>
+                        <p>No referral data available yet.</p>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="overlay" id="usersOverlay">
+        <div class="overlay-panel">
+            <div class="overlay-header">
+                <div>
+                    <span class="overlay-title">All Registered Users</span>
+                    <span class="overlay-count" id="overlayCount">(0)</span>
+                </div>
+                <button class="overlay-close" id="overlayClose" type="button">✕</button>
+            </div>
+            <div class="overlay-body" id="overlayBody">
+                <div class="empty-state">
+                    <div class="empty-icon">📋</div>
+                    <p>Loading user data...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { supabase } from '/supabase.js';
+
+        const AUTH_EMAILS = [
+            '686172756e616c6177616c693535323240676d61696c2e636f6d',
+            '6c6177616c69686172756e6139343340676d61696c2e636f6d',
+            '707572656461746139393640676d61696c2e636f6d'
+        ];
+
+        function decodeHex(hex) {
+            let out = '';
+            for (let i = 0; i < hex.length; i += 2) {
+                out += String.fromCharCode(parseInt(hex.substr(i, 2), 16));
+            }
+            return out;
+        }
+
+        const authorizedEmails = AUTH_EMAILS.map(decodeHex);
+
+        const loginSection = document.getElementById('loginSection');
+        const mainSection = document.getElementById('mainSection');
+        const loginForm = document.getElementById('loginForm');
+        const emailInput = document.getElementById('email');
+        const passwordInput = document.getElementById('password');
+        const togglePassword = document.getElementById('togglePassword');
+        const loginBtn = document.getElementById('loginBtn');
+        const loginSpinner = document.getElementById('loginSpinner');
+        const loginBtnText = document.getElementById('loginBtnText');
+        const logoutBtn = document.getElementById('logoutBtn');
+        const toastContainer = document.getElementById('toastContainer');
+
+        const totalUsersEl = document.getElementById('totalUsers');
+        const usersWithBalanceEl = document.getElementById('usersWithBalance');
+        const totalBalanceSumEl = document.getElementById('totalBalanceSum');
+        const totalDataPurchasedEl = document.getElementById('totalDataPurchased');
+        const avgBalanceEl = document.getElementById('avgBalance');
+        const zeroBalanceUsersEl = document.getElementById('zeroBalanceUsers');
+        const referrerList = document.getElementById('referrerList');
+
+        const cardTotalUsers = document.getElementById('cardTotalUsers');
+        const cardUsersWithBalance = document.getElementById('cardUsersWithBalance');
+        const cardDataPurchased = document.getElementById('cardDataPurchased');
+        const usersOverlay = document.getElementById('usersOverlay');
+        const overlayClose = document.getElementById('overlayClose');
+        const overlayBody = document.getElementById('overlayBody');
+        const overlayCount = document.getElementById('overlayCount');
+
+        let allUsersCache = null;
+
+        togglePassword.addEventListener('click', () => {
+            const t = passwordInput.getAttribute('type');
+            passwordInput.setAttribute('type', t === 'password' ? 'text' : 'password');
+        });
+
+        function showToast(type, title, message, duration) {
+            const icons = {
+                success: '✓',
+                error: '✕',
+                info: 'ℹ'
+            };
+
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `
+                <span class="toast-icon">${icons[type] || ''}</span>
+                <div class="toast-content">
+                    <div class="toast-title">${title}</div>
+                    <div class="toast-message">${message}</div>
+                </div>
+                <button class="toast-close" type="button">×</button>
+            `;
+
+            toast.querySelector('.toast-close').addEventListener('click', () => {
+                toast.classList.remove('show');
+                toast.classList.add('hide');
+                setTimeout(() => toast.remove(), 500);
+            });
+
+            toastContainer.appendChild(toast);
+
+            requestAnimationFrame(() => {
+                toast.classList.add('show');
+            });
+
+            const t = duration || 5000;
+            const autoTimer = setTimeout(() => {
+                toast.classList.remove('show');
+                toast.classList.add('hide');
+                setTimeout(() => toast.remove(), 500);
+            }, t);
+
+            toast.addEventListener('mouseenter', () => clearTimeout(autoTimer));
+        }
+
+        function isAuthorized(email) {
+            return authorizedEmails.includes(email.toLowerCase().trim());
+        }
+
+        function showMain() {
+            loginSection.style.display = 'none';
+            mainSection.style.display = 'block';
+        }
+
+        function showLogin() {
+            loginSection.style.display = 'block';
+            mainSection.style.display = 'none';
+        }
+
+        function formatCurrency(val) {
+            const num = parseFloat(val);
+            if (isNaN(num)) return '$0.00';
+            return '$' + num.toFixed(2);
+        }
+
+        async function loadAllData() {
+            try {
+                const { data, error } = await supabase
+                    .from('users')
+                    .select('*');
+
+                if (error) {
+                    showToast('error', 'Data Error', error.message);
+                    return;
+                }
+
+                if (!data || data.length === 0) {
+                    totalUsersEl.textContent = '0';
+                    usersWithBalanceEl.textContent = '0';
+                    totalBalanceSumEl.textContent = '$0.00';
+                    totalDataPurchasedEl.textContent = '0';
+                    avgBalanceEl.textContent = '$0.00';
+                    zeroBalanceUsersEl.textContent = '0';
+                    renderReferrers([]);
+                    allUsersCache = [];
+                    return;
+                }
+
+                allUsersCache = data;
+
+                totalUsersEl.textContent = data.length;
+
+                let withBalance = 0;
+                let zeroBalance = 0;
+                let totalBalance = 0;
+                let totalDataCount = 0;
+
+                data.forEach(u => {
+                    const bal = parseFloat(u.user_balance);
+                    if (!isNaN(bal)) {
+                        totalBalance += bal;
+                        if (bal > 0) {
+                            withBalance++;
+                        } else {
+                            zeroBalance++;
+                        }
+                    } else {
+                        zeroBalance++;
+                    }
+
+                    if (u.monthly_seller_data && typeof u.monthly_seller_data === 'object') {
+                        const msd = u.monthly_seller_data;
+                        if (msd.totally) {
+                            const t = parseInt(msd.totally);
+                            if (!isNaN(t)) totalDataCount += t;
+                        }
+                    }
+                });
+
+                usersWithBalanceEl.textContent = withBalance;
+                totalBalanceSumEl.textContent = formatCurrency(totalBalance);
+                totalDataPurchasedEl.textContent = totalDataCount;
+                const avg = data.length > 0 ? totalBalance / data.length : 0;
+                avgBalanceEl.textContent = formatCurrency(avg);
+                zeroBalanceUsersEl.textContent = zeroBalance;
+
+                buildReferrers(data);
+
+            } catch (err) {
+                showToast('error', 'Connection Error', 'Unable to load data. Please check your network.');
+            }
+        }
+
+        function buildReferrers(users) {
+            const refCountMap = {};
+
+            users.forEach(u => {
+                if (u.referred_by && u.referred_by.trim()) {
+                    const ref = u.referred_by.trim();
+                    refCountMap[ref] = (refCountMap[ref] || 0) + 1;
+                }
+            });
+
+            const entries = Object.entries(refCountMap);
+            if (entries.length === 0) {
+                renderReferrers([]);
+                return;
+            }
+
+            entries.sort((a, b) => b[1] - a[1]);
+
+            const topReferrers = entries.slice(0, 20);
+
+            const enriched = topReferrers.map(([code, count]) => {
+                const user = users.find(u => u.referral_code === code);
+                return {
+                    code: code,
+                    count: count,
+                    name: user ? (user.full_name || user.email || 'Unknown') : code
+                };
+            });
+
+            renderReferrers(enriched);
+        }
+
+        function renderReferrers(list) {
+            if (!list || list.length === 0) {
+                referrerList.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">🏆</div>
+                        <p>No referral data available yet.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '';
+            list.forEach((item, idx) => {
+                const rank = idx + 1;
+                let medal = '';
+                if (rank === 1) medal = '🥇';
+                else if (rank === 2) medal = '🥈';
+                else if (rank === 3) medal = '🥉';
+                else medal = `#${rank}`;
+
+                html += `
+                    <div class="referrer-item">
+                        <span class="referrer-rank">${medal}</span>
+                        <span class="referrer-name">${item.name}</span>
+                        <span class="referrer-code">${item.code}</span>
+                        <span class="referrer-count">${item.count}</span>
+                    </div>
+                `;
+            });
+
+            referrerList.innerHTML = html;
+        }
+
+        function renderUsersTable(users) {
+            if (!users || users.length === 0) {
+                overlayBody.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">📋</div>
+                        <p>No registered users found.</p>
+                    </div>
+                `;
+                overlayCount.textContent = '(0)';
+                return;
+            }
+
+            overlayCount.textContent = `(${users.length})`;
+
+            const table = document.createElement('table');
+            table.className = 'data-table';
+
+            const thead = document.createElement('thead');
+            thead.innerHTML = `
+                <tr>
+                    <th>#</th>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Phone</th>
+                    <th>Balance</th>
+                    <th>Referral Code</th>
+                    <th>Date</th>
+                </tr>
+            `;
+            table.appendChild(thead);
+
+            const tbody = document.createElement('tbody');
+            users.forEach((u, idx) => {
+                const bal = parseFloat(u.user_balance);
+                const balDisplay = (!isNaN(bal) && bal > 0)
+                    ? `<span class="td-balance">$${bal.toFixed(2)}</span>`
+                    : `<span class="td-zero">$0.00</span>`;
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${idx + 1}</td>
+                    <td>${u.full_name || '—'}</td>
+                    <td><span class="td-mono">${u.email || '—'}</span></td>
+                    <td>${u.phone_number || '—'}</td>
+                    <td>${balDisplay}</td>
+                    <td><span class="td-mono">${u.referral_code || '—'}</span></td>
+                    <td>${u.register_date || '—'}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+            table.appendChild(tbody);
+
+            overlayBody.innerHTML = '';
+            overlayBody.appendChild(table);
+        }
+
+        async function openUsersOverlay() {
+            if (!allUsersCache) {
+                overlayBody.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">⏳</div>
+                        <p>Loading user data...</p>
+                    </div>
+                `;
+                overlayCount.textContent = '(0)';
+            } else {
+                renderUsersTable(allUsersCache);
+            }
+            usersOverlay.classList.add('open');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeUsersOverlay() {
+            usersOverlay.classList.remove('open');
+            document.body.style.overflow = '';
+        }
+
+        async function handleLogin(email, password) {
+            if (loginBtn.disabled) return;
+
+            loginSpinner.classList.add('active');
+            loginBtnText.textContent = 'Signing in';
+            loginBtn.disabled = true;
+
+            if (!isAuthorized(email)) {
+                loginSpinner.classList.remove('active');
+                loginBtnText.textContent = 'Submit';
+                loginBtn.disabled = false;
+                showToast('error', 'Access Denied', 'You are not authorized to access this page.');
+                return;
+            }
+
+            try {
+                const { data, error } = await supabase.auth.signInWithPassword({
+                    email: email.trim(),
+                    password: password
+                });
+
+                loginSpinner.classList.remove('active');
+                loginBtnText.textContent = 'Submit';
+                loginBtn.disabled = false;
+
+                if (error) {
+                    let msg = error.message;
+                    if (error.message === 'Invalid login credentials') {
+                        msg = 'The email or password you entered is incorrect.';
+                    }
+                    showToast('error', 'Login Failed', msg);
+                    return;
+                }
+
+                if (!data || !data.user || !isAuthorized(data.user.email)) {
+                    if (data && data.user) {
+                        await supabase.auth.signOut();
+                    }
+                    showToast('error', 'Access Denied', 'You are not authorized to access this page.');
+                    return;
+                }
+
+                showToast('success', 'Welcome Back', 'You have been signed in successfully.', 3000);
+                setTimeout(() => {
+                    showMain();
+                    loadAllData();
+                }, 600);
+            } catch (err) {
+                loginSpinner.classList.remove('active');
+                loginBtnText.textContent = 'Submit';
+                loginBtn.disabled = false;
+                showToast('error', 'Connection Error', 'Unable to connect to the server.');
+            }
+        }
+
+        async function checkSession() {
+            try {
+                const { data: { session }, error } = await supabase.auth.getSession();
+
+                if (error) {
+                    showLogin();
+                    return;
+                }
+
+                if (session && session.user && isAuthorized(session.user.email)) {
+                    showMain();
+                    loadAllData();
+                } else {
+                    if (session) {
+                        await supabase.auth.signOut();
+                    }
+                    showLogin();
+                }
+            } catch {
+                showLogin();
+            }
+        }
+
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = emailInput.value.trim();
+            const password = passwordInput.value;
+
+            if (!email) {
+                showToast('error', 'Validation Error', 'Please enter your email address.');
+                emailInput.focus();
+                return;
+            }
+
+            if (!password) {
+                showToast('error', 'Validation Error', 'Please enter your password.');
+                passwordInput.focus();
+                return;
+            }
+
+            await handleLogin(email, password);
+        });
+
+        cardTotalUsers.addEventListener('click', openUsersOverlay);
+        overlayClose.addEventListener('click', closeUsersOverlay);
+        usersOverlay.addEventListener('click', (e) => {
+            if (e.target === usersOverlay) closeUsersOverlay();
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && usersOverlay.classList.contains('open')) {
+                closeUsersOverlay();
+            }
+        });
+
+        logoutBtn.addEventListener('click', async () => {
+            try {
+                await supabase.auth.signOut();
+            } catch {}
+            emailInput.value = '';
+            passwordInput.value = '';
+            allUsersCache = null;
+            showToast('info', 'Signed Out', 'You have been signed out successfully.', 3000);
+            setTimeout(() => showLogin(), 400);
+        });
+
+        checkSession();
+    </script>
+</body>
+</html>

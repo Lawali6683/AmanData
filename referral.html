@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Refer & Earn - AmanData</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        :root {
+            --primary: #6c5ce7;
+            --primary-dark: #4834d4;
+            --accent: #00cec9;
+            --bg-dark: #0f172a;
+            --card-bg: #1e293b;
+            --text-light: #f8fafc;
+            --text-muted: #94a3b8;
+            --border: #334155;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-light);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow-x: hidden;
+        }
+
+        .scene {
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            background-color: var(--bg-dark);
+            transition: opacity 0.6s ease, visibility 0.6s;
+        }
+
+        .scene.hidden {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        .bg {
+            position: absolute;
+            inset: 0;
+            background-color: var(--bg-dark);
+            opacity: 0;
+            transition: opacity 0.6s ease;
+        }
+
+        .bg.show {
+            opacity: 1;
+        }
+
+        .liquid {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            height: 0%;
+            background: linear-gradient(180deg, var(--primary) 0%, var(--primary-dark) 100%);
+            transition: height 1.6s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .wave {
+            position: absolute;
+            top: -40px;
+            left: 0;
+            right: 0;
+            height: 80px;
+            width: 200%;
+        }
+
+        .wave svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        .wave path {
+            fill: var(--primary);
+        }
+
+        .wave-2 {
+            animation: drift 3s linear infinite;
+        }
+
+        .wave-1 {
+            animation: drift 5s linear infinite reverse;
+            opacity: 0.5;
+        }
+
+        @keyframes drift {
+            from { transform: translateX(0); }
+            to   { transform: translateX(-50%); }
+        }
+
+        .brand {
+            position: fixed;
+            top: 55%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 10000;
+            color: #fff;
+            font-size: 14px;
+            letter-spacing: 6px;
+            font-weight: 200;
+            text-transform: uppercase;
+            transition: opacity 0.6s ease;
+        }
+
+        .brand.hide {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .brand .bdot {
+            display: inline-block;
+            animation: blink 1.4s infinite;
+        }
+
+        .brand .bdot:nth-child(2) { animation-delay: 0.2s; }
+        .brand .bdot:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes blink {
+            0%, 60%, 100% { opacity: 0.2; }
+            30% { opacity: 1; }
+        }
+
+        .loader-logo {
+            max-width: 140px;
+            height: auto;
+            opacity: 0.95;
+            position: absolute;
+            top: 40%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 10000;
+            transition: opacity 0.6s ease;
+        }
+
+        .loader-logo.hide {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 480px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1), transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .app-container.ready {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 0;
+        }
+
+        .btn-back {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            color: var(--text-light);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background 0.2s;
+        }
+
+        .btn-back:active {
+            background: var(--border);
+        }
+
+        .page-logo {
+            height: 40px;
+            width: auto;
+            opacity: 0.95;
+        }
+
+        .promo-card {
+            background: linear-gradient(135deg, rgba(108, 92, 231, 0.15) 0%, rgba(0, 206, 201, 0.05) 100%);
+            border: 1px solid rgba(108, 92, 231, 0.3);
+            border-radius: 24px;
+            padding: 24px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .promo-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(108, 92, 231, 0.1) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        .promo-icon-wrapper {
+            width: 64px;
+            height: 64px;
+            background: rgba(108, 92, 231, 0.2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 16px;
+        }
+
+        .promo-icon-wrapper i {
+            font-size: 28px;
+            color: var(--accent);
+        }
+
+        .promo-title {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            color: var(--text-light);
+        }
+
+        .promo-desc {
+            font-size: 14px;
+            line-height: 1.6;
+            color: var(--text-muted);
+        }
+
+        .control-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .input-label {
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+        }
+
+        .action-box {
+            display: flex;
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 8px 8px 8px 16px;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .link-text {
+            font-size: 14px;
+            color: var(--text-light);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-weight: 500;
+        }
+
+        .btn-copy {
+            background: var(--primary);
+            border: none;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+        }
+
+        .btn-copy:active {
+            transform: scale(0.97);
+            background: var(--primary-dark);
+        }
+
+        .qr-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            padding: 16px 0;
+            border-top: 1px solid var(--border);
+        }
+
+        .qr-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .qr-wrapper {
+            background: #ffffff;
+            padding: 16px;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+            transition: transform 0.3s ease;
+        }
+
+        .qr-wrapper:hover {
+            transform: scale(1.02);
+        }
+
+        .qr-wrapper img {
+            display: block;
+        }
+
+        .toast-container {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: #1e293b;
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            z-index: 10001;
+            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5);
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            pointer-events: none;
+            width: calc(100% - 40px);
+            max-width: 400px;
+        }
+
+        .toast-container.active {
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .toast-icon {
+            font-size: 18px;
+        }
+
+        .toast-icon.success {
+            color: #10b981;
+        }
+
+        .toast-icon.error {
+            color: #ef4444;
+        }
+
+        .toast-message {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-light);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="scene" id="scene">
+        <div class="bg" id="bg"></div>
+        <img src="image/logo.png" class="loader-logo" id="loaderLogo" alt="Logo">
+        <div class="liquid" id="liquid">
+            <div class="wave wave-1">
+                <svg viewBox="0 0 1200 80" preserveAspectRatio="none">
+                    <path d="M0,40 C200,80 400,0 600,40 C800,80 1000,0 1200,40 L1200,80 L0,80 Z"></path>
+                </svg>
+            </div>
+            <div class="wave wave-2">
+                <svg viewBox="0 0 1200 80" preserveAspectRatio="none">
+                    <path d="M0,40 C200,80 400,0 600,40 C800,80 1000,0 1200,40 L1200,80 L0,80 Z"></path>
+                </svg>
+            </div>
+        </div>
+    </div>
+
+    <div class="brand" id="brand">
+        Loading<span class="bdot">.</span><span class="bdot">.</span><span class="bdot">.</span>
+    </div>
+
+    <div class="app-container" id="appContainer">
+        <header>
+            <a href="dashboard.html" class="btn-back">
+                <i class="fa-solid fa-arrow-left"></i>
+            </a>
+            <img src="image/logo.png" class="page-logo" alt="AmanData Logo">
+        </header>
+
+        <main class="promo-card">
+            <div class="promo-icon-wrapper">
+                <i class="fa-solid fa-gift"></i>
+            </div>
+            <h1 class="promo-title">Refer & Earn Commission</h1>
+            <p class="promo-desc">
+                Get a 2% instant bonus on every data refuel purchase made by your referred friends. Your earned commission goes straight into your wallet for easy withdrawal or direct data purchases. Start inviting your network to maximize this special offer today!
+            </p>
+        </main>
+
+        <section class="control-card">
+            <div class="input-group">
+                <span class="input-label">Your Referral Link</span>
+                <div class="action-box">
+                    <span class="link-text" id="referral_link">Generating link...</span>
+                    <button class="btn-copy" id="btnCopyLink">
+                        <i class="fa-regular fa-copy"></i> Copy
+                    </button>
+                </div>
+            </div>
+
+            <div class="input-group">
+                <span class="input-label">Your Referral Code</span>
+                <div class="action-box">
+                    <span class="link-text" id="referral_code">------</span>
+                    <button class="btn-copy" id="btnCopyCode">
+                        <i class="fa-regular fa-copy"></i> Copy
+                    </button>
+                </div>
+            </div>
+
+            <div class="qr-section">
+                <span class="qr-title">Scan QR Code</span>
+                <div class="qr-wrapper" id="qrcode"></div>
+            </div>
+        </section>
+    </div>
+
+    <div class="toast-container" id="toastContainer">
+        <i class="fa-solid fa-circle-check toast-icon success" id="toastIcon"></i>
+        <span class="toast-message" id="toastMessage">Sako ya kwafi!</span>
+    </div>
+
+    <script type="module" src="referral.js"></script>
+    
+    
+    <div id="pd-whatsapp-widget" class="pd-wa-container">
+    <div class="pd-wa-pulse-ring"></div>
+    <a href="https://wa.me/2347060739494?text=I%20am%20in%20need%20of%20help%20from%20the%20AmanData%20app" 
+       target="_blank" 
+       class="pd-wa-link" 
+       id="pd-wa-link"
+       draggable="false">
+        <img src="image/whatsapp.png" alt="WhatsApp Support" class="pd-wa-icon" draggable="false">
+    </a>
+</div>
+
+<style>
+    .pd-wa-container {
+        position: fixed;
+        bottom: 270px;
+        right: 24px;
+        width: 60px;
+        height: 60px;
+        z-index: 9;
+        cursor: grab;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        user-select: none;
+        -webkit-user-drag: none;
+        touch-action: none;
+    }
+Dan u   .pd-wa-container:active {
+        cursor: grabbing;
+    }
+
+    .pd-wa-link {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        
+        box-shadow: 0 8px 24px rgba(37, 211, 102, 0.35);
+        transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        -webkit-user-drag: none;
+    }
+
+    .pd-wa-link:active {
+        transform: scale(0.9);
+    }
+
+    .pd-wa-icon {
+        width: 60px;
+        height: 60px;
+        object-fit: contain;
+        pointer-events: none;
+        animation: pd-wa-bounce 3s ease-in-out infinite;
+    }
+
+    .pd-wa-pulse-ring {
+        position: absolute;
+        inset: 0;
+        border-radius: 50%;
+        background-color: #25d366;
+        opacity: 0.4;
+        z-index: -1;
+        animation: pd-wa-ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+        pointer-events: none;
+    }
+
+    @keyframes pd-wa-ping {
+        75%, 100% {
+            transform: scale(1.6);
+            opacity: 0;
+        }
+    }
+
+    @keyframes pd-wa-bounce {
+        0%, 100% {
+            transform: translateY(0);
+        }
+        50% {
+            transform: translateY(-5px);
+        }
+    }
+</style>
+
+<script>
+    
+    (function() {
+    const widget = document.getElementById('pd-whatsapp-widget');
+    const link = document.getElementById('pd-wa-link');
+    
+    let isDragging = false;
+    let startX, startY;
+    let initialX, initialY;
+    let hasMoved = false;
+
+    widget.addEventListener('mousedown', dragStart);
+    document.addEventListener('mousemove', drag);
+    document.addEventListener('mouseup', dragEnd);
+
+    widget.addEventListener('touchstart', dragStart, { passive: false });
+    document.addEventListener('touchmove', drag, { passive: false });
+    document.addEventListener('touchend', dragEnd);
+
+    link.addEventListener('click', function(e) {
+        if (hasMoved) {
+            e.preventDefault();
+        }
+    });
+
+    function dragStart(e) {
+        hasMoved = false;
+        isDragging = true;
+        
+        const clientX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
+        const clientY = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
+
+        const rect = widget.getBoundingClientRect();
+        initialX = rect.left;
+        initialY = rect.top;
+
+        startX = clientX;
+        startY = clientY;
+    }
+
+    function drag(e) {
+        if (!isDragging) return;
+        
+        if (e.cancelable) {
+            e.preventDefault();
+        }
+
+        const clientX = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX;
+        const clientY = e.type === 'touchmove' ? e.touches[0].clientY : e.clientY;
+
+        const dx = clientX - startX;
+        const dy = clientY - startY;
+
+        if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+            hasMoved = true;
+        }
+
+        let newX = initialX + dx;
+        let newY = initialY + dy;
+
+        const widgetWidth = widget.offsetWidth;
+        const widgetHeight = widget.offsetHeight;
+        const windowWidth = window.innerWidth;
+        const windowHeight = window.innerHeight;
+
+        if (newX < 10) newX = 10;
+        if (newX > windowWidth - widgetWidth - 10) newX = windowWidth - widgetWidth - 10;
+        if (newY < 10) newY = 10;
+        if (newY > windowHeight - widgetHeight - 10) newY = windowHeight - widgetHeight - 10;
+
+        widget.style.left = `${newX}px`;
+        widget.style.top = `${newY}px`;
+        widget.style.bottom = 'auto';
+        widget.style.right = 'auto';
+    }
+
+    function dragEnd() {
+        isDragging = false;
+    }
+})();
+    
+</script>
+
+    
+</body>
+</html>

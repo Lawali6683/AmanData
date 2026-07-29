@@ -1,0 +1,1207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Check User – Admin</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #0f0c29 0%, #1a1a3e 30%, #24243e 60%, #1e1b4b 100%);
+            min-height: 100vh;
+            padding: 20px;
+            position: relative;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle at 30% 40%, rgba(99, 102, 241, 0.08) 0%, transparent 50%),
+                        radial-gradient(circle at 70% 60%, rgba(168, 85, 247, 0.06) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        #appContainer {
+            position: relative;
+            z-index: 1;
+            max-width: 960px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.97);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-radius: 24px;
+            box-shadow: 0 30px 80px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.08);
+            padding: 48px 44px;
+            width: 100%;
+            max-width: 440px;
+            margin: 0 auto;
+            position: relative;
+            top: 50%;
+            transform: translateY(30vh);
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 8px;
+        }
+
+        .brand-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #6366f1, #a855f7);
+            display: inline-block;
+        }
+
+        .card h1 {
+            font-size: 30px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #1e1b4b, #4c1d95);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-align: center;
+            letter-spacing: -1px;
+        }
+
+        .card .sub {
+            text-align: center;
+            color: #8b8ca7;
+            font-size: 15px;
+            font-weight: 500;
+            margin-bottom: 36px;
+        }
+
+        .login-form {
+            width: 100%;
+        }
+
+        .field {
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        .field label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            color: #4b5563;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .field input {
+            width: 100%;
+            padding: 14px 16px;
+            font-size: 15px;
+            font-family: 'Inter', sans-serif;
+            border: 2px solid #e5e7eb;
+            border-radius: 14px;
+            background: #f9fafb;
+            color: #111827;
+            outline: none;
+            transition: border 0.3s ease, box-shadow 0.3s ease, background 0.3s ease;
+        }
+
+        .field input:focus {
+            border-color: #6366f1;
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.12);
+            background: #ffffff;
+        }
+
+        .field input::placeholder {
+            color: #adb5bd;
+            font-weight: 400;
+        }
+
+        .field .pw-wrap {
+            position: relative;
+        }
+
+        .field .pw-wrap input {
+            padding-right: 48px;
+        }
+
+        .field .pw-toggle {
+            position: absolute;
+            right: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            font-size: 18px;
+            user-select: none;
+            color: #9ca3af;
+            transition: color 0.2s ease;
+            line-height: 1;
+            background: none;
+            border: none;
+            padding: 4px;
+        }
+
+        .field .pw-toggle:hover {
+            color: #4b5563;
+        }
+
+        .submit-wrap {
+            position: relative;
+            margin-top: 12px;
+        }
+
+        button[type="submit"] {
+            width: 100%;
+            padding: 16px;
+            font-size: 16px;
+            font-weight: 700;
+            font-family: 'Inter', sans-serif;
+            border: none;
+            border-radius: 14px;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: #fff;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            min-height: 56px;
+        }
+
+        button[type="submit"]:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 28px rgba(99, 102, 241, 0.35);
+        }
+
+        button[type="submit"]:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        button[type="submit"]:disabled {
+            opacity: 0.8;
+            cursor: not-allowed;
+        }
+
+        .spinner {
+            width: 22px;
+            height: 22px;
+            border: 3px solid rgba(255, 255, 255, 0.25);
+            border-top-color: #ffffff;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            display: none;
+        }
+
+        .spinner.active {
+            display: inline-block;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        #loginSection {
+            width: 100%;
+        }
+
+        #mainSection {
+            display: none;
+        }
+
+        /* TOAST */
+        #toastContainer {
+            position: fixed;
+            top: 24px;
+            right: 24px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            pointer-events: none;
+        }
+
+        .toast {
+            pointer-events: auto;
+            padding: 16px 20px 16px 16px;
+            border-radius: 16px;
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            font-weight: 500;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+            transform: translateX(120%);
+            opacity: 0;
+            transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s ease;
+            max-width: 420px;
+            min-width: 300px;
+        }
+
+        .toast.show {
+            transform: translateX(0);
+            opacity: 1;
+        }
+
+        .toast.hide {
+            transform: translateX(120%);
+            opacity: 0;
+        }
+
+        .toast.success {
+            background: linear-gradient(135deg, #059669, #10b981);
+            border-left: 4px solid #34d399;
+        }
+
+        .toast.error {
+            background: linear-gradient(135deg, #dc2626, #ef4444);
+            border-left: 4px solid #fca5a5;
+        }
+
+        .toast.info {
+            background: linear-gradient(135deg, #1e40af, #3b82f6);
+            border-left: 4px solid #60a5fa;
+        }
+
+        .toast-icon {
+            font-size: 22px;
+            flex-shrink: 0;
+        }
+
+        .toast-content {
+            flex: 1;
+        }
+
+        .toast-title {
+            font-weight: 700;
+            font-size: 14px;
+            margin-bottom: 2px;
+        }
+
+        .toast-message {
+            font-size: 13px;
+            opacity: 0.9;
+            font-weight: 400;
+        }
+
+        .toast-close {
+            background: none;
+            border: none;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 18px;
+            cursor: pointer;
+            padding: 2px 6px;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+            flex-shrink: 0;
+        }
+
+        .toast-close:hover {
+            background: rgba(255, 255, 255, 0.15);
+            color: #fff;
+        }
+
+        /* MAIN DASHBOARD */
+        .main-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px 28px;
+            background: rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-radius: 20px;
+            margin-bottom: 28px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .main-header img {
+            height: 44px;
+            width: auto;
+            object-fit: contain;
+            filter: brightness(0) invert(1);
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .btn-back {
+            padding: 10px 20px;
+            font-size: 14px;
+            font-weight: 600;
+            font-family: 'Inter', sans-serif;
+            border: 1.5px solid rgba(255, 255, 255, 0.15);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.06);
+            color: rgba(255, 255, 255, 0.85);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-back:hover {
+            border-color: rgba(99, 102, 241, 0.5);
+            background: rgba(99, 102, 241, 0.12);
+            color: #a5b4fc;
+        }
+
+        .btn-logout {
+            padding: 10px 24px;
+            font-size: 14px;
+            font-weight: 600;
+            font-family: 'Inter', sans-serif;
+            border: 1.5px solid rgba(255, 255, 255, 0.15);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.06);
+            color: rgba(255, 255, 255, 0.85);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-logout:hover {
+            border-color: rgba(239, 68, 68, 0.5);
+            background: rgba(239, 68, 68, 0.12);
+            color: #fca5a5;
+        }
+
+        /* STATS ROW */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 20px 24px;
+            text-align: center;
+        }
+
+        .stat-card .stat-value {
+            font-size: 32px;
+            font-weight: 800;
+            color: #fff;
+            letter-spacing: -0.5px;
+        }
+
+        .stat-card .stat-label {
+            font-size: 13px;
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.6);
+            margin-top: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stat-card:nth-child(1) .stat-value {
+            background: linear-gradient(135deg, #6366f1, #a855f7);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .stat-card:nth-child(2) .stat-value {
+            background: linear-gradient(135deg, #10b981, #34d399);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .stat-card:nth-child(3) .stat-value {
+            background: linear-gradient(135deg, #f59e0b, #fbbf24);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* SEARCH SECTION */
+        .search-section {
+            background: rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 20px;
+            padding: 32px;
+            margin-bottom: 24px;
+        }
+
+        .search-section .section-title {
+            color: #fff;
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 20px;
+            letter-spacing: -0.3px;
+        }
+
+        .search-row {
+            display: flex;
+            gap: 14px;
+            align-items: center;
+        }
+
+        .search-row input {
+            flex: 1;
+            padding: 16px 20px;
+            font-size: 15px;
+            font-family: 'Inter', sans-serif;
+            border: 2px solid rgba(255, 255, 255, 0.12);
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.06);
+            color: #fff;
+            outline: none;
+            transition: border 0.3s ease, box-shadow 0.3s ease, background 0.3s ease;
+        }
+
+        .search-row input::placeholder {
+            color: rgba(255, 255, 255, 0.35);
+        }
+
+        .search-row input:focus {
+            border-color: rgba(99, 102, 241, 0.5);
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.12);
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .btn-search {
+            padding: 16px 32px;
+            font-size: 15px;
+            font-weight: 700;
+            font-family: 'Inter', sans-serif;
+            border: none;
+            border-radius: 14px;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: #fff;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            white-space: nowrap;
+            min-height: 54px;
+        }
+
+        .btn-search:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 28px rgba(99, 102, 241, 0.35);
+        }
+
+        .btn-search:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        .btn-search:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+
+        .search-spinner {
+            width: 20px;
+            height: 20px;
+            border: 2.5px solid rgba(255, 255, 255, 0.25);
+            border-top-color: #ffffff;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            display: none;
+        }
+
+        .search-spinner.active {
+            display: inline-block;
+        }
+
+        /* RESULT CARD */
+        #resultContainer {
+            display: none;
+        }
+
+        .result-card {
+            background: rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 20px;
+            padding: 32px;
+            margin-bottom: 20px;
+        }
+
+        .result-card .result-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .result-card .result-header .result-title {
+            color: #fff;
+            font-size: 18px;
+            font-weight: 700;
+        }
+
+        .result-card .result-header .result-id {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.4);
+            font-weight: 500;
+            font-family: monospace;
+            background: rgba(255, 255, 255, 0.06);
+            padding: 6px 12px;
+            border-radius: 8px;
+        }
+
+        .data-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        .data-item {
+            padding: 12px 16px;
+            background: rgba(255, 255, 255, 0.04);
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.04);
+        }
+
+        .data-item .data-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.4);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        .data-item .data-value {
+            font-size: 15px;
+            font-weight: 600;
+            color: #fff;
+            word-break: break-word;
+        }
+
+        .data-item .data-value.green {
+            color: #34d399;
+        }
+
+        .data-item .data-value.amber {
+            color: #fbbf24;
+        }
+
+        .data-item .data-value.mono {
+            font-family: monospace;
+            font-size: 13px;
+        }
+
+        .data-item.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .compliment-section {
+            margin-top: 16px;
+            padding: 20px;
+            background: rgba(16, 185, 129, 0.08);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            border-radius: 14px;
+            text-align: center;
+        }
+
+        .compliment-section p {
+            color: #6ee7b7;
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+
+        .btn-search-another {
+            padding: 12px 28px;
+            font-size: 14px;
+            font-weight: 600;
+            font-family: 'Inter', sans-serif;
+            border: 1.5px solid rgba(16, 185, 129, 0.3);
+            border-radius: 12px;
+            background: rgba(16, 185, 129, 0.1);
+            color: #6ee7b7;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-search-another:hover {
+            background: rgba(16, 185, 129, 0.18);
+            border-color: rgba(16, 185, 129, 0.5);
+        }
+
+        .no-result {
+            text-align: center;
+            padding: 40px 20px;
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 16px;
+            background: rgba(255, 255, 255, 0.04);
+            border-radius: 16px;
+            border: 1px dashed rgba(255, 255, 255, 0.08);
+        }
+
+        .no-result .no-icon {
+            font-size: 40px;
+            margin-bottom: 12px;
+            opacity: 0.5;
+        }
+
+        @media (max-width: 768px) {
+            .stats-row {
+                grid-template-columns: 1fr;
+                gap: 12px;
+            }
+            .data-grid {
+                grid-template-columns: 1fr;
+            }
+            .search-row {
+                flex-direction: column;
+            }
+            .btn-search {
+                width: 100%;
+                justify-content: center;
+            }
+            .main-header {
+                flex-direction: column;
+                gap: 16px;
+                padding: 16px 20px;
+            }
+            .header-actions {
+                width: 100%;
+                justify-content: space-between;
+            }
+            .result-card .result-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
+            #toastContainer {
+                left: 16px;
+                right: 16px;
+                top: 16px;
+            }
+            .toast {
+                max-width: 100%;
+                min-width: 0;
+            }
+            .card {
+                transform: translateY(10vh);
+                padding: 32px 24px;
+            }
+        }
+
+        @media (max-width: 440px) {
+            .search-section {
+                padding: 20px;
+            }
+            .result-card {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="toastContainer"></div>
+
+    <div id="appContainer">
+
+        <div id="loginSection">
+            <div class="card">
+                <div class="brand">
+                    <span class="brand-dot"></span>
+                    <h1>Admin</h1>
+                    <span class="brand-dot"></span>
+                </div>
+                <p class="sub">Sign in to continue</p>
+
+                <form class="login-form" id="loginForm">
+                    <div class="field">
+                        <label for="email">Email</label>
+                        <input type="email" id="email" placeholder="your@email.com" autocomplete="email" required>
+                    </div>
+
+                    <div class="field">
+                        <label for="password">Password</label>
+                        <div class="pw-wrap">
+                            <input type="password" id="password" placeholder="Enter your password" autocomplete="current-password" required>
+                            <button class="pw-toggle" id="togglePassword" type="button" aria-label="Toggle password visibility">👁️</button>
+                        </div>
+                    </div>
+
+                    <div class="submit-wrap">
+                        <button type="submit" id="loginBtn">
+                            <span class="spinner" id="loginSpinner"></span>
+                            <span class="btn-text" id="loginBtnText">Submit</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div id="mainSection">
+
+            <div class="main-header">
+                <img src="logo.png" alt="Logo" id="logo">
+                <div class="header-actions">
+                    <a href="admin.html" class="btn-back">← Back</a>
+                    <button class="btn-logout" id="logoutBtn">Logout</button>
+                </div>
+            </div>
+
+            <div class="stats-row" id="statsRow">
+                <div class="stat-card">
+                    <div class="stat-value" id="totalUsers">0</div>
+                    <div class="stat-label">Total Registered</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="usersWithBalance">0</div>
+                    <div class="stat-label">With Balance</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="usersWithoutBalance">0</div>
+                    <div class="stat-label">Without Balance</div>
+                </div>
+            </div>
+
+            <div class="search-section">
+                <div class="section-title">Search User</div>
+                <div class="search-row">
+                    <input type="text" id="searchInput" placeholder="Account number, email or phone number..." autocomplete="off">
+                    <button class="btn-search" id="searchBtn">
+                        <span class="search-spinner" id="searchSpinner"></span>
+                        <span id="searchBtnText">Search</span>
+                    </button>
+                </div>
+            </div>
+
+            <div id="resultContainer">
+                <div class="result-card" id="userResultCard">
+                    <div class="result-header">
+                        <span class="result-title">User Details</span>
+                        <span class="result-id" id="userUUID">UUID: —</span>
+                    </div>
+                    <div class="data-grid" id="userDataGrid">
+                    </div>
+                    <div class="compliment-section" id="complimentSection">
+                        <p id="complimentText">User found successfully! All information is displayed above.</p>
+                        <button class="btn-search-another" id="searchAnotherBtn">Search Another User</button>
+                    </div>
+                </div>
+                <div class="no-result" id="noResult">
+                    <div class="no-icon">🔍</div>
+                    <p>No user found with the provided information.</p>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <script type="module">
+        import { supabase } from '/supabase.js';
+
+        const AUTH_EMAILS = [
+            '686172756e616c6177616c693535323240676d61696c2e636f6d',
+            '6c6177616c69686172756e6139343340676d61696c2e636f6d',
+            '707572656461746139393640676d61696c2e636f6d'
+        ];
+
+        function decodeHex(hex) {
+            let out = '';
+            for (let i = 0; i < hex.length; i += 2) {
+                out += String.fromCharCode(parseInt(hex.substr(i, 2), 16));
+            }
+            return out;
+        }
+
+        const authorizedEmails = AUTH_EMAILS.map(decodeHex);
+
+        const loginSection = document.getElementById('loginSection');
+        const mainSection = document.getElementById('mainSection');
+        const loginForm = document.getElementById('loginForm');
+        const emailInput = document.getElementById('email');
+        const passwordInput = document.getElementById('password');
+        const togglePassword = document.getElementById('togglePassword');
+        const loginBtn = document.getElementById('loginBtn');
+        const loginSpinner = document.getElementById('loginSpinner');
+        const loginBtnText = document.getElementById('loginBtnText');
+        const logoutBtn = document.getElementById('logoutBtn');
+        const searchInput = document.getElementById('searchInput');
+        const searchBtn = document.getElementById('searchBtn');
+        const searchSpinner = document.getElementById('searchSpinner');
+        const searchBtnText = document.getElementById('searchBtnText');
+        const resultContainer = document.getElementById('resultContainer');
+        const userResultCard = document.getElementById('userResultCard');
+        const noResult = document.getElementById('noResult');
+        const userDataGrid = document.getElementById('userDataGrid');
+        const userUUID = document.getElementById('userUUID');
+        const complimentSection = document.getElementById('complimentSection');
+        const searchAnotherBtn = document.getElementById('searchAnotherBtn');
+        const totalUsersEl = document.getElementById('totalUsers');
+        const usersWithBalanceEl = document.getElementById('usersWithBalance');
+        const usersWithoutBalanceEl = document.getElementById('usersWithoutBalance');
+        const toastContainer = document.getElementById('toastContainer');
+
+        let currentUserId = null;
+
+        togglePassword.addEventListener('click', () => {
+            const t = passwordInput.getAttribute('type');
+            passwordInput.setAttribute('type', t === 'password' ? 'text' : 'password');
+        });
+
+        function showToast(type, title, message, duration) {
+            const icons = {
+                success: '✓',
+                error: '✕',
+                info: 'ℹ'
+            };
+
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `
+                <span class="toast-icon">${icons[type] || ''}</span>
+                <div class="toast-content">
+                    <div class="toast-title">${title}</div>
+                    <div class="toast-message">${message}</div>
+                </div>
+                <button class="toast-close" type="button">×</button>
+            `;
+
+            toast.querySelector('.toast-close').addEventListener('click', () => {
+                toast.classList.remove('show');
+                toast.classList.add('hide');
+                setTimeout(() => toast.remove(), 500);
+            });
+
+            toastContainer.appendChild(toast);
+
+            requestAnimationFrame(() => {
+                toast.classList.add('show');
+            });
+
+            const t = duration || 5000;
+            const autoTimer = setTimeout(() => {
+                toast.classList.remove('show');
+                toast.classList.add('hide');
+                setTimeout(() => toast.remove(), 500);
+            }, t);
+
+            toast.addEventListener('mouseenter', () => clearTimeout(autoTimer));
+        }
+
+        function isAuthorized(email) {
+            return authorizedEmails.includes(email.toLowerCase().trim());
+        }
+
+        function showMain() {
+            loginSection.style.display = 'none';
+            mainSection.style.display = 'block';
+        }
+
+        function showLogin() {
+            loginSection.style.display = 'block';
+            mainSection.style.display = 'none';
+        }
+
+        async function loadStats() {
+            try {
+                const { data, error } = await supabase
+                    .from('users')
+                    .select('user_balance');
+
+                if (error) {
+                    return;
+                }
+
+                if (!data) return;
+
+                totalUsersEl.textContent = data.length;
+                const withBalance = data.filter(u => {
+                    const b = parseFloat(u.user_balance);
+                    return !isNaN(b) && b > 0;
+                }).length;
+                usersWithBalanceEl.textContent = withBalance;
+                usersWithoutBalanceEl.textContent = data.length - withBalance;
+            } catch {
+            }
+        }
+
+        function renderUserData(user) {
+            userUUID.textContent = `UUID: ${user.id || '—'}`;
+
+            const fields = [
+                { label: 'Full Name', value: user.full_name || '—' },
+                { label: 'Email', value: user.email || '—' },
+                { label: 'Phone Number', value: user.phone_number || '—' },
+                { label: 'User Balance', value: user.user_balance !== undefined ? `$${parseFloat(user.user_balance).toFixed(2)}` : '$0.00', cls: 'green' },
+                { label: 'Referral Code', value: user.referral_code || '—', cls: 'mono' },
+                { label: 'Referral Link', value: user.referral_link || '—', cls: 'mono' },
+                { label: 'Referred By', value: user.referred_by || 'None' },
+                { label: 'Register Date', value: user.register_date || '—' },
+                { label: 'IP Address', value: user.ip_address || '—', cls: 'mono' },
+                { label: 'Device', value: user.device || '—' },
+                { label: 'Location', value: user.location || '—' },
+                { label: 'PIN', value: user.pin || '—', cls: 'mono' }
+            ];
+
+            userDataGrid.innerHTML = '';
+            fields.forEach(f => {
+                const div = document.createElement('div');
+                div.className = 'data-item';
+                if (f.label === 'Transactions' || f.label === 'Virtual Accounts') {
+                    div.classList.add('full-width');
+                }
+                div.innerHTML = `
+                    <div class="data-label">${f.label}</div>
+                    <div class="data-value ${f.cls || ''}">${f.value}</div>
+                `;
+                userDataGrid.appendChild(div);
+            });
+
+            if (user.virtual_accounts && Array.isArray(user.virtual_accounts) && user.virtual_accounts.length > 0) {
+                const vaDiv = document.createElement('div');
+                vaDiv.className = 'data-item full-width';
+                let vaHtml = '<div class="data-label">Virtual Accounts</div>';
+                user.virtual_accounts.forEach((va, idx) => {
+                    const vaStr = typeof va === 'object' ? JSON.stringify(va) : va;
+                    vaHtml += `<div class="data-value mono" style="font-size:13px;margin-top:4px;">${idx + 1}. ${vaStr}</div>`;
+                });
+                vaDiv.innerHTML = vaHtml;
+                userDataGrid.appendChild(vaDiv);
+            }
+
+            if (user.transactions && Array.isArray(user.transactions) && user.transactions.length > 0) {
+                const txDiv = document.createElement('div');
+                txDiv.className = 'data-item full-width';
+                let txHtml = `<div class="data-label">Transactions (${user.transactions.length})</div>`;
+                const recentTx = user.transactions.slice(-5);
+                recentTx.forEach((tx, idx) => {
+                    const txStr = typeof tx === 'object' ? JSON.stringify(tx) : tx;
+                    txHtml += `<div class="data-value mono" style="font-size:12px;margin-top:4px;color:rgba(255,255,255,0.6);">${idx + 1}. ${txStr}</div>`;
+                });
+                if (user.transactions.length > 5) {
+                    txHtml += `<div class="data-value" style="font-size:12px;margin-top:4px;color:rgba(255,255,255,0.3);">... and ${user.transactions.length - 5} more</div>`;
+                }
+                txDiv.innerHTML = txHtml;
+                userDataGrid.appendChild(txDiv);
+            }
+
+            userResultCard.style.display = 'block';
+            noResult.style.display = 'none';
+            resultContainer.style.display = 'block';
+        }
+
+        function showNoResult() {
+            userResultCard.style.display = 'none';
+            noResult.style.display = 'block';
+            resultContainer.style.display = 'block';
+        }
+
+        function hideResult() {
+            resultContainer.style.display = 'none';
+        }
+
+        async function performSearch() {
+            const query = searchInput.value.trim();
+            if (!query) {
+                showToast('error', 'Validation Error', 'Please enter an account number, email or phone number.');
+                searchInput.focus();
+                return;
+            }
+
+            searchSpinner.classList.add('active');
+            searchBtnText.textContent = 'Searching';
+            searchBtn.disabled = true;
+
+            try {
+                const { data, error } = await supabase
+                    .from('users')
+                    .select('*')
+                    .or(`email.ilike.%${query}%,phone_number.ilike.%${query}%,account_number.ilike.%${query}%`)
+                    .limit(1);
+
+                searchSpinner.classList.remove('active');
+                searchBtnText.textContent = 'Search';
+                searchBtn.disabled = false;
+
+                if (error) {
+                    showToast('error', 'Query Error', error.message);
+                    return;
+                }
+
+                if (data && data.length > 0) {
+                    renderUserData(data[0]);
+                    showToast('success', 'User Found', `User ${data[0].full_name || data[0].email} retrieved successfully.`, 4000);
+                } else {
+                    showNoResult();
+                    showToast('info', 'No Results', 'No user matches the provided information.', 4000);
+                }
+            } catch (err) {
+                searchSpinner.classList.remove('active');
+                searchBtnText.textContent = 'Search';
+                searchBtn.disabled = false;
+                showToast('error', 'Connection Error', 'Unable to complete the search. Please check your network.');
+            }
+        }
+
+        async function handleLogin(email, password) {
+            if (loginBtn.disabled) return;
+
+            loginSpinner.classList.add('active');
+            loginBtnText.textContent = 'Signing in';
+            loginBtn.disabled = true;
+
+            if (!isAuthorized(email)) {
+                loginSpinner.classList.remove('active');
+                loginBtnText.textContent = 'Submit';
+                loginBtn.disabled = false;
+                showToast('error', 'Access Denied', 'You are not authorized to access this page.');
+                return;
+            }
+
+            try {
+                const { data, error } = await supabase.auth.signInWithPassword({
+                    email: email.trim(),
+                    password: password
+                });
+
+                loginSpinner.classList.remove('active');
+                loginBtnText.textContent = 'Submit';
+                loginBtn.disabled = false;
+
+                if (error) {
+                    let msg = error.message;
+                    if (error.message === 'Invalid login credentials') {
+                        msg = 'The email or password you entered is incorrect.';
+                    }
+                    showToast('error', 'Login Failed', msg);
+                    return;
+                }
+
+                if (!data || !data.user || !isAuthorized(data.user.email)) {
+                    if (data && data.user) {
+                        await supabase.auth.signOut();
+                    }
+                    showToast('error', 'Access Denied', 'You are not authorized to access this page.');
+                    return;
+                }
+
+                showToast('success', 'Welcome Back', 'You have been signed in successfully.', 3000);
+                setTimeout(() => {
+                    showMain();
+                    loadStats();
+                }, 600);
+            } catch (err) {
+                loginSpinner.classList.remove('active');
+                loginBtnText.textContent = 'Submit';
+                loginBtn.disabled = false;
+                showToast('error', 'Connection Error', 'Unable to connect to the server.');
+            }
+        }
+
+        async function checkSession() {
+            try {
+                const { data: { session }, error } = await supabase.auth.getSession();
+
+                if (error) {
+                    showLogin();
+                    return;
+                }
+
+                if (session && session.user && isAuthorized(session.user.email)) {
+                    showMain();
+                    loadStats();
+                } else {
+                    if (session) {
+                        await supabase.auth.signOut();
+                    }
+                    showLogin();
+                }
+            } catch {
+                showLogin();
+            }
+        }
+
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = emailInput.value.trim();
+            const password = passwordInput.value;
+
+            if (!email) {
+                showToast('error', 'Validation Error', 'Please enter your email address.');
+                emailInput.focus();
+                return;
+            }
+
+            if (!password) {
+                showToast('error', 'Validation Error', 'Please enter your password.');
+                passwordInput.focus();
+                return;
+            }
+
+            await handleLogin(email, password);
+        });
+
+        searchBtn.addEventListener('click', performSearch);
+
+        searchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                performSearch();
+            }
+        });
+
+        searchAnotherBtn.addEventListener('click', () => {
+            searchInput.value = '';
+            hideResult();
+            searchInput.focus();
+            showToast('info', 'Ready', 'Enter new search information and click Search.', 3000);
+        });
+
+        logoutBtn.addEventListener('click', async () => {
+            try {
+                await supabase.auth.signOut();
+            } catch {}
+            emailInput.value = '';
+            passwordInput.value = '';
+            hideResult();
+            showToast('info', 'Signed Out', 'You have been signed out successfully.', 3000);
+            setTimeout(() => showLogin(), 400);
+        });
+
+        checkSession();
+    </script>
+</body>
+</html>

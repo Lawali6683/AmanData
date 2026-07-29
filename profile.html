@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>User Profile - AmanData</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #6c5ce7;
+            --primary-dark: #4834d4;
+            --accent: #00cec9;
+            --bg-dark: #0f172a;
+            --card-bg: #1e293b;
+            --text-light: #f8fafc;
+            --text-muted: #94a3b8;
+            --border: #334155;
+            --danger: #ef4444;
+            --success: #10b981;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-light);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow-x: hidden;
+        }
+
+        .scene {
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            background-color: var(--bg-dark);
+            transition: opacity 0.6s ease, visibility 0.6s;
+        }
+
+        .scene.hidden {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        .bg {
+            position: absolute;
+            inset: 0;
+            background-color: var(--bg-dark);
+            opacity: 0;
+            transition: opacity 0.6s ease;
+        }
+
+        .bg.show {
+            opacity: 1;
+        }
+
+        .liquid {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            height: 0%;
+            background: linear-gradient(180deg, var(--primary) 0%, var(--primary-dark) 100%);
+            transition: height 1.6s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .liquid.fill {
+            height: 100%;
+        }
+
+        .wave {
+            position: absolute;
+            top: -40px;
+            left: 0;
+            right: 0;
+            height: 80px;
+            width: 200%;
+        }
+
+        .wave svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        .wave path {
+            fill: var(--primary);
+        }
+
+        .wave-2 {
+            animation: drift 3s linear infinite;
+        }
+
+        .wave-1 {
+            animation: drift 5s linear infinite reverse;
+            opacity: 0.5;
+        }
+
+        @keyframes drift {
+            from { transform: translateX(0); }
+            to   { transform: translateX(-50%); }
+        }
+
+        .brand {
+            position: fixed;
+            top: 55%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 10000;
+            color: #fff;
+            font-size: 14px;
+            letter-spacing: 6px;
+            font-weight: 200;
+            text-transform: uppercase;
+            transition: opacity 0.6s ease;
+        }
+
+        .brand.hide {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .brand .bdot {
+            display: inline-block;
+            animation: blink 1.4s infinite;
+        }
+
+        .brand .bdot:nth-child(2) { animation-delay: 0.2s; }
+        .brand .bdot:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes blink {
+            0%, 60%, 100% { opacity: 0.2; }
+            30% { opacity: 1; }
+        }
+
+        .loader-logo {
+            max-width: 140px;
+            height: auto;
+            opacity: 0.95;
+            position: absolute;
+            top: 40%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 10000;
+            transition: opacity 0.6s ease;
+        }
+
+        .loader-logo.hide {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 480px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1), transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+            padding-bottom: 40px;
+        }
+
+        .app-container.ready {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 0;
+        }
+
+        .btn-back {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            color: var(--text-light);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background 0.2s;
+        }
+
+        .btn-back:active {
+            background: var(--border);
+        }
+
+        .page-logo {
+            height: 40px;
+            width: auto;
+            opacity: 0.95;
+        }
+
+        .profile-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .avatar-wrapper {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            font-weight: 700;
+            color: white;
+            box-shadow: 0 8px 16px rgba(108, 92, 231, 0.2);
+        }
+
+        .user-name-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--text-light);
+            text-align: center;
+        }
+
+        .user-badge {
+            background: rgba(0, 206, 201, 0.15);
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .details-list {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            border-top: 1px solid var(--border);
+            padding-top: 16px;
+            margin-top: 8px;
+        }
+
+        .detail-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 14px;
+        }
+
+        .detail-label {
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .detail-value {
+            font-weight: 600;
+            color: var(--text-light);
+        }
+
+        .management-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .card-heading {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text-light);
+            margin-bottom: 4px;
+        }
+
+        .btn-action {
+            width: 100%;
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            color: var(--text-light);
+            padding: 16px;
+            border-radius: 16px;
+            font-size: 14px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-action:active {
+            background: rgba(108, 92, 231, 0.1);
+            border-color: var(--primary);
+        }
+
+        .btn-action div {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .btn-action i.indicator {
+            color: var(--text-muted);
+            font-size: 12px;
+        }
+
+        .overlay-form {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.95);
+            z-index: 1000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .overlay-form.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .form-card {
+            width: 100%;
+            max-width: 400px;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            transform: scale(0.9);
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .overlay-form.active .form-card {
+            transform: scale(1);
+        }
+
+        .form-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .form-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-light);
+        }
+
+        .btn-close-form {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 20px;
+            cursor: pointer;
+        }
+
+        .input-wrapper {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            position: relative;
+        }
+
+        .form-label {
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+        }
+
+        .input-control {
+            width: 100%;
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 14px 44px 14px 16px;
+            color: var(--text-light);
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .input-control:focus {
+            border-color: var(--primary);
+        }
+
+        .toggle-password {
+            position: absolute;
+            right: 16px;
+            bottom: 14px;
+            color: var(--text-muted);
+            cursor: pointer;
+        }
+
+        .forget-link-wrapper {
+            text-align: right;
+            margin-top: -8px;
+        }
+
+        .forget-link {
+            color: var(--primary);
+            font-size: 12px;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .btn-submit {
+            width: 100%;
+            background: var(--primary);
+            border: none;
+            color: white;
+            padding: 16px;
+            border-radius: 14px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+        }
+
+        .btn-submit:active {
+            background: var(--primary-dark);
+            transform: scale(0.98);
+        }
+
+        .pin-box-container {
+            display: flex;
+            justify-content: center;
+            gap: 14px;
+            margin: 10px 0;
+        }
+
+        .pin-input-field {
+            width: 50px;
+            height: 50px;
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            text-align: center;
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--text-light);
+            outline: none;
+        }
+
+        .pin-input-field:focus {
+            border-color: var(--primary);
+        }
+
+        .inner-loader {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            padding: 20px 0;
+        }
+
+        .inner-loader-spinner {
+            width: 32px;
+            height: 32px;
+            border: 3px solid rgba(108, 92, 231, 0.1);
+            border-top: 3px solid var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .toast-container {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            z-index: 10001;
+            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5);
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            pointer-events: none;
+            width: calc(100% - 40px);
+            max-width: 400px;
+        }
+
+        .toast-container.active {
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .toast-icon {
+            font-size: 18px;
+        }
+
+        .toast-icon.success {
+            color: var(--success);
+        }
+
+        .toast-icon.error {
+            color: var(--danger);
+        }
+
+        .toast-message {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-light);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="scene" id="scene">
+        <div class="bg" id="bg"></div>
+        <img src="image/logo.png" class="loader-logo" id="loaderLogo" alt="Logo">
+        <div class="liquid" id="liquid">
+            <div class="wave wave-1">
+                <svg viewBox="0 0 1200 80" preserveAspectRatio="none">
+                    <path d="M0,40 C200,80 400,0 600,40 C800,80 1000,0 1200,40 L1200,80 L0,80 Z"></path>
+                </svg>
+            </div>
+            <div class="wave wave-2">
+                <svg viewBox="0 0 1200 80" preserveAspectRatio="none">
+                    <path d="M0,40 C200,80 400,0 600,40 C800,80 1000,0 1200,40 L1200,80 L0,80 Z"></path>
+                </svg>
+            </div>
+        </div>
+    </div>
+
+    <div class="brand" id="brand">
+        Loading<span class="bdot">.</span><span class="bdot">.</span><span class="bdot">.</span>
+    </div>
+
+    <div class="app-container" id="appContainer">
+        <header>
+            <a href="dashboard.html" class="btn-back">
+                <i class="fa-solid fa-arrow-left"></i>
+            </a>
+            <img src="image/logo.png" class="page-logo" alt="AmanData Logo">
+        </header>
+
+        <section class="profile-card">
+            <div class="avatar-wrapper" id="profileInitials">PD</div>
+            <h2 class="user-name-title" id="profileName">Loading User...</h2>
+            <span class="user-badge" id="profileLocation">Active User</span>
+
+            <div class="details-list">
+                <div class="detail-item">
+                    <div class="detail-label"><i class="fa-regular fa-envelope"></i> Email</div>
+                    <div class="detail-value" id="profileEmail">---</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label"><i class="fa-solid fa-phone"></i> Phone Number</div>
+                    <div class="detail-value" id="profilePhone">---</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label"><i class="fa-regular fa-calendar"></i> Joined Date</div>
+                    <div class="detail-value" id="profileJoined">---</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label"><i class="fa-solid fa-user-group"></i> Referred By</div>
+                    <div class="detail-value" id="profileReferredBy">None</div>
+                </div>
+            </div>
+        </section>
+
+        <section class="management-card">
+            <h3 class="card-heading">Security Credentials</h3>
+            
+            <button class="btn-action" id="btnTriggerPin">
+                <div>
+                    <i class="fa-solid fa-key" style="color: var(--accent);"></i>
+                    <span>Change Transaction PIN</span>
+                </div>
+                <i class="fa-solid fa-chevron-right indicator"></i>
+            </button>
+
+            <button class="btn-action" id="btnTriggerPassword">
+                <div>
+                    <i class="fa-solid fa-lock" style="color: var(--primary);"></i>
+                    <span>Change Login Password</span>
+                </div>
+                <i class="fa-solid fa-chevron-right indicator"></i>
+            </button>
+        </section>
+    </div>
+
+    <div class="overlay-form" id="pinVerificationOverlay">
+        <div class="form-card" id="pinFormCard">
+            <div class="form-header">
+                <h3 class="form-title" id="pinFormTitle">Identity Verification</h3>
+                <button class="btn-close-form" id="btnClosePinForm"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            
+            <div class="input-wrapper">
+                <span class="form-label">Email Address</span>
+                <input type="email" class="input-control" id="pinEmailInput" placeholder="Enter your email">
+            </div>
+
+            <div class="input-wrapper">
+                <span class="form-label">Account Password</span>
+                <input type="password" class="input-control" id="pinPassInput" placeholder="Enter password">
+                <i class="fa-regular fa-eye toggle-password" id="togglePinPass"></i>
+            </div>
+
+            <button class="btn-submit" id="btnSubmitPinVerify">Submit Verification</button>
+        </div>
+    </div>
+
+    <div class="overlay-form" id="passwordVerificationOverlay">
+        <div class="form-card" id="passwordFormCard">
+            <div class="form-header">
+                <h3 class="form-title" id="passwordFormTitle">Security Credentials</h3>
+                <button class="btn-close-form" id="btnClosePassForm"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            
+            <div id="passwordStep1Fields" style="display: flex; flex-direction: column; gap: 20px; width: 100%;">
+                <div class="input-wrapper">
+                    <span class="form-label">Email Address</span>
+                    <input type="email" class="input-control" id="passEmailInput" placeholder="Enter your email">
+                </div>
+
+                <div class="input-wrapper">
+                    <span class="form-label">Current Password</span>
+                    <input type="password" class="input-control" id="passOldInput" placeholder="Enter current password">
+                    <i class="fa-regular fa-eye toggle-password" id="togglePassOld"></i>
+                </div>
+
+                <div class="forget-link-wrapper">
+                    <a href="forget.html" class="forget-link">Forgot Password?</a>
+                </div>
+
+                <button class="btn-submit" id="btnSubmitPassVerify">Verify Account</button>
+            </div>
+
+            <div id="passwordStep2Fields" style="display: none; flex-direction: column; gap: 20px; width: 100%;">
+                <div class="input-wrapper">
+                    <span class="form-label">New Password</span>
+                    <input type="password" class="input-control" id="passNewInput" placeholder="Enter new password">
+                    <i class="fa-regular fa-eye toggle-password" id="togglePassNew"></i>
+                </div>
+
+                <div class="input-wrapper">
+                    <span class="form-label">Confirm New Password</span>
+                    <input type="password" class="input-control" id="passConfirmInput" placeholder="Confirm new password">
+                    <i class="fa-regular fa-eye toggle-password" id="togglePassConfirm"></i>
+                </div>
+
+                <button class="btn-submit" id="btnSubmitPassChange">Change Password</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast-container" id="toastContainer">
+        <i class="fa-solid fa-circle-check toast-icon success" id="toastIcon"></i>
+        <span class="toast-message" id="toastMessage">Success</span>
+    </div>
+
+    <script type="module" src="profile.js"></script>
+    
+    
+    <div id="pd-whatsapp-widget" class="pd-wa-container">
+    <div class="pd-wa-pulse-ring"></div>
+    <a href="https://wa.me/2347060739494?text=I%20am%20in%20need%20of%20help%20from%20the%20AmanData%20app" 
+       target="_blank" 
+       class="pd-wa-link" 
+       id="pd-wa-link"
+       draggable="false">
+        <img src="image/whatsapp.png" alt="WhatsApp Support" class="pd-wa-icon" draggable="false">
+    </a>
+</div>
+
+<style>
+    .pd-wa-container {
+        position: fixed;
+        bottom: 270px;
+        right: 24px;
+        width: 60px;
+        height: 60px;
+        z-index: 9;
+        cursor: grab;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        user-select: none;
+        -webkit-user-drag: none;
+        touch-action: none;
+    }
+Dan u   .pd-wa-container:active {
+        cursor: grabbing;
+    }
+
+    .pd-wa-link {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        
+        box-shadow: 0 8px 24px rgba(37, 211, 102, 0.35);
+        transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        -webkit-user-drag: none;
+    }
+
+    .pd-wa-link:active {
+        transform: scale(0.9);
+    }
+
+    .pd-wa-icon {
+        width: 60px;
+        height: 60px;
+        object-fit: contain;
+        pointer-events: none;
+        animation: pd-wa-bounce 3s ease-in-out infinite;
+    }
+
+    .pd-wa-pulse-ring {
+        position: absolute;
+        inset: 0;
+        border-radius: 50%;
+        background-color: #25d366;
+        opacity: 0.4;
+        z-index: -1;
+        animation: pd-wa-ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+        pointer-events: none;
+    }
+
+    @keyframes pd-wa-ping {
+        75%, 100% {
+            transform: scale(1.6);
+            opacity: 0;
+        }
+    }
+
+    @keyframes pd-wa-bounce {
+        0%, 100% {
+            transform: translateY(0);
+        }
+        50% {
+            transform: translateY(-5px);
+        }
+    }
+</style>
+
+<script>
+    
+    (function() {
+    const widget = document.getElementById('pd-whatsapp-widget');
+    const link = document.getElementById('pd-wa-link');
+    
+    let isDragging = false;
+    let startX, startY;
+    let initialX, initialY;
+    let hasMoved = false;
+
+    widget.addEventListener('mousedown', dragStart);
+    document.addEventListener('mousemove', drag);
+    document.addEventListener('mouseup', dragEnd);
+
+    widget.addEventListener('touchstart', dragStart, { passive: false });
+    document.addEventListener('touchmove', drag, { passive: false });
+    document.addEventListener('touchend', dragEnd);
+
+    link.addEventListener('click', function(e) {
+        if (hasMoved) {
+            e.preventDefault();
+        }
+    });
+
+    function dragStart(e) {
+        hasMoved = false;
+        isDragging = true;
+        
+        const clientX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
+        const clientY = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
+
+        const rect = widget.getBoundingClientRect();
+        initialX = rect.left;
+        initialY = rect.top;
+
+        startX = clientX;
+        startY = clientY;
+    }
+
+    function drag(e) {
+        if (!isDragging) return;
+        
+        if (e.cancelable) {
+            e.preventDefault();
+        }
+
+        const clientX = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX;
+        const clientY = e.type === 'touchmove' ? e.touches[0].clientY : e.clientY;
+
+        const dx = clientX - startX;
+        const dy = clientY - startY;
+
+        if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+            hasMoved = true;
+        }
+
+        let newX = initialX + dx;
+        let newY = initialY + dy;
+
+        const widgetWidth = widget.offsetWidth;
+        const widgetHeight = widget.offsetHeight;
+        const windowWidth = window.innerWidth;
+        const windowHeight = window.innerHeight;
+
+        if (newX < 10) newX = 10;
+        if (newX > windowWidth - widgetWidth - 10) newX = windowWidth - widgetWidth - 10;
+        if (newY < 10) newY = 10;
+        if (newY > windowHeight - widgetHeight - 10) newY = windowHeight - widgetHeight - 10;
+
+        widget.style.left = `${newX}px`;
+        widget.style.top = `${newY}px`;
+        widget.style.bottom = 'auto';
+        widget.style.right = 'auto';
+    }
+
+    function dragEnd() {
+        isDragging = false;
+    }
+})();
+    
+</script>
+
+    
+</body>
+</html>
