@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AmanData - Clean Data. Pure Insight.</title>
+    <meta name="title" content="AmanData - Fast, Reliable Data & Utility Services" />
+    <meta name="description" content="Empower your digital world with AmanData. Enjoy lightning-fast data bundles, instant airtime recharges, utility bill payments, and secure transactions designed for your modern lifestyle." />
+    <meta name="keywords" content="AmanData, buy cheap data, fast airtime recharge, utility bill payment, secure digital wallet, internet bundles Nigeria" />
+    <meta name="author" content="AmanData Tech Hub" />
+    <meta property="og:title" content="AmanData- Fast, Reliable Data & Utility Services" />
+    <meta property="og:description" content="Experience seamless connectivity with AmanData. Get affordable internet bundles, instant recharges, and zero-failure utility payments on any device." />
+    <meta property="og:image" content="https://i.imgur.com/KDmLPYa.jpeg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:url" content="https://amandata.pages.dev/" />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="AmanData - Fast, Reliable Data & Utility Services" />
+    <meta name="twitter:description" content="Affordable data, instant airtime, and secure bill payments. Stay connected to what matters most with AmanData." />
+    <meta name="twitter:image" content="https://i.imgur.com/KDmLPYa.jpeg" />
+    <link rel="icon" type="image/png" href="https://i.imgur.com/SBHTDNn.png" />
+    <link rel="apple-touch-icon" href="https://i.imgur.com/SBHTDNn.png" />
+    <link rel="manifest" href="./manifest.json" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .scene { position: fixed; inset: 0; z-index: 99999; background: #001233; transition: opacity 0.6s ease, visibility 0.6s ease; }
+        .scene.hide { opacity: 0; visibility: hidden; pointer-events: none; }
+        .liquid {
+            position: absolute;
+            left: 0; right: 0; bottom: 0;
+            height: 0%;
+            background: linear-gradient(180deg, #6c5ce7 0%, #4834d4 100%);
+            transition: height 1.6s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .liquid.fill { height: 100%; }
+        .wave {
+            position: absolute;
+            top: -40px; left: 0; right: 0;
+            height: 80px;
+            width: 200%;
+        }
+        .wave svg { width: 100%; height: 100%; }
+        .wave path { fill: #6c5ce7; }
+        .wave-2 { animation: drift 3s linear infinite; }
+        .wave-1 { animation: drift 5s linear infinite reverse; opacity: 0.5; }
+        @keyframes drift {
+            from { transform: translateX(0); }
+            to   { transform: translateX(-50%); }
+        }
+        .brand {
+            position: fixed;
+            top: 55%; left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 100001;
+            color: #fff;
+            font-size: 14px;
+            letter-spacing: 6px;
+            font-weight: 200;
+            text-transform: uppercase;
+            transition: opacity 0.6s ease;
+        }
+        .brand.hide { opacity: 0; }
+        .brand .bdot {
+            display: inline-block;
+            animation: blink 1.4s infinite;
+        }
+        .brand .bdot:nth-child(2) { animation-delay: 0.2s; }
+        .brand .bdot:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes blink {
+            0%, 60%, 100% { opacity: 0.2; }
+            30% { opacity: 1; }
+        }
+        .loader-logo {
+            max-width: 140px;
+            height: auto;
+            opacity: 0.9;
+            position: fixed;
+            top: 40%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 100000;
+            transition: opacity 0.6s ease;
+        }
+        .loader-logo.hide { opacity: 0; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+        body {
+            background: #001233;
+            color: #ffffff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+        .hero-section {
+            background: radial-gradient(circle at top, #002b75 0%, #001233 100%);
+            padding: 30px 20px;
+            text-align: center;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .header-container {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            position: relative;
+            z-index: 10;
+        }
+        .hero-section .logo {
+            margin-bottom: 0;
+            max-width: 320px;
+            height: auto;
+            object-fit: contain;
+        }
+        .pwa-header-install {
+            background: #0066ff;
+            border-radius: 50%;
+            width: 45px;
+            height: 45px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background 0.3s, transform 0.2s;
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            box-shadow: 0 4px 10px rgba(0, 102, 255, 0.3);
+        }
+        .pwa-header-install i {
+            font-size: 18px;
+            color: #ffffff;
+        }
+        .pwa-header-install:active {
+            transform: scale(0.95);
+            background: #0052cc;
+        }
+        .girl-img {
+            width: 100%;
+            height: auto;
+            display: block;
+            z-index: 2;
+            position: relative;
+        }
+        .white-card {
+            background: #f8fafc;
+            color: #0c1a30;
+            border-top-left-radius: 32px;
+            border-top-right-radius: 32px;
+            padding: 35px 24px;
+            text-align: center;
+            flex-grow: 1;
+            margin-top: -33px;
+            position: relative;
+            z-index: 5;
+            box-shadow: 0 -10px 25px rgba(0,0,0,0.3);
+            width: 100%;
+        }
+        .welcome-title {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: #030712;
+        }
+        .welcome-title span {
+            color: #0066ff;
+        }
+        .welcome-subtitle {
+            font-size: 15px;
+            color: #4b5563;
+            margin-bottom: 30px;
+            line-height: 1.4;
+        }
+        .icon-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-bottom: 35px;
+            max-width: 400px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .icon-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .icon-box {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: #ffffff;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            margin-bottom: 8px;
+            transition: transform 0.2s ease;
+        }
+        .icon-box.data { color: #0066ff; }
+        .icon-box.airtime { color: #10b981; }
+        .icon-box.electricity { color: #f59e0b; }
+        .icon-box.tv { color: #8b5cf6; }
+        .icon-label {
+            font-size: 12px;
+            font-weight: 500;
+            color: #4b5563;
+        }
+        .btn-get-started {
+            width: 100%;
+            max-width: 360px;
+            background: #0066ff;
+            color: #ffffff;
+            border: none;
+            border-radius: 50px;
+            padding: 16px 32px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin: 0 auto 25px auto;
+            box-shadow: 0 4px 15px rgba(0, 102, 255, 0.3);
+            animation: pulseBtn 2s infinite;
+            text-decoration: none;
+        }
+        @keyframes pulseBtn {
+            0% { transform: scale(1); box-shadow: 0 4px 15px rgba(0, 102, 255, 0.3); }
+            50% { transform: scale(1.02); box-shadow: 0 6px 20px rgba(0, 102, 255, 0.5); }
+            100% { transform: scale(1); box-shadow: 0 4px 15px rgba(0, 102, 255, 0.3); }
+        }
+        .btn-get-started:active {
+            transform: scale(0.98);
+        }
+        .tagline {
+            font-size: 13px;
+            color: #6b7280;
+            font-weight: 500;
+            word-spacing: 2px;
+            margin-bottom: 25px;
+        }
+        .net-img-container {
+            width: 100vw;
+            margin-left: -24px;
+            margin-right: -24px;
+            overflow: hidden;
+        }
+        .net-img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        .business-section {
+            background: #f8fafc;
+            padding: 20px 0;
+            text-align: center;
+        }
+        .wazobia-board {
+            background: #ffffff;
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.04);
+            margin: 15px auto;
+            max-width: 360px;
+            min-height: 140px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            -webkit-user-select: none;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+        .wazobia-board:active {
+            transform: scale(0.99);
+        }
+        .wazobia-text {
+            font-size: 15px;
+            line-height: 1.5;
+            color: #1e293b;
+            font-weight: 500;
+        }
+        .tech-img-container {
+            width: 90vw;
+            margin-left: -24px;
+            margin-right: -24px;
+            overflow: hidden;
+            background: #f8fafc;
+        }
+        .tech-img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        .developer-section {
+            padding: 35px 20px;
+            background: #ffffff;
+            text-align: center;
+        }
+        .dev-icon {
+            font-size: 48px;
+            color: #0066ff;
+            margin-bottom: 12px;
+        }
+        .dev-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: #0c1a30;
+            margin-bottom: 6px;
+        }
+        .dev-subtitle {
+            font-size: 14px;
+            color: #6b7280;
+            margin-bottom: 20px;
+        }
+        .download-container {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            max-width: 360px;
+            margin: 0 auto;
+        }
+        .download-btn {
+            flex: 1;
+            height: 100px;
+            object-fit: contain;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .download-btn:active {
+            transform: scale(0.95);
+        }
+        footer {
+            background: #001233;
+            color: #94a3b8;
+            padding: 30px 20px;
+            text-align: center;
+            font-size: 13px;
+            border-top: 1px solid #002366;
+        }
+        @media (min-width: 768px) {
+            body {
+                align-items: center;
+                background: #00091a;
+            }
+            .hero-section, .white-card, .business-section, .developer-section, footer {
+                max-width: 480px;
+                width: 480px;
+                margin-left: auto;
+                margin-right: auto;
+            }
+            .hero-section {
+                border-top-left-radius: 24px;
+                border-top-right-radius: 24px;
+                margin-top: 20px;
+            }
+            footer {
+                border-bottom-left-radius: 24px;
+                border-bottom-right-radius: 24px;
+                margin-bottom: 20px;
+            }
+            .net-img-container, .tech-img-container {
+                width: 480px;
+                margin-left: -24px;
+                margin-right: -24px;
+            }
+        }
+        .pd-whatsapp-widget {
+            position: fixed;
+            bottom: 270px;
+            right: 24px;
+            width: 60px;
+            height: 60px;
+            z-index: 9;
+            cursor: grab;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            -webkit-user-drag: none;
+            touch-action: none;
+        }
+        .pd-whatsapp-widget:active {
+            cursor: grabbing;
+        }
+        .pd-wa-link {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            box-shadow: 0 8px 24px rgba(37, 211, 102, 0.35);
+            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            -webkit-user-drag: none;
+        }
+        .pd-wa-link:active {
+            transform: scale(0.9);
+        }
+        .pd-wa-icon {
+            width: 60px;
+            height: 60px;
+            object-fit: contain;
+            pointer-events: none;
+            animation: pd-wa-bounce 3s ease-in-out infinite;
+        }
+        .pd-wa-pulse-ring {
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            background-color: #25d366;
+            opacity: 0.4;
+            z-index: -1;
+            animation: pd-wa-ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+            pointer-events: none;
+        }
+        @keyframes pd-wa-ping {
+            75%, 100% {
+                transform: scale(1.6);
+                opacity: 0;
+            }
+        }
+        @keyframes pd-wa-bounce {
+            0%, 100% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-5px);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="scene" id="loadingScene">
+        <div class="liquid" id="liquid">
+            <div class="wave wave-1">
+                <svg viewBox="0 0 1200 80" preserveAspectRatio="none">
+                    <path d="M0,40 C200,80 400,0 600,40 C800,80 1000,0 1200,40 L1200,80 L0,80 Z"></path>
+                </svg>
+            </div>
+            <div class="wave wave-2">
+                <svg viewBox="0 0 1200 80" preserveAspectRatio="none">
+                    <path d="M0,40 C200,80 400,0 600,40 C800,80 1000,0 1200,40 L1200,80 L0,80 Z"></path>
+                </svg>
+            </div>
+        </div>
+    </div>
+    
+    <img src="image/logo.png" alt="Loading Logo" class="loader-logo" id="loaderLogo">
+    <div class="brand" id="brand">
+        Loading<span class="bdot">.</span><span class="bdot">.</span><span class="bdot">.</span>
+    </div>
+    
+    <section class="hero-section">
+        <div class="header-container">
+            <img src="image/logo.png" alt="AmanData" class="logo" loading="eager">
+            <div id="pwaInstallContainer" class="pwa-header-install" style="display: flex;" title="Download App">
+                <i class="fa-solid fa-download"></i>
+            </div>
+        </div>
+        <div class="girl-container">
+            <img src="https://i.imgur.com/0COsVQ7.png" alt="AmanData App User" class="girl-img" loading="eager">
+        </div>
+    </section>
+    <div class="white-card">
+        <h1 class="welcome-title">Welcome to <span>AmanData</span></h1>
+        <p class="welcome-subtitle">Buy Data, Airtime, Pay Bills & Enjoy More with AmanData.</p>
+        
+        <div class="icon-grid">
+            <div class="icon-item">
+                <div class="icon-box data"><i class="fa-solid fa-database"></i></div>
+                <span class="icon-label">Data</span>
+            </div>
+            <div class="icon-item">
+                <div class="icon-box airtime"><i class="fa-solid fa-mobile-screen-button"></i></div>
+                <span class="icon-label">Airtime</span>
+            </div>
+            <div class="icon-item">
+                <div class="icon-box electricity"><i class="fa-solid fa-bolt"></i></div>
+                <span class="icon-label">Electricity</span>
+            </div>
+            <div class="icon-item">
+                <div class="icon-box tv"><i class="fa-solid fa-tv"></i></div>
+                <span class="icon-label">TV Sub</span>
+            </div>
+        </div>
+        
+        <a href="register.html" class="btn-get-started" id="btnGetStarted">
+            Get Started <i class="fa-solid fa-arrow-right"></i>
+        </a>
+        <div class="tagline">Secure • Fast • Reliable</div>
+        <div class="net-img-container">
+            <img src="https://i.imgur.com/zb9gSgx.png" alt="Network Grid" class="net-img" loading="lazy">
+        </div>
+        
+        <div class="business-section">
+            <div class="wazobia-board" id="wazobiaBoard">
+                <div class="wazobia-text" id="wazobiaText">Fund your wallet instantly with zero fees. Save, deposit and withdraw money automatically. Convert your excess airtime to instant cash. Get cheap, high-speed and quality data bundles anytime.</div>
+            </div>
+        </div>
+        
+        <div class="tech-img-container">
+            <img src="https://i.imgur.com/TYSsWTB.jpeg" alt="AmanData Technology" class="tech-img" loading="lazy">
+        </div>
+        
+        <div class="developer-section">
+            <div class="dev-icon"><i class="fa-solid fa-code"></i></div>
+            <h2 class="dev-title">For Developers</h2>
+            <p class="dev-subtitle">We offer robust, lightning-fast and straightforward API documentation for seamless integration.</p>
+            <div class="tech-img-container">
+                <img src="https://i.imgur.com/Sm8GWk2.png" alt="AmanData Technology" class="tech-img" loading="lazy">
+            </div>
+            <div class="download-container">
+                <img src="https://i.imgur.com/5Ktqg0D.png" alt="Download on Google Play" class="download-btn" onclick="window.location.href='#'" loading="lazy">
+                <img src="https://i.imgur.com/tuCNOYq.png" alt="Download on App Store" class="download-btn" onclick="window.location.href='#'" loading="lazy">
+            </div>
+        </div>
+    </div>
+    <footer>
+        <p>&copy; 2026 AmanData Platform. All Rights Reserved.</p>
+    </footer>
+    <div id="pd-whatsapp-widget" class="pd-whatsapp-widget">
+        <div class="pd-wa-pulse-ring"></div>
+        <a href="https://wa.me/2347060739494?text=I%20am%20in%20need%20of%20help%20from%20the%20AmanData%20app" 
+           target="_blank" 
+           class="pd-wa-link" 
+           id="pd-wa-link"
+           draggable="false">
+            <img src="image/whatsapp.png" alt="WhatsApp Support" class="pd-wa-icon" draggable="false">
+        </a>
+    </div>
+    
+    
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            setTimeout(() => {
+                document.getElementById('liquid').classList.add('fill');
+            }, 100);
+        });
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                const liq = document.getElementById('liquid');
+                liq.style.transition = 'height 1.2s cubic-bezier(0.4, 0, 0.2, 1)';
+                liq.style.height = '0%';
+                
+                document.getElementById('brand').classList.add('hide');
+                document.getElementById('loaderLogo').classList.add('hide');
+                document.getElementById('loadingScene').classList.add('hide');
+            }, 1500);
+        });
+        
+        let deferredPrompt;
+        const installBtnContainer = document.getElementById('pwaInstallContainer');
+        
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+        });
+        
+        if (installBtnContainer) {
+            installBtnContainer.addEventListener('click', async () => {
+                if (!deferredPrompt) return;
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                if (outcome === 'accepted') {
+                    installBtnContainer.style.display = 'none';
+                }
+                deferredPrompt = null;
+            });
+        }
+        
+        window.addEventListener('appinstalled', () => {
+            if (installBtnContainer) {
+                installBtnContainer.style.display = 'none';
+            }
+            deferredPrompt = null;
+        });
+    </script>
+    <script>
+        (function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            
+            const isAppMode = urlParams.get('mode') === 'app' || 
+                              window.navigator.userAgent.includes('AmanDataAppInside') || 
+                              window.matchMedia('(display-mode: standalone)').matches;
+
+            let refCode = '';
+            if (window.location.pathname.includes('/ref/')) {
+                const parts = window.location.pathname.split('/ref/');
+                if (parts[1]) refCode = parts[1].replace('/', '');
+            } else if (urlParams.has('ref')) {
+                refCode = urlParams.get('ref');
+            }
+
+            const targetPage = refCode ? `register.html?ref=${encodeURIComponent(refCode)}` : 'register.html';
+
+            if (isAppMode) {
+                window.location.replace(targetPage);
+                return;
+            }
+
+            const startBtn = document.getElementById('btnGetStarted');
+            if (startBtn) {
+                startBtn.setAttribute('href', targetPage);
+            }
+
+            const messages = [
+                "Fund your wallet instantly with zero fees. Save, deposit and withdraw money automatically. Convert your excess airtime to instant cash. Get cheap, high-speed and quality data bundles anytime.",
+                "Saka kudi a asusunka ba zare da an cire maka ko sisi ba. Zaka iya ajiya da cire kudi ta hanyar atomatik. Canza rago ko rarar katinka zuwa tsabar kudi. Samu data mai arha, gudu da inganci a kowane lokaci.",
+                "Sowo sininu apo rẹ laisi san owo kankan. Fi owo pamọ, ki o si gba owo jade ni ọna kọnputa gidi. Yi owo afẹfẹ rẹ pada si owo gidi lẹsẹkẹsẹ. Gba data ti o rọrun, yara ati didara ga ni eyikeyi akoko.",
+                "Tinye ego na wallet gị ozugbo n'akwụghị ụgwọ ọ bụla. Chekwaba, tinye ma dọrọ ego gị n'ụzọ dị mfe. Gbanwuo airtime gị gachara ka ọ bụrụ ego ozugbo. Nweta data dị ọnụ ala, dị ngwa ma nwee mma n'oge ọ bụla."
+            ];
+            let currentIndex = 0;
+            let isPaused = false;
+            const textElement = document.getElementById('wazobiaText');
+            const boardElement = document.getElementById('wazobiaBoard');
+            
+            if (textElement && boardElement) {
+                function rotateText() {
+                    if (!isPaused) {
+                        currentIndex = (currentIndex + 1) % messages.length;
+                        textElement.textContent = messages[currentIndex];
+                    }
+                }
+                setInterval(rotateText, 5000);
+                boardElement.addEventListener('touchstart', function() { isPaused = true; });
+                boardElement.addEventListener('touchend', function() { isPaused = false; });
+                boardElement.addEventListener('mousedown', function() { isPaused = true; });
+                boardElement.addEventListener('mouseup', function() { isPaused = false; });
+            }
+        })();
+    </script>
+</body>
+</html>
