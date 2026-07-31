@@ -10,16 +10,16 @@
     <meta name="author" content="AmanData Tech Hub" />
     <meta property="og:title" content="AmanData- Fast, Reliable Data & Utility Services" />
     <meta property="og:description" content="Experience seamless connectivity with AmanData. Get affordable internet bundles, instant recharges, and zero-failure utility payments on any device." />
-    <meta property="og:image" content="https://i.imgur.com/4spqtFJ.png" />
+    <meta property="og:image" content="https://i.imgur.com/BKnzz1Q.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:image:type" content="image/png" />
-    <meta property="og:url" content="https://amandata.pages.dev/" />
+    <meta property="og:url" content="www.amandata.com.gn" />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="AmanData - Fast, Reliable Data & Utility Services" />
     <meta name="twitter:description" content="Affordable data, instant airtime, and secure bill payments. Stay connected to what matters most with AmanData." />
-    <meta name="twitter:image" content="https://i.imgur.com/4spqtFJ.png" />
+    <meta name="twitter:image" content="https://i.imgur.com/BKnzz1Q.png" />
     <link rel="icon" type="image/png" href="https://i.imgur.com/SBHTDNn.png" />
     <link rel="apple-touch-icon" href="https://i.imgur.com/SBHTDNn.png" />
     <link rel="manifest" href="./manifest.json" />
@@ -329,12 +329,12 @@
             display: flex;
             justify-content: center;
             gap: 12px;
-            max-width: 360px;
+            max-width: 340px;
             margin: 0 auto;
         }
         .download-btn {
             flex: 1;
-            height: 100px;
+            height: 90px;
             object-fit: contain;
             cursor: pointer;
             transition: transform 0.2s;
@@ -440,6 +440,107 @@
                 transform: translateY(-5px);
             }
         }
+        
+        
+        
+        .aman-section{
+    width:100%;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    padding:25px 15px;
+    box-sizing:border-box;
+}
+
+.aman-card{
+    width:100%;
+    max-width:900px;
+    background:rgba(255,255,255,.05);
+    backdrop-filter:blur(12px);
+    border:1px solid rgba(255,255,255,.08);
+    border-radius:28px;
+    overflow:hidden;
+    box-shadow:0 15px 40px rgba(0,0,0,.18);
+    transition:.35s;
+}
+
+.aman-card:hover{
+    transform:translateY(-6px);
+    box-shadow:0 20px 50px rgba(0,102,255,.25);
+}
+
+.aman-image{
+    width:100%;
+    display:block;
+    object-fit:cover;
+    transition:.5s;
+}
+
+.aman-card:hover .aman-image{
+    transform:scale(1.02);
+}
+
+.aman-content{
+    padding:25px;
+    text-align:center;
+}
+
+.aman-title{
+    margin:0;
+    font-size:30px;
+    font-weight:700;
+    color:#0066ff;
+}
+
+.aman-desc{
+    margin-top:12px;
+    color:#666;
+    font-size:17px;
+    line-height:1.8;
+}
+
+.aman-btn{
+    display:inline-block;
+    margin-top:20px;
+    background:linear-gradient(135deg,#007bff,#0050ff);
+    color:#fff;
+    padding:14px 35px;
+    border-radius:50px;
+    text-decoration:none;
+    font-size:16px;
+    font-weight:600;
+    transition:.3s;
+}
+
+.aman-btn:hover{
+    background:linear-gradient(135deg,#0050ff,#0037cc);
+    transform:scale(1.04);
+}
+
+@media(max-width:768px){
+
+.aman-section{
+    padding:15px;
+}
+
+.aman-content{
+    padding:18px;
+}
+
+.aman-title{
+    font-size:24px;
+}
+
+.aman-desc{
+    font-size:15px;
+}
+
+.aman-btn{
+    width:100%;
+    box-sizing:border-box;
+}
+
+}
     </style>
 </head>
 <body>
@@ -504,6 +605,35 @@
         <div class="net-img-container">
             <img src="https://i.imgur.com/zb9gSgx.png" alt="Network Grid" class="net-img" loading="lazy">
         </div>
+        
+        
+       
+
+<section class="aman-section">
+
+<div class="aman-card">
+
+<img class="aman-image" src="https://i.imgur.com/BXY2PXJ.jpeg" alt="AmanData Electricity Token">
+
+<div class="aman-content">
+
+<h2 class="aman-title">Buy Electricity Token Instantly</h2>
+
+<p class="aman-desc">
+Purchase your prepaid electricity token quickly and securely with AmanData.
+Enter your meter number, make payment, and receive your token instantly anytime, anywhere.
+</p>
+
+<a href="register.html" class="aman-btn">
+    Buy Electricity Token
+</a>
+
+</div>
+
+</div>
+
+</section>
+        
         
         <div class="business-section">
             <div class="wazobia-board" id="wazobiaBoard">
@@ -617,11 +747,16 @@
             }
 
             const messages = [
-                "Fund your wallet instantly with zero fees. Save, deposit and withdraw money automatically. Convert your excess airtime to instant cash. Get cheap, high-speed and quality data bundles anytime.",
-                "Saka kudi a asusunka ba zare da an cire maka ko sisi ba. Zaka iya ajiya da cire kudi ta hanyar atomatik. Canza rago ko rarar katinka zuwa tsabar kudi. Samu data mai arha, gudu da inganci a kowane lokaci.",
-                "Sowo sininu apo rẹ laisi san owo kankan. Fi owo pamọ, ki o si gba owo jade ni ọna kọnputa gidi. Yi owo afẹfẹ rẹ pada si owo gidi lẹsẹkẹsẹ. Gba data ti o rọrun, yara ati didara ga ni eyikeyi akoko.",
-                "Tinye ego na wallet gị ozugbo n'akwụghị ụgwọ ọ bụla. Chekwaba, tinye ma dọrọ ego gị n'ụzọ dị mfe. Gbanwuo airtime gị gachara ka ọ bụrụ ego ozugbo. Nweta data dị ọnụ ala, dị ngwa ma nwee mma n'oge ọ bụla."
-            ];
+
+    "Fund your wallet instantly with zero charges. Save, deposit, and withdraw money with ease. Convert your unused airtime into instant cash. Enjoy affordable, high-speed, and reliable data bundles anytime with AmanData.",
+
+    "Saka kuɗi a asusunka cikin sauri ba tare da an cire maka ko sisi ba. Ajiye, saka, da cire kuɗi cikin sauƙi. Maida airtime ɗinka zuwa tsabar kuɗi nan take. Samu data mai araha, sauri, kuma ingantacciya a kowane lokaci tare da AmanData.",
+
+    "Fi owo kun wallet rẹ lẹsẹkẹsẹ lai san owo afikun kankan. Fipamọ, fi owo kun, ki o si yọ owo rẹ ni irọrun. Yi airtime rẹ pada si owo gidi lẹsẹkẹsẹ. Gba data to din owo, yara, ati didara ga nigbakugba pẹlu AmanData.",
+
+    "Tinye ego na wallet gị ozugbo n'enweghị ụgwọ ọ bụla. Chekwaa ego, tinye ego ma dọrọ ego gị n'ụzọ dị mfe. Gbanwee airtime gị ka ọ bụrụ ego ozugbo. Nweta data dị ọnụ ala, dị ngwa, ma dị mma oge ọ bụla site na AmanData."
+
+];
             let currentIndex = 0;
             let isPaused = false;
             const textElement = document.getElementById('wazobiaText');
