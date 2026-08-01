@@ -13,6 +13,22 @@ import { supabase } from './supabase.js';
     const toastMessage = document.getElementById('toastMessage');
     const refInput = document.getElementById('regRef');
 
+    const SCRIPT_VERSION = "1.0.1";
+    if (localStorage.getItem('register_script_version') !== SCRIPT_VERSION) {
+        localStorage.setItem('register_script_version', SCRIPT_VERSION);
+        if ('caches' in window) {
+            caches.keys().then(names => {
+                for (let name of names) caches.delete(name);
+            });
+        }
+        idbKeyval?.clear?.().catch(() => {});
+        if (window.registration && window.registration.unregister) {
+            window.registration.unregister();
+        }
+        setTimeout(() => { window.location.reload(true); }, 200);
+        return;
+    }
+
     if (localStorage.getItem('puredata_user_session')) {
         window.location.replace('dashboard.html');
         return;
@@ -131,7 +147,7 @@ import { supabase } from './supabase.js';
         const pass = document.getElementById('loginPassword').value;
 
         if (!email || !pass) {
-            showToast("Shigar da duka bayanan login dinka!");
+            showToast("Please fill in all login credentials!");
             return;
         }
 
@@ -147,13 +163,13 @@ import { supabase } from './supabase.js';
             
             if (!activeProfile) {
                 toggleLoader(false);
-                showToast("Babu asusu mai wannan imel din! Yi rajista tukunna.");
+                showToast("No account linked with this email address!");
                 return;
             }
 
             if (activeProfile.user_data.password !== pass) {
                 toggleLoader(false);
-                showToast("Password dinka ba daidai ba ne! Sake gwadawa.");
+                showToast("Incorrect account password. Please try again!");
                 return;
             }
 
@@ -163,12 +179,12 @@ import { supabase } from './supabase.js';
                 email: activeProfile.user_data.email
             }));
 
-            showToast("An shiga cikin asusu cikin nasara! Ana tura ka...", true);
+            showToast("Login successful! Redirecting...", true);
             setTimeout(() => { window.location.replace('dashboard.html'); }, 1500);
 
         } catch (err) {
             toggleLoader(false);
-            showToast("An sami matsalar network ko kuma database!");
+            showToast("Network failure or database verification error!");
         }
     });
 
@@ -185,17 +201,17 @@ import { supabase } from './supabase.js';
         pinBoxes.forEach(b => gatheredPin += b.value);
 
         if (!fullName || !email || !phone || gatheredPin.length !== 4 || !pass || !confirmPass) {
-            showToast("Da fatan za ka cike dukkan guraren da ake bukata!");
+            showToast("Please complete all registration form fields!");
             return;
         }
 
         if (pass !== confirmPass) {
-            showToast("Password din da ka tabbatar bai yi daidai da na farko ba!");
+            showToast("Password confirmation mismatch! Verify entries.");
             return;
         }
 
         if (!acceptTerms) {
-            showToast("Dole ne ka yarda da sharuddan amfani da shafin domin ci gaba.");
+            showToast("You must accept terms & conditions to continue.");
             return;
         }
 
@@ -216,7 +232,7 @@ import { supabase } from './supabase.js';
         };
 
         try {
-            const apiResponse = await fetch('/api/register', {
+            const apiResponse = await fetch('https://www.amandata.com.ng/api/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
@@ -225,7 +241,7 @@ import { supabase } from './supabase.js';
             const backendStatus = await apiResponse.json();
 
             if (!apiResponse.ok || !backendStatus.success) {
-                throw new Error(backendStatus.message || "An sami matsala wajen yin rajista.");
+                throw new Error(backendStatus.message || "Registration gateway rejected your submission.");
             }
 
             localStorage.setItem('puredata_user_session', JSON.stringify({
@@ -234,12 +250,12 @@ import { supabase } from './supabase.js';
                 email: email
             }));
 
-            showToast("An kafa asusunka cikin nasara!", true);
+            showToast("Account created successfully! Preparing dashboard...", true);
             setTimeout(() => { window.location.replace('dashboard.html'); }, 1500);
 
         } catch (error) {
             toggleLoader(false);
-            showToast(error.message);
+            showToast(error.message || "Network connection failure (Failed to fetch API).");
         }
     });
 })();
