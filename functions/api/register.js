@@ -1,5 +1,6 @@
 export async function onRequestPost(context) {
   const { request, env } = context;
+
   try {
     const body = await request.json();
     const { 
@@ -16,14 +17,14 @@ export async function onRequestPost(context) {
     } = body;
 
     if (secureToken !== "@haruna66") {
-      return new Response(JSON.stringify({ success: false, message: "Unauthorized gateway access token." }), {
+      return new Response(JSON.stringify({ success: false, message: "Kuskure wajen tantance kariya ta tsaro (Unauthorized)." }), {
         status: 401,
         headers: { "Content-Type": "application/json" }
       });
     }
 
     if (!fullName || !email || !phone || !pin || !password) {
-      return new Response(JSON.stringify({ success: false, message: "Missing required registration credentials." }), {
+      return new Response(JSON.stringify({ success: false, message: "Akwai bayanan rajista da suka rage baka cike ba." }), {
         status: 400,
         headers: { "Content-Type": "application/json" }
       });
@@ -44,15 +45,20 @@ export async function onRequestPost(context) {
     if (checkUserRes.ok) {
       const allProfiles = await checkUserRes.json();
       const emailExists = allProfiles.some(profile => 
-        profile.user_data && (profile.user_data.email === email || profile.user_data.email?.toLowerCase() === email.toLowerCase())
+        profile.user_data && (profile.user_data.email?.toLowerCase() === email.toLowerCase())
       );
       
       if (emailExists) {
-        return new Response(JSON.stringify({ success: false, message: "Email address already linked to another profile." }), {
+        return new Response(JSON.stringify({ success: false, message: "Wannan imel din riga an yi amfani da shi wajen bude wani asusun." }), {
           status: 400,
           headers: { "Content-Type": "application/json" }
         });
       }
+    } else {
+      return new Response(JSON.stringify({ success: false, message: "An kasa haduwa da rumbun adana bayanai na Database." }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" }
+      });
     }
 
     const uniqueId = crypto.randomUUID();
@@ -144,7 +150,7 @@ export async function onRequestPost(context) {
     });
 
     if (!insertProfileRes.ok) {
-      return new Response(JSON.stringify({ success: false, message: "Database core execution error. Registration aborted." }), {
+      return new Response(JSON.stringify({ success: false, message: "Kuskure daga database yayin sanya sabon asusu. An dakatar da rajistar." }), {
         status: 500,
         headers: { "Content-Type": "application/json" }
       });
@@ -162,14 +168,15 @@ export async function onRequestPost(context) {
 
     return new Response(JSON.stringify({ 
       success: true, 
-      message: "Registration completed successfully.", 
+      message: "An kammala rajista lafiya.", 
       userId: uniqueId 
     }), {
       status: 201,
       headers: { "Content-Type": "application/json" }
     });
+
   } catch (globalError) {
-    return new Response(JSON.stringify({ success: false, message: "Critical internal system exception caught." }), {
+    return new Response(JSON.stringify({ success: false, message: "An sami babban kuskure na ciki a dandalin sabar (Server Exception)." }), {
       status: 500,
       headers: { "Content-Type": "application/json" }
     });
