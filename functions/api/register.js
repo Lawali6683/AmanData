@@ -17,14 +17,14 @@ export async function onRequestPost(context) {
     } = body;
 
     if (secureToken !== "@haruna66") {
-      return new Response(JSON.stringify({ success: false, message: "Kuskure wajen tantance kariya ta tsaro (Unauthorized)." }), {
+      return new Response(JSON.stringify({ success: false, message: "Unauthorized gateway access token configuration." }), {
         status: 401,
         headers: { "Content-Type": "application/json" }
       });
     }
 
     if (!fullName || !email || !phone || !pin || !password) {
-      return new Response(JSON.stringify({ success: false, message: "Akwai bayanan rajista da suka rage baka cike ba." }), {
+      return new Response(JSON.stringify({ success: false, message: "Missing required profile registration details." }), {
         status: 400,
         headers: { "Content-Type": "application/json" }
       });
@@ -49,13 +49,13 @@ export async function onRequestPost(context) {
       );
       
       if (emailExists) {
-        return new Response(JSON.stringify({ success: false, message: "Wannan imel din riga an yi amfani da shi wajen bude wani asusun." }), {
+        return new Response(JSON.stringify({ success: false, message: "This email address is already registered to another account." }), {
           status: 400,
           headers: { "Content-Type": "application/json" }
         });
       }
     } else {
-      return new Response(JSON.stringify({ success: false, message: "An kasa haduwa da rumbun adana bayanai na Database." }), {
+      return new Response(JSON.stringify({ success: false, message: "Failed to verify existing records from system database." }), {
         status: 500,
         headers: { "Content-Type": "application/json" }
       });
@@ -150,7 +150,7 @@ export async function onRequestPost(context) {
     });
 
     if (!insertProfileRes.ok) {
-      return new Response(JSON.stringify({ success: false, message: "Kuskure daga database yayin sanya sabon asusu. An dakatar da rajistar." }), {
+      return new Response(JSON.stringify({ success: false, message: "Database infrastructure failure during profile generation." }), {
         status: 500,
         headers: { "Content-Type": "application/json" }
       });
@@ -168,7 +168,7 @@ export async function onRequestPost(context) {
 
     return new Response(JSON.stringify({ 
       success: true, 
-      message: "An kammala rajista lafiya.", 
+      message: "Registration completed successfully.", 
       userId: uniqueId 
     }), {
       status: 201,
@@ -176,7 +176,7 @@ export async function onRequestPost(context) {
     });
 
   } catch (globalError) {
-    return new Response(JSON.stringify({ success: false, message: "An sami babban kuskure na ciki a dandalin sabar (Server Exception)." }), {
+    return new Response(JSON.stringify({ success: false, message: "An internal core pipeline error occurred on the server." }), {
       status: 500,
       headers: { "Content-Type": "application/json" }
     });
