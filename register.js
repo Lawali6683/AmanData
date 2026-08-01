@@ -76,7 +76,7 @@ import { supabase } from './supabase.js';
         toastContainer.classList.add('active');
         setTimeout(() => {
             toastContainer.classList.remove('active');
-        }, 4000);
+        }, 5000);
     }
 
     function toggleLoader(show) {
@@ -129,10 +129,12 @@ import { supabase } from './supabase.js';
     document.getElementById('executeLoginBtn').addEventListener('click', async () => {
         const email = document.getElementById('loginEmail').value.trim();
         const pass = document.getElementById('loginPassword').value;
+
         if (!email || !pass) {
-            showToast("Please fill in all login credentials!");
+            showToast("Shigar da duka bayanan login dinka!");
             return;
         }
+
         toggleLoader(true);
         try {
             const { data: matchedRecords, error } = await supabase
@@ -141,28 +143,32 @@ import { supabase } from './supabase.js';
 
             if (error) throw error;
 
-            const activeProfile = matchedRecords.find(profile => profile.user_data && profile.user_data.email === email);
-
+            const activeProfile = matchedRecords.find(profile => profile.user_data && profile.user_data.email.toLowerCase() === email.toLowerCase());
+            
             if (!activeProfile) {
                 toggleLoader(false);
-                showToast("No account linked with this email address!");
+                showToast("Babu asusu mai wannan imel din! Yi rajista tukunna.");
                 return;
             }
+
             if (activeProfile.user_data.password !== pass) {
                 toggleLoader(false);
-                showToast("Incorrect account password. Try again!");
+                showToast("Password dinka ba daidai ba ne! Sake gwadawa.");
                 return;
             }
+
             localStorage.setItem('puredata_user_session', JSON.stringify({
                 id: activeProfile.id,
                 name: activeProfile.user_data.full_name,
                 email: activeProfile.user_data.email
             }));
-            showToast("Login successful! Redirecting...", true);
+
+            showToast("An shiga cikin asusu cikin nasara! Ana tura ka...", true);
             setTimeout(() => { window.location.replace('dashboard.html'); }, 1500);
+
         } catch (err) {
             toggleLoader(false);
-            showToast("Network failure or server security block!");
+            showToast("An sami matsalar network ko kuma database!");
         }
     });
 
@@ -174,22 +180,28 @@ import { supabase } from './supabase.js';
         const pass = document.getElementById('regPassword').value;
         const confirmPass = document.getElementById('regConfirmPassword').value;
         const acceptTerms = document.getElementById('regTerms').checked;
+
         let gatheredPin = "";
         pinBoxes.forEach(b => gatheredPin += b.value);
+
         if (!fullName || !email || !phone || gatheredPin.length !== 4 || !pass || !confirmPass) {
-            showToast("Please complete all registration form blocks!");
+            showToast("Da fatan za ka cike dukkan guraren da ake bukata!");
             return;
         }
+
         if (pass !== confirmPass) {
-            showToast("Password confirmation mismatch!");
+            showToast("Password din da ka tabbatar bai yi daidai da na farko ba!");
             return;
         }
+
         if (!acceptTerms) {
-            showToast("You must accept terms & conditions to continue.");
+            showToast("Dole ne ka yarda da sharuddan amfani da shafin domin ci gaba.");
             return;
         }
+
         toggleLoader(true);
         const netMetaData = await fetchNetworkMetadata();
+
         const payload = {
             fullName: fullName,
             email: email,
@@ -202,26 +214,32 @@ import { supabase } from './supabase.js';
             device: netMetaData.devInfo,
             secureToken: "@haruna66"
         };
+
         try {
-            const apiResponse = await fetch('https://amandata.pages.dev/api/register', {
+            const apiResponse = await fetch('/api/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
+
             const backendStatus = await apiResponse.json();
+
             if (!apiResponse.ok || !backendStatus.success) {
-                throw new Error(backendStatus.message || "Registration operation rejected.");
+                throw new Error(backendStatus.message || "An sami matsala wajen yin rajista.");
             }
+
             localStorage.setItem('puredata_user_session', JSON.stringify({
                 id: backendStatus.userId,
                 name: fullName,
                 email: email
             }));
-            showToast("Account created successfully!", true);
+
+            showToast("An kafa asusunka cikin nasara!", true);
             setTimeout(() => { window.location.replace('dashboard.html'); }, 1500);
+
         } catch (error) {
             toggleLoader(false);
-            showToast(error.message || "Server engine error during submission.");
+            showToast(error.message);
         }
     });
 })();
