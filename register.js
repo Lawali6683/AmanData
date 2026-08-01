@@ -13,8 +13,6 @@ import { supabase } from './supabase.js';
     const toastMessage = document.getElementById('toastMessage');
     const refInput = document.getElementById('regRef');
 
-    // COMMENT: Mun goge tsohuwar hanyar duba SCRIPT_VERSION da ke amfani da localStorage 
-    // domin gujewa kure (error) ko madauwakin reload wanda ke hana sabon register aiki.
     try {
         if ('caches' in window) {
             caches.keys().then(names => {
@@ -24,14 +22,8 @@ import { supabase } from './supabase.js';
         if (window.registration && window.registration.unregister) {
             window.registration.unregister();
         }
-    } catch (e) {
-        console.log("Cache clear skipped");
-    }
+    } catch (e) {}
 
-    // COMMENT: Saboda ba ma son shafin ya rufe kansa ko ya hana sabon register idan wani ya yi logout,
-    // an cire duba tsohon 'puredata_user_session' a nan don bawa sabon mai rajista dama.
-
-    // Handle Login Tab Switching
     tabLoginBtn.addEventListener('click', () => {
         tabLoginBtn.classList.add('active');
         tabRegisterBtn.classList.remove('active');
@@ -41,7 +33,6 @@ import { supabase } from './supabase.js';
         pageSubtitle.textContent = "Login to your account";
     });
 
-    // Handle Register Tab Switching
     tabRegisterBtn.addEventListener('click', () => {
         tabRegisterBtn.classList.add('active');
         tabLoginBtn.classList.remove('active');
@@ -51,7 +42,6 @@ import { supabase } from './supabase.js';
         pageSubtitle.textContent = "Sign up and get started";
     });
 
-    // Toggle Password Visibility
     document.querySelectorAll('.toggle-password').forEach(icon => {
         icon.addEventListener('click', function() {
             const targetId = this.getAttribute('data-target');
@@ -66,7 +56,6 @@ import { supabase } from './supabase.js';
         });
     });
 
-    // Handle PIN Boxes Input Focus
     const pinBoxes = document.querySelectorAll('.pin-box');
     pinBoxes.forEach((box, idx) => {
         box.addEventListener('input', (e) => {
@@ -82,7 +71,6 @@ import { supabase } from './supabase.js';
         });
     });
 
-    // Toast Notifications Display
     function showToast(msg, isSuccess = false) {
         toastMessage.textContent = msg;
         const icon = toastContainer.querySelector('.id-toast-icon');
@@ -97,7 +85,6 @@ import { supabase } from './supabase.js';
         }, 5000);
     }
 
-    // Loading Overlay Display
     function toggleLoader(show) {
         if (show) {
             loaderOverlay.classList.add('active');
@@ -108,7 +95,6 @@ import { supabase } from './supabase.js';
         }
     }
 
-    // Extract Referral Code from URL
     function processReferralExtraction() {
         const urlParams = new URLSearchParams(window.location.search);
         let discoveredCode = '';
@@ -133,7 +119,6 @@ import { supabase } from './supabase.js';
 
     window.addEventListener('DOMContentLoaded', processReferralExtraction);
 
-    // Fetch Network Metadata (IP & Location)
     async function fetchNetworkMetadata() {
         let ip = "0.0.0.0", loc = "Unknown Location", devInfo = navigator.userAgent;
         try {
@@ -147,7 +132,6 @@ import { supabase } from './supabase.js';
         return { ip, loc, devInfo };
     }
 
-    // Execute Login Function
     document.getElementById('executeLoginBtn').addEventListener('click', async () => {
         const email = document.getElementById('loginEmail').value.trim();
         const pass = document.getElementById('loginPassword').value;
@@ -179,9 +163,6 @@ import { supabase } from './supabase.js';
                 return;
             }
 
-            // COMMENT: An goge localStorage.setItem na 'puredata_user_session' a nan kamar yadda ka buƙata.
-            // Wannan zai sa shafin ya wuce zuwa dashboard kawai ba tare da ya kulle kansa ga wani sabon mai shiga ba bayan an yi logout.
-            
             showToast("Login successful! Redirecting...", true);
             setTimeout(() => { window.location.replace('dashboard.html'); }, 1500);
 
@@ -191,7 +172,6 @@ import { supabase } from './supabase.js';
         }
     });
 
-    // Execute Registration Function
     document.getElementById('executeRegisterBtn').addEventListener('click', async () => {
         const fullName = document.getElementById('regName').value.trim();
         const email = document.getElementById('regEmail').value.trim();
@@ -247,9 +227,6 @@ import { supabase } from './supabase.js';
             if (!apiResponse.ok || !backendStatus.success) {
                 throw new Error(backendStatus.message || "Registration gateway rejected your submission.");
             }
-
-            // COMMENT: Haka nan a bangaren register, an goge ajiye data a localStorage don kare kure 
-            // da kuma barin sabon mai amfani ya iya shiga ko yin sabon register ba tare da tangarda ba.
 
             showToast("Account created successfully! Preparing dashboard...", true);
             setTimeout(() => { window.location.replace('dashboard.html'); }, 1500);
