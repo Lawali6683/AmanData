@@ -14,7 +14,7 @@
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:image:type" content="image/png" />
-    <meta property="og:url" content="https://amandata.pages.dev" />
+    <meta property="og:url" content="https://amandata.com.ng" />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="AmanData - Fast, Reliable Data & Utility Services" />
@@ -23,6 +23,8 @@
     <link rel="icon" type="image/png" href="https://i.imgur.com/SBHTDNn.png" />
     <link rel="apple-touch-icon" href="https://i.imgur.com/SBHTDNn.png" />
     <link rel="manifest" href="./manifest.json" />
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <link rel="preconnect" href="https://i.imgur.com">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         .scene { position: fixed; inset: 0; z-index: 99999; background: #001233; transition: opacity 0.6s ease, visibility 0.6s ease; }
@@ -440,9 +442,6 @@
                 transform: translateY(-5px);
             }
         }
-        
-        
-        
         .aman-section{
     width:100%;
     display:flex;
@@ -541,6 +540,53 @@
 }
 
 }
+        .page-section{width:100%;max-width:480px;margin:0 auto;padding:48px 20px 20px;text-align:center; background:linear-gradient(180deg,#001233 0%,#001945 100%); }
+        .section-head{margin-bottom:28px;}
+        .section-head .eyebrow{display:inline-block;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#38bdf8;font-weight:700;background:rgba(56,189,248,.1);border:1px solid rgba(56,189,248,.25);padding:6px 14px;border-radius:50px;}
+        .section-head h2{font-size:23px;font-weight:700;color:#ffffff;margin-top:14px;}
+        .section-head p{font-size:14px;color:#94a3b8;margin-top:10px;line-height:1.6;}
+        .store-row{display:flex;gap:12px;justify-content:center;align-items:center;max-width:360px;margin:0 auto 24px;}
+        .store-link{flex:1;display:block;border-radius:14px;overflow:hidden;background:#ffffff;border:1px solid #e2e8f0;box-shadow:0 4px 14px rgba(2,6,23,.08);transition:transform .2s ease,box-shadow .2s ease;}
+        .store-link:hover{transform:translateY(-3px);box-shadow:0 8px 20px rgba(2,6,23,.15);}
+        .store-link:active{transform:scale(.97);}
+        .store-btn{width:100%;height:auto;display:block;}
+        .vtu-wrap{max-width:420px;margin:0 auto;border-radius:20px;overflow:hidden;border:1px solid rgba(255,255,255,.12);box-shadow:0 20px 50px rgba(0,0,0,.45);}
+        .vtu-img{width:100%;height:auto;display:block;}
+        .feat-grid{display:grid;grid-template-columns:1fr;gap:24px;max-width:420px;margin:0 auto;}
+        .feat-card{position:relative;border-radius:20px;overflow:hidden;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.10);box-shadow:0 10px 30px rgba(0,0,0,.35);transition:transform .3s ease,box-shadow .3s ease,border-color .3s ease;text-align:left;}
+        .feat-card:hover{transform:translateY(-6px);border-color:rgba(56,189,248,.5);box-shadow:0 18px 45px rgba(0,0,0,.5),0 0 28px rgba(56,189,248,.12);}
+        .feat-num{position:absolute;top:14px;right:14px;z-index:2;width:36px;height:36px;border-radius:50%;background:rgba(0,18,51,.6);border:1px solid rgba(255,255,255,.25);color:#ffffff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);}
+        .feat-img{width:100%;height:auto;display:block;}
+        .feat-body{padding:20px 20px 24px;}
+        .feat-ico{width:46px;height:46px;border-radius:13px;background:linear-gradient(135deg,#0066ff,#38bdf8);display:flex;align-items:center;justify-content:center;font-size:19px;color:#ffffff;margin-bottom:14px;box-shadow:0 8px 18px rgba(0,102,255,.4);}
+        .feat-body h3{font-size:17px;font-weight:700;color:#ffffff;margin-bottom:8px;}
+        .feat-body p{font-size:13px;line-height:1.7;color:#94a3b8;}
+        .feat-link{display:inline-flex;align-items:center;gap:7px;margin-top:14px;font-size:13px;font-weight:700;color:#38bdf8;}
+        .api-card{max-width:420px;margin:0 auto;border-radius:22px;overflow:hidden;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.10);box-shadow:0 15px 40px rgba(0,0,0,.4);}
+        .api-img{width:100%;display:block;}
+        .api-body{padding:24px 20px;}
+        .api-body p{font-size:14px;line-height:1.7;color:#94a3b8;margin-bottom:20px;}
+        .wa-btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;background:linear-gradient(135deg,#25d366,#128c7e);color:#ffffff;padding:15px 28px;border-radius:50px;font-size:15px;font-weight:700;text-decoration:none;box-shadow:0 8px 22px rgba(37,211,102,.35);transition:transform .2s ease,box-shadow .2s ease;}
+        .wa-btn:hover{transform:translateY(-3px);box-shadow:0 12px 28px rgba(37,211,102,.5);}
+        .wa-btn:active{transform:scale(.96);}
+        .corp-section{padding-bottom:48px;}
+        .corp-grid{display:grid;gap:14px;max-width:420px;margin:0 auto;}
+        .corp-card{display:flex;align-items:flex-start;gap:14px;text-align:left;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.10);border-radius:16px;padding:18px;transition:border-color .3s ease;}
+        .corp-card:hover{border-color:rgba(56,189,248,.4);}
+        .corp-ico{width:46px;height:46px;min-width:46px;border-radius:13px;background:rgba(0,102,255,.15);border:1px solid rgba(0,102,255,.4);color:#38bdf8;font-size:18px;display:flex;align-items:center;justify-content:center;}
+        .corp-card h4{font-size:14px;font-weight:700;color:#ffffff;margin-bottom:5px;}
+        .corp-card p{font-size:13px;color:#94a3b8;line-height:1.6;}
+        .corp-card a{font-size:15px;font-weight:700;color:#7dd3fc;text-decoration:none;}
+        .open-pill{display:inline-flex;align-items:center;gap:8px;background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.4);color:#34d399;padding:8px 15px;border-radius:50px;font-size:12px;font-weight:700;margin-top:8px;}
+        .open-pill.closed{background:rgba(244,63,94,.12);border-color:rgba(244,63,94,.4);color:#fb7185;}
+        .open-dot{width:9px;height:9px;border-radius:50%;background:#10b981;animation:blinkDot 1.4s infinite;}
+        .open-pill.closed .open-dot{background:#f43f5e;animation:none;}
+        @keyframes blinkDot{0%,100%{opacity:1;}50%{opacity:.25;}}
+        .map-frame{width:100%;max-width:420px;margin:22px auto 0;border-radius:16px;overflow:hidden;border:1px solid rgba(255,255,255,.10);box-shadow:0 12px 30px rgba(0,0,0,.45);}
+        .map-frame iframe{width:100%;height:260px;border:0;display:block;}
+        .dir-btn{display:inline-flex;align-items:center;gap:8px;margin-top:18px;background:linear-gradient(135deg,#0066ff,#0050ff);color:#ffffff;padding:13px 26px;border-radius:50px;font-size:14px;font-weight:700;text-decoration:none;box-shadow:0 8px 20px rgba(0,102,255,.35);transition:transform .2s ease,box-shadow .2s ease;}
+        .dir-btn:hover{transform:translateY(-3px);box-shadow:0 12px 26px rgba(0,102,255,.5);}
+        .dir-btn:active{transform:scale(.96);}
     </style>
 </head>
 <body>
@@ -572,7 +618,7 @@
             </div>
         </div>
         <div class="girl-container">
-            <img src="https://i.imgur.com/0COsVQ7.png" alt="AmanData App User" class="girl-img" loading="eager">
+            <img src="https://i.imgur.com/0COsVQ7.png" alt="" class="girl-img" loading="eager">
         </div>
     </section>
     <div class="white-card">
@@ -601,39 +647,34 @@
         <a href="register.html" class="btn-get-started" id="btnGetStarted">
             Get Started <i class="fa-solid fa-arrow-right"></i>
         </a>
+        <div class="store-row">
+            <a href="#" class="store-link" data-url="" onclick="handleStore(this);return false;">
+                <img src="https://i.imgur.com/QKoyLU8.jpeg" alt="Download on Google Play" class="store-btn" loading="lazy">
+            </a>
+            <a href="#" class="store-link" data-url="" onclick="handleStore(this);return false;">
+                <img src="https://i.imgur.com/c1HN6u7.jpeg" alt="Download on the App Store" class="store-btn" loading="lazy">
+            </a>
+        </div>
         <div class="tagline">Secure • Fast • Reliable</div>
         <div class="net-img-container">
             <img src="https://i.imgur.com/zb9gSgx.png" alt="Network Grid" class="net-img" loading="lazy">
         </div>
         
-        
-       
-
-<section class="aman-section">
-
-<div class="aman-card">
-
-<img class="aman-image" src="https://i.imgur.com/BXY2PXJ.jpeg" alt="AmanData Electricity Token">
-
-<div class="aman-content">
-
-<h2 class="aman-title">Buy Electricity Token Instantly</h2>
-
-<p class="aman-desc">
-Purchase your prepaid electricity token quickly and securely with AmanData.
-Enter your meter number, make payment, and receive your token instantly anytime, anywhere.
-</p>
-
-<a href="register.html" class="aman-btn">
-    Buy Electricity Token
-</a>
-
-</div>
-
-</div>
-
-</section>
-        
+        <section class="aman-section">
+            <div class="aman-card">
+                <img class="aman-image" src="https://i.imgur.com/BXY2PXJ.jpeg" alt="AmanData Electricity Token">
+                <div class="aman-content">
+                    <h2 class="aman-title">Buy Electricity Token Instantly</h2>
+                    <p class="aman-desc">
+                        Purchase your prepaid electricity token quickly and securely with AmanData.
+                        Enter your meter number, make payment, and receive your token instantly anytime, anywhere.
+                    </p>
+                    <a href="register.html" class="aman-btn">
+                        Buy Electricity Token
+                    </a>
+                </div>
+            </div>
+        </section>
         
         <div class="business-section">
             <div class="wazobia-board" id="wazobiaBoard">
@@ -658,6 +699,131 @@ Enter your meter number, make payment, and receive your token instantly anytime,
             </div>
         </div>
     </div>
+    
+    <section class="page-section">
+        <div class="section-head">
+            <span class="eyebrow">VTU Services</span>
+            <h2>Top Up in Seconds</h2>
+            <p>Fast, secure value top-up for all networks, anytime and anywhere.</p>
+        </div>
+        <div class="vtu-wrap">
+            <img src="https://i.imgur.com/U5j25OV.jpeg" alt="AmanData VTU Services" class="vtu-img" loading="lazy">
+        </div>
+    </section>
+    
+    <section class="page-section">
+        <div class="section-head">
+            <span class="eyebrow">What We Offer</span>
+            <h2>Services That Work for You</h2>
+            <p>Everything you need, handled in one trusted platform.</p>
+        </div>
+        <div class="feat-grid">
+            <div class="feat-card">
+                <span class="feat-num">01</span>
+                <img src="https://i.imgur.com/lYJ0oIO.jpeg" alt="Premium Card Printing" class="feat-img" loading="lazy">
+                <div class="feat-body">
+                    <div class="feat-ico"><i class="fa-solid fa-id-card"></i></div>
+                    <h3>Premium Card Printing</h3>
+                    <p>High-quality recharge cards and branded PVC cards, printed to professional standards for your business.</p>
+                    <span class="feat-link">Learn More <i class="fa-solid fa-arrow-right"></i></span>
+                </div>
+            </div>
+            <div class="feat-card">
+                <span class="feat-num">02</span>
+                <img src="https://i.imgur.com/d1XGDnb.jpeg" alt="Application Fee Payments" class="feat-img" loading="lazy">
+                <div class="feat-body">
+                    <div class="feat-ico"><i class="fa-solid fa-file-invoice-dollar"></i></div>
+                    <h3>Application Fee Payments</h3>
+                    <p>Pay application and request fees securely without delays, right from your phone at any time.</p>
+                    <span class="feat-link">Learn More <i class="fa-solid fa-arrow-right"></i></span>
+                </div>
+            </div>
+            <div class="feat-card">
+                <span class="feat-num">03</span>
+                <img src="https://i.imgur.com/bho84LC.jpeg" alt="Instant Data and Airtime" class="feat-img" loading="lazy">
+                <div class="feat-body">
+                    <div class="feat-ico"><i class="fa-solid fa-wifi"></i></div>
+                    <h3>Instant Data &amp; Airtime</h3>
+                    <p>Recharge data and airtime on every network instantly at the best rates across Nigeria.</p>
+                    <span class="feat-link">Learn More <i class="fa-solid fa-arrow-right"></i></span>
+                </div>
+            </div>
+            <div class="feat-card">
+                <span class="feat-num">04</span>
+                <img src="https://i.imgur.com/oetsOZr.jpeg" alt="Bills and Subscriptions" class="feat-img" loading="lazy">
+                <div class="feat-body">
+                    <div class="feat-ico"><i class="fa-solid fa-tv"></i></div>
+                    <h3>Bills &amp; Subscriptions</h3>
+                    <p>Settle electricity, cable TV and other subscriptions conveniently, anytime and anywhere.</p>
+                    <span class="feat-link">Learn More <i class="fa-solid fa-arrow-right"></i></span>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <section class="page-section">
+        <div class="section-head">
+            <span class="eyebrow">For Developers</span>
+            <h2>Robust API Integration</h2>
+            <p>Build your platform with our fast, secure and reliable API.</p>
+        </div>
+        <div class="api-card">
+            <img src="https://i.imgur.com/e5FrFK9.jpeg" alt="AmanData API" class="api-img" loading="lazy">
+            <div class="api-body">
+                <p>Get dedicated API access, documentation and full support to integrate AmanData into your platform seamlessly.</p>
+                <a href="https://wa.me/2348166836059?text=Hello%20AmanData%2C%20I%20want%20to%20get%20access%20to%20your%20API" target="_blank" rel="noopener" class="wa-btn">
+                    <i class="fa-brands fa-whatsapp"></i> Chat on WhatsApp to Get API
+                </a>
+            </div>
+        </div>
+    </section>
+    
+    <section class="page-section corp-section">
+        <div class="section-head">
+            <span class="eyebrow">Contact Us</span>
+            <h2>We're Here to Help</h2>
+            <p>Reach out to us any day between 7:00 AM and 10:00 PM.</p>
+        </div>
+        <div class="corp-grid">
+            <div class="corp-card">
+                <div class="corp-ico"><i class="fa-solid fa-clock"></i></div>
+                <div>
+                    <h4>Business Hours</h4>
+                    <span class="open-pill" id="openPill"><span class="open-dot"></span><span id="openStatus">Checking...</span></span>
+                    <p style="margin-top:10px;">Monday – Sunday<br>7:00 AM – 10:00 PM</p>
+                </div>
+            </div>
+            <div class="corp-card">
+                <div class="corp-ico"><i class="fa-solid fa-location-dot"></i></div>
+                <div>
+                    <h4>Office Address</h4>
+                    <p>No 11, in front of 100 Housing Estate, Gusau, Zamfara State, Nigeria.</p>
+                </div>
+            </div>
+            <div class="corp-card">
+                <div class="corp-ico"><i class="fa-solid fa-phone"></i></div>
+                <div>
+                    <h4>Phone Support</h4>
+                    <a href="tel:+2348087311654">08087311654</a>
+                    <p>Call or message us on WhatsApp during business hours.</p>
+                    
+                    
+                    <h4>Email Support</h4>
+                    <a href="tel:+2348087311654">amandataapp@gmail.com </a>
+                    <p>Send message us on  during business hours.</p>
+                                       
+                    
+                </div>
+            </div>
+        </div>
+        <div class="map-frame">
+            <iframe src="https://maps.google.com/maps?q=No%2011%2C%20100%20Housing%20Estate%2C%20Gusau%2C%20Zamfara%2C%20Nigeria&t=&z=15&ie=UTF8&iwloc=&output=embed" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen title="AmanData Office Location"></iframe>
+        </div>
+        <a class="dir-btn" href="https://www.google.com/maps/dir/?api=1&destination=No%2011%2C%20100%20Housing%20Estate%2C%20Gusau%2C%20Zamfara%2C%20Nigeria" target="_blank" rel="noopener">
+            <i class="fa-solid fa-map-location-dot"></i> Get Directions
+        </a>
+    </section>
+    
     <footer>
         <p>&copy; 2026 AmanData Platform. All Rights Reserved.</p>
     </footer>
@@ -671,7 +837,6 @@ Enter your meter number, make payment, and receive your token instantly anytime,
             <img src="image/whatsapp.png" alt="WhatsApp Support" class="pd-wa-icon" draggable="false">
         </a>
     </div>
-    
     
     <script>
         document.addEventListener("DOMContentLoaded", () => {
@@ -774,6 +939,29 @@ Enter your meter number, make payment, and receive your token instantly anytime,
                 boardElement.addEventListener('touchend', function() { isPaused = false; });
                 boardElement.addEventListener('mousedown', function() { isPaused = true; });
                 boardElement.addEventListener('mouseup', function() { isPaused = false; });
+            }
+        })();
+    </script>
+    <script>
+        function handleStore(el) {
+            const url = el.getAttribute('data-url');
+            if (url && url !== '' && url !== '#') {
+                window.open(url, '_blank', 'noopener');
+            } else {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        }
+        (function() {
+            const now = new Date();
+            const hours = now.getHours() + now.getMinutes() / 60;
+            const isOpen = hours >= 7 && hours < 22;
+            const pill = document.getElementById('openPill');
+            const status = document.getElementById('openStatus');
+            if (isOpen) {
+                status.textContent = 'Open Now - Closes at 10:00 PM';
+            } else {
+                pill.classList.add('closed');
+                status.textContent = 'Closed Now - Opens at 7:00 AM';
             }
         })();
     </script>
