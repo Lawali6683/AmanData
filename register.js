@@ -13,16 +13,10 @@ import { supabase } from './supabase.js';
     const toastMessage = document.getElementById('toastMessage');
     const refInput = document.getElementById('regRef');
 
-    try {
-        if ('caches' in window) {
-            caches.keys().then(names => {
-                for (let name of names) caches.delete(name);
-            });
-        }
-        if (window.registration && window.registration.unregister) {
-            window.registration.unregister();
-        }
-    } catch (e) {}
+    if (localStorage.getItem('puredata_user_session')) {
+        window.location.replace('dashboard.html');
+        return;
+    }
 
     tabLoginBtn.addEventListener('click', () => {
         tabLoginBtn.classList.add('active');
@@ -82,7 +76,7 @@ import { supabase } from './supabase.js';
         toastContainer.classList.add('active');
         setTimeout(() => {
             toastContainer.classList.remove('active');
-        }, 5000);
+        }, 4000);
     }
 
     function toggleLoader(show) {
@@ -135,12 +129,10 @@ import { supabase } from './supabase.js';
     document.getElementById('executeLoginBtn').addEventListener('click', async () => {
         const email = document.getElementById('loginEmail').value.trim();
         const pass = document.getElementById('loginPassword').value;
-
         if (!email || !pass) {
             showToast("Please fill in all login credentials!");
             return;
         }
-
         toggleLoader(true);
         try {
             const { data: matchedRecords, error } = await supabase
@@ -149,26 +141,28 @@ import { supabase } from './supabase.js';
 
             if (error) throw error;
 
-            const activeProfile = matchedRecords.find(profile => profile.user_data && profile.user_data.email.toLowerCase() === email.toLowerCase());
-            
+            const activeProfile = matchedRecords.find(profile => profile.user_data && profile.user_data.email === email);
+
             if (!activeProfile) {
                 toggleLoader(false);
                 showToast("No account linked with this email address!");
                 return;
             }
-
             if (activeProfile.user_data.password !== pass) {
                 toggleLoader(false);
-                showToast("Incorrect account password. Please try again!");
+                showToast("Incorrect account password. Try again!");
                 return;
             }
-
+            localStorage.setItem('puredata_user_session', JSON.stringify({
+                id: activeProfile.id,
+                name: activeProfile.user_data.full_name,
+                email: activeProfile.user_data.email
+            }));
             showToast("Login successful! Redirecting...", true);
             setTimeout(() => { window.location.replace('dashboard.html'); }, 1500);
-
         } catch (err) {
             toggleLoader(false);
-            showToast("Network failure or database verification error!");
+            showToast("Network failure or server security block!");
         }
     });
 
@@ -180,28 +174,22 @@ import { supabase } from './supabase.js';
         const pass = document.getElementById('regPassword').value;
         const confirmPass = document.getElementById('regConfirmPassword').value;
         const acceptTerms = document.getElementById('regTerms').checked;
-
         let gatheredPin = "";
         pinBoxes.forEach(b => gatheredPin += b.value);
-
         if (!fullName || !email || !phone || gatheredPin.length !== 4 || !pass || !confirmPass) {
-            showToast("Please complete all registration form fields!");
+            showToast("Please complete all registration form blocks!");
             return;
         }
-
         if (pass !== confirmPass) {
-            showToast("Password confirmation mismatch! Verify entries.");
+            showToast("Password confirmation mismatch!");
             return;
         }
-
         if (!acceptTerms) {
             showToast("You must accept terms & conditions to continue.");
             return;
         }
-
         toggleLoader(true);
         const netMetaData = await fetchNetworkMetadata();
-
         const payload = {
             fullName: fullName,
             email: email,
@@ -214,26 +202,26 @@ import { supabase } from './supabase.js';
             device: netMetaData.devInfo,
             secureToken: "@haruna66"
         };
-
         try {
-            const apiResponse = await fetch('https://www.amandata.com.ng/api/register', {
+            const apiResponse = await fetch('https://amandata.pages.dev/api/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
-
             const backendStatus = await apiResponse.json();
-
             if (!apiResponse.ok || !backendStatus.success) {
-                throw new Error(backendStatus.message || "Registration gateway rejected your submission.");
+                throw new Error(backendStatus.message || "Registration operation rejected.");
             }
-
-            showToast("Account created successfully! Preparing dashboard...", true);
+            localStorage.setItem('puredata_user_session', JSON.stringify({
+                id: backendStatus.userId,
+                name: fullName,
+                email: email
+            }));
+            showToast("Account created successfully!", true);
             setTimeout(() => { window.location.replace('dashboard.html'); }, 1500);
-
         } catch (error) {
             toggleLoader(false);
-            showToast(error.message || "Network connection failure (Failed to fetch API).");
+            showToast(error.message || "Server engine error during submission.");
         }
     });
 })();
