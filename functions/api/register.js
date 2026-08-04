@@ -1,6 +1,5 @@
 export async function onRequestPost(context) {
   const { request, env } = context;
-
   try {
     const body = await request.json();
     const { 
@@ -17,14 +16,14 @@ export async function onRequestPost(context) {
     } = body;
 
     if (secureToken !== "@haruna66") {
-      return new Response(JSON.stringify({ success: false, message: "Unauthorized gateway access token configuration." }), {
+      return new Response(JSON.stringify({ success: false, message: "Unauthorized gateway access token." }), {
         status: 401,
         headers: { "Content-Type": "application/json" }
       });
     }
 
     if (!fullName || !email || !phone || !pin || !password) {
-      return new Response(JSON.stringify({ success: false, message: "Missing required profile registration details." }), {
+      return new Response(JSON.stringify({ success: false, message: "Missing required registration credentials." }), {
         status: 400,
         headers: { "Content-Type": "application/json" }
       });
@@ -45,20 +44,15 @@ export async function onRequestPost(context) {
     if (checkUserRes.ok) {
       const allProfiles = await checkUserRes.json();
       const emailExists = allProfiles.some(profile => 
-        profile.user_data && (profile.user_data.email?.toLowerCase() === email.toLowerCase())
+        profile.user_data && (profile.user_data.email === email || profile.user_data.email?.toLowerCase() === email.toLowerCase())
       );
       
       if (emailExists) {
-        return new Response(JSON.stringify({ success: false, message: "This email address is already registered to another account." }), {
+        return new Response(JSON.stringify({ success: false, message: "Email address already linked to another profile." }), {
           status: 400,
           headers: { "Content-Type": "application/json" }
         });
       }
-    } else {
-      return new Response(JSON.stringify({ success: false, message: "Failed to verify existing records from system database." }), {
-        status: 500,
-        headers: { "Content-Type": "application/json" }
-      });
     }
 
     const uniqueId = crypto.randomUUID();
@@ -150,7 +144,7 @@ export async function onRequestPost(context) {
     });
 
     if (!insertProfileRes.ok) {
-      return new Response(JSON.stringify({ success: false, message: "Database infrastructure failure during profile generation." }), {
+      return new Response(JSON.stringify({ success: false, message: "Database core execution error. Registration aborted." }), {
         status: 500,
         headers: { "Content-Type": "application/json" }
       });
@@ -174,9 +168,8 @@ export async function onRequestPost(context) {
       status: 201,
       headers: { "Content-Type": "application/json" }
     });
-
   } catch (globalError) {
-    return new Response(JSON.stringify({ success: false, message: "An internal core pipeline error occurred on the server." }), {
+    return new Response(JSON.stringify({ success: false, message: "Critical internal system exception caught." }), {
       status: 500,
       headers: { "Content-Type": "application/json" }
     });
