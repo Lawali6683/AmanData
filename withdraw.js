@@ -1,9 +1,10 @@
 import { supabase } from './supabase.js';
 
 (function() {
-    const API_ENDPOINT = "https://amandata.pages.dev/api/withdraw";
-    const sessionTokenString = localStorage.getItem('puredata_user_session');
 
+    const API_ENDPOINT = "/api/withdraw";
+
+    const sessionTokenString = localStorage.getItem('puredata_user_session');
     if (!sessionTokenString) {
         window.location.replace('register.html');
         return;
@@ -51,16 +52,13 @@ import { supabase } from './supabase.js';
 
     async function initializeWithdrawalPage() {
         if (liquidLoaderFill) liquidLoaderFill.classList.add('fill');
-
         await fetchUserSessionAndData();
-
         if (liquidLoaderFill && brandText && backgroundView) {
             liquidLoaderFill.style.transition = 'height 1.8s cubic-bezier(0.4, 0, 0.2, 1)';
             liquidLoaderFill.style.height = '0%';
             brandText.classList.add('hide');
             backgroundView.classList.add('show');
         }
-
         setTimeout(() => {
             if (appUniversalLoader) appUniversalLoader.style.display = 'none';
             if (brandText) brandText.style.display = 'none';
@@ -125,7 +123,7 @@ import { supabase } from './supabase.js';
     function triggerAccountVerification() {
         const bCode = bankCodeSelect ? bankCodeSelect.value : "";
         const accNum = accountNumberInput ? accountNumberInput.value : "";
-        
+
         if (bCode && accNum.length === 10) {
             if (verificationLoader) verificationLoader.style.display = 'block';
             if (nameGroupField) nameGroupField.style.display = 'none';
@@ -136,7 +134,10 @@ import { supabase } from './supabase.js';
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'verify_account', bank_code: bCode, account_number: accNum, req_pass: '@haruna66' })
             })
-            .then(res => res.json())
+            .then(res => {
+                if(!res.ok) throw new Error("Verification Endpoint Error");
+                return res.json();
+            })
             .then(data => {
                 if (verificationLoader) verificationLoader.style.display = 'none';
                 if (data.success) {
@@ -164,6 +165,7 @@ import { supabase } from './supabase.js';
             }
             verifyPinPattern();
         });
+
         el.addEventListener('keydown', (e) => {
             if (e.key === 'Backspace' && el.value === '' && index > 0) {
                 const prevEl = document.getElementById(pinInputsArray[index - 1]);
@@ -192,6 +194,7 @@ import { supabase } from './supabase.js';
                 status.innerHTML = "";
             }
         }
+
         if (compiledPin.length === 4) {
             checkFormValidity();
         }
@@ -199,10 +202,10 @@ import { supabase } from './supabase.js';
 
     function checkFormValidity() {
         if (!amountInput || !accountNameInput || !submitTransactionBtn) return;
-        
+
         const amt = parseFloat(amountInput.value) || 0;
         const name = accountNameInput.value;
-        
+
         let compiledPin = "";
         for (let i = 1; i <= 4; i++) {
             const box = document.getElementById('p' + i);
@@ -221,7 +224,7 @@ import { supabase } from './supabase.js';
             if (appUniversalLoader) appUniversalLoader.style.display = 'block';
             const loaderLogo = document.getElementById('loaderLogo');
             if (loaderLogo) loaderLogo.style.display = 'block';
-            
+
             if (brandText) {
                 brandText.style.display = 'block';
                 brandText.classList.remove('hide');
@@ -229,9 +232,16 @@ import { supabase } from './supabase.js';
             }
             if (liquidLoaderFill) liquidLoaderFill.style.height = '100%';
 
+            let compiledPin = "";
+            for (let i = 1; i <= 4; i++) {
+                const box = document.getElementById('p' + i);
+                if (box) compiledPin += box.value;
+            }
+
             const payload = {
                 action: 'payout',
                 uuid: currentUserId,
+                pin: compiledPin,
                 req_pass: '@haruna66',
                 amount: parseFloat(amountInput.value),
                 bank_code: bankCodeSelect.value,
@@ -251,21 +261,21 @@ import { supabase } from './supabase.js';
                     liquidLoaderFill.style.height = '0%';
                 }
                 if (brandText) brandText.classList.add('hide');
-                
+
                 setTimeout(() => {
                     if (appUniversalLoader) appUniversalLoader.style.display = 'none';
                     if (brandText) brandText.style.display = 'none';
-                    
+
                     if (data.success) {
                         showToastNotification("Transaction Successful! Funds dispatched.", 'success');
                         cachedRealBalance -= payload.amount;
                         if (walletBalanceDisplay) walletBalanceDisplay.innerText = cachedRealBalance.toFixed(2);
-                        
+
                         amountInput.value = "";
                         accountNumberInput.value = "";
                         accountNameInput.value = "";
                         if (nameGroupField) nameGroupField.style.display = 'none';
-                        
+
                         pinInputsArray.forEach(id => {
                             const box = document.getElementById(id);
                             if (box) box.value = "";
@@ -288,7 +298,7 @@ import { supabase } from './supabase.js';
                     liquidLoaderFill.style.height = '0%';
                 }
                 if (brandText) brandText.classList.add('hide');
-                
+
                 setTimeout(() => {
                     if (appUniversalLoader) appUniversalLoader.style.display = 'none';
                     if (brandText) brandText.style.display = 'none';
@@ -298,5 +308,11 @@ import { supabase } from './supabase.js';
         });
     }
 
-    window.addEventListener('DOMContentLoaded', initializeWithdrawalPage);
+    
+    if (document.readyState === 'loading') {
+        window.addEventListener('DOMContentLoaded', initializeWithdrawalPage);
+    } else {
+        initializeWithdrawalPage();
+    }
+
 })();
