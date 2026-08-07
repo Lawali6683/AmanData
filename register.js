@@ -1,22 +1,6 @@
 import { supabase } from './supabase.js';
 
 (function() {
-    try {
-        localStorage.clear();
-        sessionStorage.clear();
-        if ('caches' in window) {
-            caches.keys().then(names => {
-                for (let name of names) caches.delete(name);
-            });
-        }
-        if (navigator.serviceWorker) {
-            navigator.serviceWorker.getRegistrations().then(registrations => {
-                for (let registration of registrations) {
-                    registration.unregister();
-                }
-            });
-        }
-    } catch (e) {}
 
     const tabLoginBtn = document.getElementById('tabLoginBtn');
     const tabRegisterBtn = document.getElementById('tabRegisterBtn');
@@ -29,6 +13,12 @@ import { supabase } from './supabase.js';
     const toastContainer = document.getElementById('toastContainer');
     const toastMessage = document.getElementById('toastMessage');
     const refInput = document.getElementById('regRef');
+
+  
+    if (localStorage.getItem('puredata_user_session')) {
+        window.location.replace('dashboard.html');
+        return;
+    }
 
     tabLoginBtn.addEventListener('click', () => {
         tabLoginBtn.classList.add('active');
@@ -155,7 +145,7 @@ import { supabase } from './supabase.js';
 
             if (error) throw error;
 
-            const activeProfile = matchedRecords.find(profile => profile.user_data && profile.user_data.email.toLowerCase() === email.toLowerCase());
+            const activeProfile = matchedRecords.find(profile => profile.user_data && profile.user_data.email === email);
 
             if (!activeProfile) {
                 toggleLoader(false);
@@ -168,6 +158,12 @@ import { supabase } from './supabase.js';
                 showToast("Incorrect account password. Try again!");
                 return;
             }
+
+            localStorage.setItem('puredata_user_session', JSON.stringify({
+                id: activeProfile.id,
+                name: activeProfile.user_data.full_name,
+                email: activeProfile.user_data.email
+            }));
 
             showToast("Login successful! Redirecting...", true);
             setTimeout(() => { window.location.replace('dashboard.html'); }, 1500);
@@ -222,24 +218,45 @@ import { supabase } from './supabase.js';
         };
 
         try {
-            const apiResponse = await fetch('https://www.amandata.com.ng/api/register', {
+          
+            const apiResponse = await fetch('/api/register', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
                 body: JSON.stringify(payload)
             });
 
+           
+            if (!apiResponse.ok) {
+                const errorData = await apiResponse.json().catch(() => ({}));
+                throw new Error(errorData.message || `Server Error (${apiResponse.status})`);
+            }
+
             const backendStatus = await apiResponse.json();
 
-            if (!apiResponse.ok || !backendStatus.success) {
+            if (!backendStatus.success) {
                 throw new Error(backendStatus.message || "Registration operation rejected.");
             }
+
+            localStorage.setItem('puredata_user_session', JSON.stringify({
+                id: backendStatus.userId,
+                name: fullName,
+                email: email
+            }));
 
             showToast("Account created successfully!", true);
             setTimeout(() => { window.location.replace('dashboard.html'); }, 1500);
 
         } catch (error) {
             toggleLoader(false);
-            showToast(error.message || "Server engine error during submission.");
+            if (error.name === 'TypeError' && error.message === 'Failed to fetch') {
+                showToast("Network error! Please check your internet connection.");
+            } else {
+                showToast(error.message || "Server error during registration.");
+            }
         }
     });
+
 })();
