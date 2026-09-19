@@ -28,7 +28,7 @@
         }
 
         body {
-            
+            background: var(--bg-dark);
             color: var(--text-light);
             min-height: 100vh;
             display: flex;
@@ -387,10 +387,6 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
-        
-        
-        
-      
     </style>
 </head>
 <body>
@@ -422,12 +418,12 @@
             
             <div id="formSection">
                 <h2 class="recovery-title">Forgot Password?</h2>
-                <p class="recovery-desc">Enter the email associated with your account and we will securely retrieve your registered access password.</p>
+                <p class="recovery-desc">Enter the email associated with your account and we will send you a secure link to reset your password.</p>
                 
                 <div style="display: flex; flex-direction: column; gap: 18px; margin-top: 8px;">
                     <div class="form-group">
                         <span class="form-label">Email Address</span>
-                        <input type="email" class="input-control" id="emailInput" placeholder="name@example.com">
+                        <input type="email" class="input-control" id="emailInput" placeholder="name@example.com" autocomplete="email">
                     </div>
 
                     <div id="formActions">
@@ -443,15 +439,15 @@
                 <div class="gmail-icon-wrapper" id="gmailLogoBtn">
                     <i class="fa-solid fa-envelope"></i>
                 </div>
-                <h2 class="recovery-title" style="color: var(--success);">Email Dispatched</h2>
-                <p class="recovery-desc">We found your credentials. Your registered password has been sent directly to your email address inbox.</p>
+                <h2 class="recovery-title" style="color: var(--success);">Check Your Email</h2>
+                <p class="recovery-desc">We have sent a password reset link to your email address. If you do not see it, please check your spam or junk folder.</p>
                 <a href="googlegmail://" class="btn-gmail" id="btnOpenGmailApp">
                     <i class="fa-solid fa-square-envelope"></i>
                     <span>Open Gmail App</span>
                 </a>
             </div>
 
-            <a href="login.html" class="back-to-login">Back to Sign In</a>
+            <a href="register.html" class="back-to-login">Back to Sign In</a>
         </div>
     </div>
 
@@ -460,174 +456,173 @@
         <span class="toast-message" id="toastMessage">Error</span>
     </div>
 
-    <script type="module" src="forget.js"></script>
-    
-    
+  
     <div id="pd-whatsapp-widget" class="pd-wa-container">
-    <div class="pd-wa-pulse-ring"></div>
-    <a href="https://wa.me/2347060739494?text=I%20am%20in%20need%20of%20help%20from%20the%20AmanData%20app" 
-       target="_blank" 
-       class="pd-wa-link" 
-       id="pd-wa-link"
-       draggable="false">
-        <img src="image/whatsapp.png" alt="WhatsApp Support" class="pd-wa-icon" draggable="false">
-    </a>
-</div>
+        <div class="pd-wa-pulse-ring"></div>
+        <a href="https://wa.me/2347060739494?text=I%20am%20in%20need%20of%20help%20from%20the%20AmanData%20app" 
+           target="_blank" 
+           class="pd-wa-link" 
+           id="pd-wa-link"
+           draggable="false">
+            <img src="image/whatsapp.png" alt="WhatsApp Support" class="pd-wa-icon" draggable="false">
+        </a>
+    </div>
 
-<style>
-    .pd-wa-container {
-        position: fixed;
-        bottom: 470px;
-        right: 24px;
-        width: 60px;
-        height: 60px;
-        z-index: 9;
-        cursor: grab;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        user-select: none;
-        -webkit-user-drag: none;
-        touch-action: none;
-    }
-Dan u   .pd-wa-container:active {
-        cursor: grabbing;
-    }
-
-    .pd-wa-link {
-        width: 100%;
-        height: 100%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 50%;
-        
-        box-shadow: 0 8px 24px rgba(37, 211, 102, 0.35);
-        transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        -webkit-user-drag: none;
-    }
-
-    .pd-wa-link:active {
-        transform: scale(0.9);
-    }
-
-    .pd-wa-icon {
-        width: 60px;
-        height: 60px;
-        object-fit: contain;
-        pointer-events: none;
-        animation: pd-wa-bounce 3s ease-in-out infinite;
-    }
-
-    .pd-wa-pulse-ring {
-        position: absolute;
-        inset: 0;
-        border-radius: 50%;
-        background-color: #25d366;
-        opacity: 0.4;
-        z-index: -1;
-        animation: pd-wa-ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
-        pointer-events: none;
-    }
-
-    @keyframes pd-wa-ping {
-        75%, 100% {
-            transform: scale(1.6);
-            opacity: 0;
+    <style>
+        .pd-wa-container {
+            position: fixed;
+            bottom: 470px;
+            right: 24px;
+            width: 60px;
+            height: 60px;
+            z-index: 9;
+            cursor: grab;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            -webkit-user-drag: none;
+            touch-action: none;
         }
-    }
 
-    @keyframes pd-wa-bounce {
-        0%, 100% {
-            transform: translateY(0);
+        .pd-wa-container:active {
+            cursor: grabbing;
         }
-        50% {
-            transform: translateY(-5px);
-        }
-    }
-</style>
 
-<script>
+        .pd-wa-link {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            box-shadow: 0 8px 24px rgba(37, 211, 102, 0.35);
+            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            -webkit-user-drag: none;
+        }
+
+        .pd-wa-link:active {
+            transform: scale(0.9);
+        }
+
+        .pd-wa-icon {
+            width: 60px;
+            height: 60px;
+            object-fit: contain;
+            pointer-events: none;
+            animation: pd-wa-bounce 3s ease-in-out infinite;
+        }
+
+        .pd-wa-pulse-ring {
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            background-color: #25d366;
+            opacity: 0.4;
+            z-index: -1;
+            animation: pd-wa-ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+            pointer-events: none;
+        }
+
+        @keyframes pd-wa-ping {
+            75%, 100% {
+                transform: scale(1.6);
+                opacity: 0;
+            }
+        }
+
+        @keyframes pd-wa-bounce {
+            0%, 100% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-5px);
+            }
+        }
+    </style>
+
+    <script>
+        (function() {
+            const widget = document.getElementById('pd-whatsapp-widget');
+            const link = document.getElementById('pd-wa-link');
+            
+            let isDragging = false;
+            let startX, startY;
+            let initialX, initialY;
+            let hasMoved = false;
+
+            widget.addEventListener('mousedown', dragStart);
+            document.addEventListener('mousemove', drag);
+            document.addEventListener('mouseup', dragEnd);
+
+            widget.addEventListener('touchstart', dragStart, { passive: false });
+            document.addEventListener('touchmove', drag, { passive: false });
+            document.addEventListener('touchend', dragEnd);
+
+            link.addEventListener('click', function(e) {
+                if (hasMoved) {
+                    e.preventDefault();
+                }
+            });
+
+            function dragStart(e) {
+                hasMoved = false;
+                isDragging = true;
+                
+                const clientX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
+                const clientY = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
+
+                const rect = widget.getBoundingClientRect();
+                initialX = rect.left;
+                initialY = rect.top;
+
+                startX = clientX;
+                startY = clientY;
+            }
+
+            function drag(e) {
+                if (!isDragging) return;
+                
+                if (e.cancelable) {
+                    e.preventDefault();
+                }
+
+                const clientX = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX;
+                const clientY = e.type === 'touchmove' ? e.touches[0].clientY : e.clientY;
+
+                const dx = clientX - startX;
+                const dy = clientY - startY;
+
+                if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+                    hasMoved = true;
+                }
+
+                let newX = initialX + dx;
+                let newY = initialY + dy;
+
+                const widgetWidth = widget.offsetWidth;
+                const widgetHeight = widget.offsetHeight;
+                const windowWidth = window.innerWidth;
+                const windowHeight = window.innerHeight;
+
+                if (newX < 10) newX = 10;
+                if (newX > windowWidth - widgetWidth - 10) newX = windowWidth - widgetWidth - 10;
+                if (newY < 10) newY = 10;
+                if (newY > windowHeight - widgetHeight - 10) newY = windowHeight - widgetHeight - 10;
+
+                widget.style.left = `${newX}px`;
+                widget.style.top = `${newY}px`;
+                widget.style.bottom = 'auto';
+                widget.style.right = 'auto';
+            }
+
+            function dragEnd() {
+                isDragging = false;
+            }
+        })();
+    </script>
     
-    (function() {
-    const widget = document.getElementById('pd-whatsapp-widget');
-    const link = document.getElementById('pd-wa-link');
-    
-    let isDragging = false;
-    let startX, startY;
-    let initialX, initialY;
-    let hasMoved = false;
+      <script type="module" src="forget.js"></script>
 
-    widget.addEventListener('mousedown', dragStart);
-    document.addEventListener('mousemove', drag);
-    document.addEventListener('mouseup', dragEnd);
-
-    widget.addEventListener('touchstart', dragStart, { passive: false });
-    document.addEventListener('touchmove', drag, { passive: false });
-    document.addEventListener('touchend', dragEnd);
-
-    link.addEventListener('click', function(e) {
-        if (hasMoved) {
-            e.preventDefault();
-        }
-    });
-
-    function dragStart(e) {
-        hasMoved = false;
-        isDragging = true;
-        
-        const clientX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
-        const clientY = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
-
-        const rect = widget.getBoundingClientRect();
-        initialX = rect.left;
-        initialY = rect.top;
-
-        startX = clientX;
-        startY = clientY;
-    }
-
-    function drag(e) {
-        if (!isDragging) return;
-        
-        if (e.cancelable) {
-            e.preventDefault();
-        }
-
-        const clientX = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX;
-        const clientY = e.type === 'touchmove' ? e.touches[0].clientY : e.clientY;
-
-        const dx = clientX - startX;
-        const dy = clientY - startY;
-
-        if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
-            hasMoved = true;
-        }
-
-        let newX = initialX + dx;
-        let newY = initialY + dy;
-
-        const widgetWidth = widget.offsetWidth;
-        const widgetHeight = widget.offsetHeight;
-        const windowWidth = window.innerWidth;
-        const windowHeight = window.innerHeight;
-
-        if (newX < 10) newX = 10;
-        if (newX > windowWidth - widgetWidth - 10) newX = windowWidth - widgetWidth - 10;
-        if (newY < 10) newY = 10;
-        if (newY > windowHeight - widgetHeight - 10) newY = windowHeight - widgetHeight - 10;
-
-        widget.style.left = `${newX}px`;
-        widget.style.top = `${newY}px`;
-        widget.style.bottom = 'auto';
-        widget.style.right = 'auto';
-    }
-
-    function dragEnd() {
-        isDragging = false;
-    }
-})();
-    
-</script>
 </body>
 </html>
