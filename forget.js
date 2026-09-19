@@ -13,7 +13,7 @@ import { supabase } from './supabase.js';
     const emailInput = document.getElementById('emailInput');
     const btnSubmitRecovery = document.getElementById('btnSubmitRecovery');
     const formActions = document.getElementById('formActions');
-    
+
     const gmailLogoBtn = document.getElementById('gmailLogoBtn');
     const btnOpenGmailApp = document.getElementById('btnOpenGmailApp');
 
@@ -27,11 +27,9 @@ import { supabase } from './supabase.js';
 
     function showToast(message, isSuccess = false) {
         toastMessage.textContent = message;
-        if (isSuccess) {
-            toastIcon.className = "fa-solid fa-circle-check toast-icon success";
-        } else {
-            toastIcon.className = "fa-solid fa-circle-exclamation toast-icon error";
-        }
+        toastIcon.className = isSuccess
+            ? "fa-solid fa-circle-check toast-icon success"
+            : "fa-solid fa-circle-exclamation toast-icon error";
         toastContainer.classList.add('active');
         setTimeout(() => {
             toastContainer.classList.remove('active');
@@ -58,7 +56,7 @@ import { supabase } from './supabase.js';
         formActions.innerHTML = `
             <div class="inner-loader">
                 <div class="inner-loader-spinner"></div>
-                <span style="font-size: 13px; color: var(--text-muted);">Checking registry...</span>
+                <span style="font-size: 13px; color: var(--text-muted);">Sending reset link...</span>
             </div>
         `;
     }
@@ -81,53 +79,27 @@ import { supabase } from './supabase.js';
             return;
         }
 
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            showToast("Please enter a valid email address.", false);
+            return;
+        }
+
         showButtonLoading();
 
         try {
-            const { data: profiles, error: queryError } = await supabase
-                .from('user_profiles')
-                .select('*');
-
-            if (queryError) throw queryError;
-
-            const matchedProfile = profiles.find(profile => 
-                profile.user_data && 
-                profile.user_data.email && 
-                profile.user_data.email.trim().toLowerCase() === email
-            );
-
-            if (!matchedProfile) {
-                showToast("This email is not registered under our systems.", false);
-                resetButtonUI();
-                return;
-            }
-
-            const uuid = matchedProfile.id;
-
-            const response = await fetch('https://amandata.pages.dev/api/forget', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    password: '@haruna66',
-                    uuid: uuid,
-                    email: email
-                })
+            const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                redirectTo: window.location.origin + '/reset.html'
             });
 
-            const result = await response.json();
+            if (error) throw error;
 
-            if (response.ok && result.success) {
-                showToast("Password retrieved and sent directly to inbox!", true);
-                setTimeout(() => {
-                    formSection.style.display = "none";
-                    successSection.style.display = "flex";
-                }, 800);
-            } else {
-                throw new Error(result.message || "Failed API response dispatch.");
-            }
-
+            showToast("Reset link sent to your email!", true);
+            setTimeout(() => {
+                formSection.style.display = "none";
+                successSection.style.display = "flex";
+            }, 800);
         } catch (err) {
-            showToast("Database or network transmission failure. Try again.", false);
+            showToast("Failed to send reset link. Please try again.", false);
             resetButtonUI();
         }
     }
