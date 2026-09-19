@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Reset Password - AmanData</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #6c5ce7;
+            --primary-dark: #4834d4;
+            --accent: #00cec9;
+            --bg-dark: #0f172a;
+            --card-bg: #1e293b;
+            --text-light: #f8fafc;
+            --text-muted: #94a3b8;
+            --border: #334155;
+            --success: #10b981;
+            --danger: #ef4444;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background: var(--bg-dark);
+            color: var(--text-light);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow-x: hidden;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 420px;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1), transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .app-container.ready {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .reset-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 28px;
+            padding: 32px 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
+            text-align: center;
+        }
+
+        .card-logo {
+            max-width: 120px;
+            height: auto;
+            margin: 0 auto 8px auto;
+        }
+
+        .reset-title {
+            font-size: 22px;
+            font-weight: 800;
+            color: var(--text-light);
+        }
+
+        .reset-desc {
+            font-size: 14px;
+            color: var(--text-muted);
+            line-height: 1.6;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            text-align: left;
+        }
+
+        .form-label {
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+        }
+
+        .input-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .input-control {
+            width: 100%;
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 16px;
+            padding-right: 50px;
+            color: var(--text-light);
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .input-control:focus {
+            border-color: var(--primary);
+        }
+
+        .toggle-password {
+            position: absolute;
+            right: 16px;
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 16px;
+            padding: 4px;
+        }
+
+        .btn-submit {
+            width: 100%;
+            background: var(--primary);
+            border: none;
+            color: white;
+            padding: 16px;
+            border-radius: 14px;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: background 0.2s, transform 0.1s;
+        }
+
+        .btn-submit:active {
+            background: var(--primary-dark);
+            transform: scale(0.98);
+        }
+
+        .back-to-login {
+            color: var(--primary);
+            font-size: 13px;
+            font-weight: 600;
+            text-decoration: none;
+            margin-top: 10px;
+            display: inline-block;
+        }
+
+        .notification-container {
+            position: fixed;
+            top: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-120px);
+            background: var(--card-bg);
+            border: 1px solid rgba(16, 185, 129, 0.4);
+            border-radius: 16px;
+            padding: 18px 24px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            z-index: 10001;
+            box-shadow: 0 20px 40px -5px rgba(16, 185, 129, 0.3);
+            transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            width: calc(100% - 40px);
+            max-width: 400px;
+        }
+
+        .notification-container.active {
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .notification-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: rgba(16, 185, 129, 0.15);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            color: var(--success);
+            flex-shrink: 0;
+        }
+
+        .notification-text {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            text-align: left;
+        }
+
+        .notification-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text-light);
+        }
+
+        .notification-message {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .inner-loader {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            padding: 10px 0;
+        }
+
+        .inner-loader-spinner {
+            width: 28px;
+            height: 28px;
+            border: 3px solid rgba(108, 92, 231, 0.1);
+            border-top: 3px solid var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container" id="appContainer">
+        <div class="reset-card">
+            <img src="image/logo.png" class="card-logo" alt="AmanData Logo">
+
+            <div id="formSection">
+                <h2 class="reset-title">Reset Password</h2>
+                <p class="reset-desc">Create a new secure password for your account. Make sure it is strong and easy for you to remember.</p>
+
+                <div style="display: flex; flex-direction: column; gap: 18px; margin-top: 8px;">
+                    <div class="form-group">
+                        <span class="form-label">New Password</span>
+                        <div class="input-wrapper">
+                            <input type="password" class="input-control" id="newPassword" placeholder="Enter new password" autocomplete="new-password">
+                            <button type="button" class="toggle-password" id="toggleNew"><i class="fa-solid fa-eye"></i></button>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <span class="form-label">Confirm New Password</span>
+                        <div class="input-wrapper">
+                            <input type="password" class="input-control" id="confirmPassword" placeholder="Confirm new password" autocomplete="new-password">
+                            <button type="button" class="toggle-password" id="toggleConfirm"><i class="fa-solid fa-eye"></i></button>
+                        </div>
+                    </div>
+
+                    <div id="formActions">
+                        <button class="btn-submit" id="btnSubmitReset">
+                            <span>Submit</span>
+                            <i class="fa-solid fa-check"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <a href="register.html" class="back-to-login">Back to Sign In</a>
+    </div>
+
+    <div class="notification-container" id="notificationContainer">
+        <div class="notification-icon">
+            <i class="fa-solid fa-check"></i>
+        </div>
+        <div class="notification-text">
+            <span class="notification-title">Password Updated!</span>
+            <span class="notification-message">Your password has been changed successfully. Redirecting you to sign in...</span>
+        </div>
+    </div>
+
+    <script type="module" src="reset.js"></script>
+</body>
+</html>
