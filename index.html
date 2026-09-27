@@ -26,6 +26,24 @@
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <link rel="preconnect" href="https://i.imgur.com">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    
+    <link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#0066ff">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="apple-touch-icon" href="./icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#0066ff">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="AmanData">
+<link rel="apple-touch-icon" href="./icons/icon-192.png">
+   
     <style>
         .scene { position: fixed; inset: 0; z-index: 99999; background: #001233; transition: opacity 0.6s ease, visibility 0.6s ease; }
         .scene.hide { opacity: 0; visibility: hidden; pointer-events: none; }
@@ -442,6 +460,8 @@
                 transform: translateY(-5px);
             }
         }
+      
+      
         .aman-section{
     width:100%;
     display:flex;
@@ -540,6 +560,7 @@
 }
 
 }
+      
         .page-section{width:100%;max-width:480px;margin:0 auto;padding:48px 20px 20px;text-align:center; background:linear-gradient(180deg,#001233 0%,#001945 100%); }
         .section-head{margin-bottom:28px;}
         .section-head .eyebrow{display:inline-block;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#38bdf8;font-weight:700;background:rgba(56,189,248,.1);border:1px solid rgba(56,189,248,.25);padding:6px 14px;border-radius:50px;}
@@ -605,7 +626,7 @@
         </div>
     </div>
     
-    <img src="image/logo.png" alt="Loading Logo" class="loader-logo" id="loaderLogo">
+    <img src="https://i.imgur.com/vQBFHZI.png" alt="Loading Logo" class="loader-logo" id="loaderLogo">
     <div class="brand" id="brand">
         Loading<span class="bdot">.</span><span class="bdot">.</span><span class="bdot">.</span>
     </div>
@@ -613,9 +634,10 @@
     <section class="hero-section">
         <div class="header-container">
             <img src="image/logo.png" alt="AmanData" class="logo" loading="eager">
+                                              
             <div id="pwaInstallContainer" class="pwa-header-install" style="display: flex;" title="Download App">
-                <i class="fa-solid fa-download"></i>
-            </div>
+    <i class="fa-solid fa-download"></i>
+</div>
         </div>
         <div class="girl-container">
             <img src="https://i.imgur.com/0COsVQ7.png" alt="" class="girl-img" loading="eager">
@@ -839,6 +861,9 @@
         </a>
     </div>
     
+    
+    
+   
     <script>
         document.addEventListener("DOMContentLoaded", () => {
             setTimeout(() => {
@@ -884,65 +909,140 @@
             deferredPrompt = null;
         });
     </script>
+    
+    
     <script>
-        (function() {
-            const urlParams = new URLSearchParams(window.location.search);
-            
-            const isAppMode = urlParams.get('mode') === 'app' || 
-                              window.navigator.userAgent.includes('AmanDataAppInside') || 
-                              window.matchMedia('(display-mode: standalone)').matches;
+(function() {
+    var urlParams = new URLSearchParams(window.location.search);
+    var ua = navigator.userAgent || '';
+    var isIOS = /iphone|ipad|ipod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    var isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true || window.matchMedia('(display-mode: window-controls-overlay)').matches;
+    var isAppMode = urlParams.get('mode') === 'app' || ua.indexOf('AmanDataAppInside') !== -1 || isStandalone;
 
-            let refCode = '';
-            if (window.location.pathname.includes('/ref/')) {
-                const parts = window.location.pathname.split('/ref/');
-                if (parts[1]) refCode = parts[1].replace('/', '');
-            } else if (urlParams.has('ref')) {
-                refCode = urlParams.get('ref');
+    var refCode = '';
+    if (window.location.pathname.indexOf('/ref/') !== -1) {
+        var parts = window.location.pathname.split('/ref/');
+        if (parts[1]) refCode = parts[1].replace('/', '');
+    } else if (urlParams.has('ref')) {
+        refCode = urlParams.get('ref');
+    }
+
+    var targetPage = refCode ? 'register.html?ref=' + encodeURIComponent(refCode) : 'register.html';
+
+    if (isAppMode) {
+        window.location.replace(targetPage);
+        return;
+    }
+
+    var startBtn = document.getElementById('btnGetStarted');
+    if (startBtn) {
+        startBtn.setAttribute('href', targetPage);
+    }
+
+    var messages = [
+        "Fund your wallet instantly with zero charges. Save, deposit, and withdraw money with ease. Convert your unused airtime into instant cash. Enjoy affordable, high-speed, and reliable data bundles anytime with AmanData.",
+        "Saka kuɗi a asusunka cikin sauri ba tare da an cire maka ko sisi ba. Ajiye, saka, da cire kuɗi cikin sauƙi. Maida airtime ɗinka zuwa tsabar kuɗi nan take. Samu data mai araha, sauri, kuma ingantacciya a kowane lokaci tare da AmanData.",
+        "Fi owo kun wallet rẹ lẹsẹkẹsẹ lai san owo afikun kankan. Fipamọ, fi owo kun, ki o si yọ owo rẹ ni irọrun. Yi airtime rẹ pada si owo gidi lẹsẹkẹsẹ. Gba data to din owo, yara, ati didara ga nigbakugba pẹlu AmanData.",
+        "Tinye ego na wallet gị ozugbo n'enweghị ụgwọ ọ bụla. Chekwaa ego, tinye ego ma dọrọ ego gị n'ụzọ dị mfe. Gbanwee airtime gị ka ọ bụrụ ego ozugbo. Nweta data dị ọnụ ala, dị ngwa, ma dị mma oge ọ bụla site na AmanData."
+    ];
+    var currentIndex = 0;
+    var isPaused = false;
+    var textElement = document.getElementById('wazobiaText');
+    var boardElement = document.getElementById('wazobiaBoard');
+
+    if (textElement && boardElement) {
+        var rotateText = function() {
+            if (!isPaused) {
+                currentIndex = (currentIndex + 1) % messages.length;
+                textElement.textContent = messages[currentIndex];
             }
+        };
+        setInterval(rotateText, 5000);
+        boardElement.addEventListener('touchstart', function() { isPaused = true; });
+        boardElement.addEventListener('touchend', function() { isPaused = false; });
+        boardElement.addEventListener('mousedown', function() { isPaused = true; });
+        boardElement.addEventListener('mouseup', function() { isPaused = false; });
+    }
 
-            const targetPage = refCode ? `register.html?ref=${encodeURIComponent(refCode)}` : 'register.html';
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+            navigator.serviceWorker.register('./sw.js').catch(function() {});
+        });
+    }
 
-            if (isAppMode) {
-                window.location.replace(targetPage);
-                return;
+    var deferredPrompt = null;
+    var installContainer = document.getElementById('pwaInstallContainer');
+
+    var buildGuide = function() {
+        var overlay = document.createElement('div');
+        overlay.setAttribute('style', 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:999999;display:flex;align-items:center;justify-content:center;padding:20px;');
+
+        var box = document.createElement('div');
+        box.setAttribute('style', 'background:#001233;color:#ffffff;max-width:400px;width:100%;border-radius:16px;padding:22px;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;box-shadow:0 10px 40px rgba(0,0,0,0.6);border:1px solid #0066ff;');
+
+        var title = document.createElement('h3');
+        title.textContent = 'Sanya AmanData App';
+        title.setAttribute('style', 'margin:0 0 14px;font-size:19px;color:#0066ff;text-align:center;');
+        box.appendChild(title);
+
+        var body = document.createElement('div');
+        body.setAttribute('style', 'font-size:14.5px;line-height:1.7;');
+
+        if (isIOS) {
+            body.innerHTML = '1. Danna maɓallin <b>Share</b> a ƙasan Safari (square mai kibiya sama).<br>2. Zabi <b>Add to Home Screen</b>.<br>3. Danna <b>Add</b> a kusurwa ta sama.<br><br>App ɗin zai bayyana a allon wayarka kamar app na yau da kullum.';
+        } else {
+            body.innerHTML = '1. Danna maɓallin <b>menu</b> (digiri uku a kusurwa ta sama).<br>2. Zabi <b>Install app</b> ko <b>Add to Home screen</b>.<br>3. Danna <b>Install</b> don tabbatarwa.<br><br>Idan ba ka gani ba, duba cewa ka buɗe shafin a <b>Chrome</b>, <b>Edge</b>, ko <b>Samsung Internet</b>.';
+        }
+        box.appendChild(body);
+
+        var closeBtn = document.createElement('button');
+        closeBtn.textContent = 'Na Gane';
+        closeBtn.setAttribute('style', 'margin-top:18px;width:100%;padding:12px;border:none;border-radius:10px;background:#0066ff;color:#ffffff;font-size:15px;font-weight:600;cursor:pointer;');
+        box.appendChild(closeBtn);
+
+        overlay.appendChild(box);
+        document.body.appendChild(overlay);
+
+        var removeOverlay = function() {
+            if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
+        };
+        closeBtn.addEventListener('click', removeOverlay);
+        overlay.addEventListener('click', function(e) {
+            if (e.target === overlay) removeOverlay();
+        });
+    };
+
+    window.addEventListener('beforeinstallprompt', function(e) {
+        e.preventDefault();
+        deferredPrompt = e;
+        if (installContainer) installContainer.style.display = 'flex';
+    });
+
+    if (installContainer) {
+        installContainer.style.display = 'flex';
+        installContainer.style.cursor = 'pointer';
+        installContainer.addEventListener('click', function() {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then(function() {
+                    deferredPrompt = null;
+                });
+            } else {
+                buildGuide();
             }
+        });
+    }
 
-            const startBtn = document.getElementById('btnGetStarted');
-            if (startBtn) {
-                startBtn.setAttribute('href', targetPage);
-            }
+    window.addEventListener('appinstalled', function() {
+        deferredPrompt = null;
+        if (installContainer) installContainer.style.display = 'none';
+    });
 
-            const messages = [
-
-    "Fund your wallet instantly with zero charges. Save, deposit, and withdraw money with ease. Convert your unused airtime into instant cash. Enjoy affordable, high-speed, and reliable data bundles anytime with AmanData.",
-
-    "Saka kuɗi a asusunka cikin sauri ba tare da an cire maka ko sisi ba. Ajiye, saka, da cire kuɗi cikin sauƙi. Maida airtime ɗinka zuwa tsabar kuɗi nan take. Samu data mai araha, sauri, kuma ingantacciya a kowane lokaci tare da AmanData.",
-
-    "Fi owo kun wallet rẹ lẹsẹkẹsẹ lai san owo afikun kankan. Fipamọ, fi owo kun, ki o si yọ owo rẹ ni irọrun. Yi airtime rẹ pada si owo gidi lẹsẹkẹsẹ. Gba data to din owo, yara, ati didara ga nigbakugba pẹlu AmanData.",
-
-    "Tinye ego na wallet gị ozugbo n'enweghị ụgwọ ọ bụla. Chekwaa ego, tinye ego ma dọrọ ego gị n'ụzọ dị mfe. Gbanwee airtime gị ka ọ bụrụ ego ozugbo. Nweta data dị ọnụ ala, dị ngwa, ma dị mma oge ọ bụla site na AmanData."
-
-];
-            let currentIndex = 0;
-            let isPaused = false;
-            const textElement = document.getElementById('wazobiaText');
-            const boardElement = document.getElementById('wazobiaBoard');
-            
-            if (textElement && boardElement) {
-                function rotateText() {
-                    if (!isPaused) {
-                        currentIndex = (currentIndex + 1) % messages.length;
-                        textElement.textContent = messages[currentIndex];
-                    }
-                }
-                setInterval(rotateText, 5000);
-                boardElement.addEventListener('touchstart', function() { isPaused = true; });
-                boardElement.addEventListener('touchend', function() { isPaused = false; });
-                boardElement.addEventListener('mousedown', function() { isPaused = true; });
-                boardElement.addEventListener('mouseup', function() { isPaused = false; });
-            }
-        })();
-    </script>
+    if (isStandalone && installContainer) {
+        installContainer.style.display = 'none';
+    }
+})();
+</script>
     <script>
         function handleStore(el) {
             const url = el.getAttribute('data-url');
