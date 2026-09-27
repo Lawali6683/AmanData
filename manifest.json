@@ -1,26 +1,43 @@
 {
+  "id": "/",
   "name": "AmanData App",
   "short_name": "AmanData",
   "description": "The official multiplatform application for AmanData software and management systems.",
   "lang": "en-US",
+  "dir": "ltr",
   "start_url": "./index.html?mode=app",
+  "scope": "./",
   "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
   "background_color": "#001233",
   "theme_color": "#0066ff",
   "orientation": "portrait-primary",
   "categories": ["business", "productivity"],
+  "prefer_related_applications": false,
   "icons": [
     {
-      "src": "https://i.imgur.com/SBHTDNn.png",
+      "src": "./icons/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
-      "src": "https://i.imgur.com/SBHTDNn.png",
+      "src": "./icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "./icons/maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }
