@@ -1,17 +1,26 @@
-const CACHE_NAME = 'amandata-cache-v2';
-const ASSETS_TO_CACHE = [
-  '/',
-  '/index',
-  '/register'
+var CACHE_NAME = 'amandata-cache-v3';
+var OFFLINE_URL = './index.html';
+
+var PRECACHE_ASSETS = [
+  './',
+  './index.html',
+  './register.html',
+  './manifest.json'
 ];
 
 self.addEventListener('install', function(event) {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(function(cache) {
-      return cache.addAll(ASSETS_TO_CACHE).catch(function() {
-        return Promise.resolve();
-      });
-    }).then(() => self.skipWaiting())
+    caches.open(CACHE_NAME)
+      .then(function(cache) {
+        return Promise.allSettled(
+          PRECACHE_ASSETS.map(function(url) {
+            return cache.add(new Request(url, { cache: 'reload' }));
+          })
+        );
+      })
+      .then(function() {
+        return self.skipWaiting();
+      })
   );
 });
 
@@ -25,38 +34,64 @@ self.addEventListener('activate', function(event) {
           return caches.delete(cacheName);
         })
       );
-    }).then(() => self.clients.claim())
+    }).then(function() {
+      return self.clients.claim();
+    })
   );
 });
 
 self.addEventListener('fetch', function(event) {
-  if (event.request.mode === 'navigate') {
+  var req = event.request;
+
+  if (req.method !== 'GET') return;
+
+  if (req.mode === 'navigate') {
     event.respondWith(
-      fetch(event.request).catch(function() {
-        return caches.match('/register') || caches.match('/');
-      })
+      fetch(req)
+        .then(function(response) {
+          var copy = response.clone();
+          caches.open(CACHE_NAME).then(function(cache) {
+            cache.put(req, copy);
+          });
+          return response;
+        })
+        .catch(function() {
+          return caches.match(req).then(function(cached) {
+            return cached || caches.match(OFFLINE_URL);
+          });
+        })
     );
     return;
   }
+
   event.respondWith(
-    caches.match(event.request).then(function(response) {
-      return response || fetch(event.request);
+    caches.match(req).then(function(cached) {
+      if (cached) return cached;
+      return fetch(req).then(function(response) {
+        if (response && response.status === 200 && response.type === 'basic') {
+          var copy = response.clone();
+          caches.open(CACHE_NAME).then(function(cache) {
+            cache.put(req, copy);
+          });
+        }
+        return response;
+      });
     })
   );
 });
 
 self.addEventListener('push', function(event) {
-  let notificationData = 'New update from AmanData!';
+  var notificationData = 'New update AmanData!';
   if (event.data) {
     notificationData = event.data.text();
   }
-  const options = {
+  var options = {
     body: notificationData,
-    icon: 'https://i.imgur.com/SBHTDNn.png',
-    badge: 'https://i.imgur.com/SBHTDNn.png',
+    icon: './icons/icon-192.png',
+    badge: './icons/icon-192.png',
     vibrate: [100, 50, 100],
     data: {
-      url: 'https://www.amandata.com.ng/register'
+      url: './index.html'
     }
   };
   event.waitUntil(
@@ -66,14 +101,14 @@ self.addEventListener('push', function(event) {
 
 self.addEventListener('notificationclick', function(event) {
   event.notification.close();
-  let targetUrl = 'https://www.amandata.com.ng/register';
+  var targetUrl = new URL('./index.html', self.location.origin).href;
   if (event.notification.data && event.notification.data.url) {
-    targetUrl = event.notification.data.url;
+    targetUrl = new URL(event.notification.data.url, self.location.origin).href;
   }
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clientList) {
-      for (let i = 0; i < clientList.length; i++) {
-        let client = clientList[i];
+      for (var i = 0; i < clientList.length; i++) {
+        var client = clientList[i];
         if (client.url === targetUrl && 'focus' in client) {
           return client.focus();
         }
