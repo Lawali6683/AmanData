@@ -8,9 +8,7 @@ import { supabase } from './supabase.js';
     const bg = document.getElementById('bg');
     const appContainer = document.getElementById('appContainer');
 
-    const profileInitials = document.getElementById('profileInitials');
     const profileName = document.getElementById('profileName');
-    const profileLocation = document.getElementById('profileLocation');
     const profileEmail = document.getElementById('profileEmail');
     const profilePhone = document.getElementById('profilePhone');
     const profileJoined = document.getElementById('profileJoined');
@@ -99,18 +97,13 @@ import { supabase } from './supabase.js';
 
             cachedProfile = data;
             const profileData = data.user_data;
-
             const fullName = profileData.full_name || "Anonymous User";
+
             profileName.textContent = fullName;
             profileEmail.textContent = profileData.email || "N/A";
             profilePhone.textContent = profileData.phone_number || "N/A";
-            profileLocation.textContent = profileData.location || "Nigeria";
             profileJoined.textContent = profileData.register_date ? new Date(profileData.register_date).toLocaleDateString() : "N/A";
             profileReferredBy.textContent = profileData.referred_by || "None";
-
-            const initials = fullName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
-            profileInitials.textContent = initials;
-
         } catch (err) {
             showToast("Failed to fetch profile. Loaded offline state.", false);
         } finally {
@@ -217,6 +210,7 @@ import { supabase } from './supabase.js';
                 if (e.target.value.length === 1 && index < 3) {
                     inputs[index + 1].focus();
                 }
+
                 if (inputs.every(inp => inp.value.length === 1)) {
                     const finalPin = inputs.map(inp => inp.value).join('');
                     renderConfirmPinScreen(finalPin);
@@ -268,6 +262,7 @@ import { supabase } from './supabase.js';
                     if (e.target.value.length === 1 && index < 3) {
                         inputs[index + 1].focus();
                     }
+
                     if (inputs.every(inp => inp.value.length === 1)) {
                         const confirmPin = inputs.map(inp => inp.value).join('');
                         if (firstPin === confirmPin) {
