@@ -6,7 +6,12 @@
     <title>AmanData - Enterprise Dashboard</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
- * {
+:root {
+    --bg-image: url('https://i.imgur.com/NMwTaSR.png');
+    --frost-fill: rgba(255, 255, 255, 0.5);
+    --glass-fill: rgba(255, 255, 255, 0.7);
+}
+* {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
@@ -14,7 +19,11 @@
     -webkit-tap-highlight-color: transparent;
 }
 body {
-    background: #f8fafc;
+    background-color: #f8fafc;
+    background-image: linear-gradient(rgba(248, 250, 252, 0.5), rgba(248, 250, 252, 0.5)), var(--bg-image);
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
     color: #0f172a;
     min-height: 100vh;
     display: flex;
@@ -24,7 +33,10 @@ body {
 .phone-wrapper {
     width: 100%;
     max-width: 450px;
-    background: #ffffff;
+    background-image: linear-gradient(var(--frost-fill), var(--frost-fill)), var(--bg-image);
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
     min-height: 100vh;
     display: flex;
     flex-direction: column;
@@ -41,7 +53,6 @@ body {
     left: 0;
     width: 100%;
     z-index: 5;
-    
     box-shadow: 0 8px 20px rgba(0, 85, 255, 0.15);
 }
 .header-watermark {
@@ -116,7 +127,10 @@ body {
     margin-top: 275px;
     position: relative;
     z-index: 10;
-    background: #ffffff;
+    background-image: linear-gradient(var(--frost-fill), var(--frost-fill)), var(--bg-image);
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
     border-top-left-radius: 20px;
     border-top-right-radius: 20px;
     border: 1px solid rgba(0, 0, 0, 0.04);
@@ -124,7 +138,10 @@ body {
     flex-grow: 1;
 }
 .balance-card {
-    background: #ffffff;
+    background-image: linear-gradient(var(--frost-fill), var(--frost-fill)), var(--bg-image);
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
     border-radius: 24px;
     padding: 23px;
     margin-top: -130px;
@@ -135,7 +152,7 @@ body {
 }
 .balance-label {
     font-size: 13px;
-    color: #64748b;
+    color: black;
     font-weight: 600;
     display: flex;
     align-items: center;
@@ -150,7 +167,8 @@ body {
 .balance-numeric {
     font-size: 28px;
     font-weight: 800;
-    color: #0f172a;
+    color: black;
+    
 }
 .balance-visibility-toggle {
     color: #94a3b8;
@@ -203,7 +221,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background: #f8fafc;
+    background: rgba(248, 250, 252, 0.85);
     padding: 12px 16px;
     border-radius: 12px;
     border: 1px solid #edf2f7;
@@ -301,6 +319,75 @@ body {
     color: #475569;
     line-height: 1.3;
 }
+.partner-button-block {
+    display: none;
+    margin-top: 30px;
+    padding-bottom: 10px;
+}
+.partner-button-block.visible {
+    display: block;
+}
+.partner-button {
+    position: relative;
+    display: block;
+    width: 100%;
+    border-radius: 20px;
+    overflow: hidden;
+    border: 1px solid rgba(0, 102, 255, 0.18);
+    background-color: #ffffff;
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.07);
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease, border-color 0.3s ease;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    text-decoration: none;
+    animation: partner-glow 3.5s ease-in-out infinite;
+}
+.partner-button:hover {
+    transform: translateY(-4px) scale(1.01);
+    box-shadow: 0 16px 34px rgba(0, 102, 255, 0.22);
+    border-color: rgba(0, 102, 255, 0.5);
+}
+.partner-button:active {
+    transform: scale(0.97);
+}
+.partner-button img {
+    display: block;
+    width: 100%;
+    height: auto;
+    object-fit: contain;
+    pointer-events: none;
+    -webkit-user-drag: none;
+    user-select: none;
+}
+.partner-button-cta {
+    position: absolute;
+    bottom: 10px;
+    right: 12px;
+    background: rgba(0, 102, 255, 0.92);
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 6px 12px;
+    border-radius: 30px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    box-shadow: 0 4px 12px rgba(0, 102, 255, 0.35);
+    pointer-events: none;
+    letter-spacing: 0.3px;
+}
+.partner-button-cta i {
+    font-size: 10px;
+    animation: partner-arrow 1.4s ease-in-out infinite;
+}
+@keyframes partner-arrow {
+    0%, 100% { transform: translateX(0); }
+    50% { transform: translateX(3px); }
+}
+@keyframes partner-glow {
+    0%, 100% { box-shadow: 0 8px 22px rgba(0, 0, 0, 0.07); }
+    50% { box-shadow: 0 8px 26px rgba(0, 102, 255, 0.16); }
+}
 .drawer-overlay-panel {
     position: fixed;
     inset: 0;
@@ -321,17 +408,22 @@ body {
     left: -320px;
     width: 300px;
     height: 100%;
-    background: #ffffff;
+    background-image: linear-gradient(var(--glass-fill), var(--glass-fill)), var(--bg-image);
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    backdrop-filter: blur(22px) saturate(180%);
+    -webkit-backdrop-filter: blur(22px) saturate(180%);
     box-shadow: 10px 0 30px rgba(0,0,0,0.1);
     display: flex;
     flex-direction: column;
-    transition: left 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    transition: left 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .drawer-overlay-panel.active .navigation-drawer-card {
     left: 0;
 }
 .drawer-brand-header {
-    background: #001233;
+    background: linear-gradient(135deg, #001233 0%, #00296b 100%);
     padding: 30px 24px;
     color: #ffffff;
     display: flex;
@@ -367,17 +459,27 @@ body {
     text-decoration: none;
     font-size: 15px;
     font-weight: 600;
-    border-radius: 10px;
-    transition: background 0.2s;
+    border-radius: 12px;
+    transition: background 0.25s, transform 0.25s, color 0.25s;
 }
 .drawer-item-link i {
     font-size: 18px;
     color: #64748b;
     width: 24px;
     text-align: center;
+    transition: color 0.25s, transform 0.25s;
+}
+.drawer-item-link:hover {
+    background: rgba(0, 102, 255, 0.08);
+    color: #0066ff;
+    transform: translateX(4px);
+}
+.drawer-item-link:hover i {
+    color: #0066ff;
+    transform: scale(1.12);
 }
 .drawer-item-link:active, .drawer-item-link.active {
-    background: #f1f5f9;
+    background: rgba(0, 102, 255, 0.12);
     color: #0066ff;
 }
 .drawer-item-link:active i, .drawer-item-link.active i {
@@ -385,11 +487,18 @@ body {
 }
 .drawer-item-link.logout-node {
     color: #ef4444;
-    border-top: 1px solid #f1f5f9;
+    border-top: 1px solid rgba(255,255,255,0.6);
     margin-top: auto;
     border-radius: 0;
 }
 .drawer-item-link.logout-node i {
+    color: #ef4444;
+}
+.drawer-item-link.logout-node:hover {
+    background: rgba(239, 68, 68, 0.08);
+    color: #ef4444;
+}
+.drawer-item-link.logout-node:hover i {
     color: #ef4444;
 }
 .center-popup-modal {
@@ -406,7 +515,10 @@ body {
     display: flex;
 }
 .modal-content-box {
-    background: #ffffff;
+    background-image: linear-gradient(var(--frost-fill), var(--frost-fill)), var(--bg-image);
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
     border-radius: 20px;
     width: 100%;
     max-width: 380px;
@@ -422,7 +534,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    border-bottom: 1px solid #f1f5f9;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
 }
 .modal-close-trigger {
     background: transparent;
@@ -440,7 +552,7 @@ body {
     gap: 12px;
 }
 .alert-entry {
-    background: #f8fafc;
+    background: rgba(248, 250, 252, 0.85);
     padding: 12px 14px;
     border-radius: 10px;
     border-left: 4px solid #0066ff;
@@ -454,7 +566,10 @@ body {
     font-weight: 500;
 }
 .help-channels-card {
-    background: #ffffff;
+    background-image: linear-gradient(var(--frost-fill), var(--frost-fill)), var(--bg-image);
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
     border-radius: 20px;
     width: 100%;
     max-width: 360px;
@@ -478,15 +593,16 @@ body {
     align-items: center;
     gap: 14px;
     padding: 12px;
-    background: #f8fafc;
+    background: rgba(248, 250, 252, 0.85);
     border: 1px solid #edf2f7;
     border-radius: 14px;
     margin-bottom: 10px;
     cursor: pointer;
-    transition: background 0.2s;
+    transition: background 0.2s, transform 0.2s;
 }
 .support-agent-row:active {
     background: #edf2f7;
+    transform: scale(0.98);
 }
 .agent-mock-avatar {
     width: 44px;
@@ -534,8 +650,10 @@ body {
     width: 100%;
     max-width: 450px;
     height: 72px;
-    background: #ffffff;
-    border-top: 1px solid #f1f5f9;
+    background: rgba(255, 255, 255, 0.78);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border-top: 1px solid rgba(0, 0, 0, 0.05);
     display: grid;
     grid-template-columns: 1fr 1fr 0.8fr 1fr 1fr;
     z-index: 999;
@@ -550,11 +668,14 @@ body {
     text-decoration: none;
     gap: 4px;
     color: #94a3b8;
-    transition: color 0.2s;
+    transition: color 0.2s, transform 0.2s;
     width: 100%;
 }
 .nav-item-anchor.active {
     color: #0066ff;
+}
+.nav-item-anchor:active {
+    transform: scale(0.92);
 }
 .nav-item-anchor i {
     font-size: 22px;
@@ -677,80 +798,74 @@ body {
 }
 .loading-text-string span:nth-child(2) { animation-delay: 0.2s; }
 .loading-text-string span:nth-child(3) { animation-delay: 0.4s; }
+.pd-wa-container {
+    position: fixed;
+    bottom: 270px;
+    right: 24px;
+    width: 60px;
+    height: 60px;
+    z-index: 999;
+    cursor: grab;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+    -webkit-user-drag: none;
+    touch-action: none;
+}
+.pd-wa-container:active {
+    cursor: grabbing;
+}
+.pd-wa-link {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    box-shadow: 0 8px 24px rgba(37, 211, 102, 0.35);
+    transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    -webkit-user-drag: none;
+}
+.pd-wa-link:active {
+    transform: scale(0.9);
+}
+.pd-wa-icon {
+    width: 60px;
+    height: 60px;
+    object-fit: contain;
+    pointer-events: none;
+    animation: pd-wa-bounce 3s ease-in-out infinite;
+}
+.pd-wa-pulse-ring {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background-color: #25d366;
+    opacity: 0.4;
+    z-index: -1;
+    animation: pd-wa-ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+    pointer-events: none;
+}
+@keyframes pd-wa-ping {
+    75%, 100% {
+        transform: scale(1.6);
+        opacity: 0;
+    }
+}
+@keyframes pd-wa-bounce {
+    0%, 100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-5px);
+    }
+}
 
-        
-        
-           .pd-wa-container {
-        position: fixed;
-        bottom: 270px;
-        right: 24px;
-        width: 60px;
-        height: 60px;
-        z-index: 999;
-        cursor: grab;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        user-select: none;
-        -webkit-user-drag: none;
-        touch-action: none;
-    }
-Dan u   .pd-wa-container:active {
-        cursor: grabbing;
-    }
+#toggleBalanceVisibility{
+    color: Black;
+}
 
-    .pd-wa-link {
-        width: 100%;
-        height: 100%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 50%;
-        
-        box-shadow: 0 8px 24px rgba(37, 211, 102, 0.35);
-        transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        -webkit-user-drag: none;
-    }
-
-    .pd-wa-link:active {
-        transform: scale(0.9);
-    }
-
-    .pd-wa-icon {
-        width: 60px;
-        height: 60px;
-        object-fit: contain;
-        pointer-events: none;
-        animation: pd-wa-bounce 3s ease-in-out infinite;
-    }
-
-    .pd-wa-pulse-ring {
-        position: absolute;
-        inset: 0;
-        border-radius: 50%;
-        background-color: #25d366;
-        opacity: 0.4;
-        z-index: -1;
-        animation: pd-wa-ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
-        pointer-events: none;
-    }
-
-    @keyframes pd-wa-ping {
-        75%, 100% {
-            transform: scale(1.6);
-            opacity: 0;
-        }
-    }
-
-    @keyframes pd-wa-bounce {
-        0%, 100% {
-            transform: translateY(0);
-        }
-        50% {
-            transform: translateY(-5px);
-        }
-    }
-        
     </style>
 </head>
 <body>
@@ -818,24 +933,27 @@ Dan u   .pd-wa-container:active {
                     <a href="airtimeprint.html" class="service-anchor-node">
                         <div class="service-icon-frame srv-print"><i class="fa-solid fa-print"></i></div>
                         <span class="service-title-lbl">Card Print</span>
-                        
-                         </a>
+                    </a>
                     <a href="exam.html" class="service-anchor-node">
                         <div class="service-icon-frame srv-exam"><i class="fa-solid fa-graduation-cap"></i></div>
                         <span class="service-title-lbl">Exam Pin</span>
-                        
                     </a>
                     <a href="referral.html" class="service-anchor-node">
                         <div class="service-icon-frame srv-referral"><i class="fa-solid fa-user-plus"></i></div>
                         <span class="service-title-lbl">Referral</span>
-                        
-                        
                     </a>
                     <a href="help.html" class="service-anchor-node">
                         <div class="service-icon-frame srv-exam"><i class="fa-solid fa-code"></i></div>
                         <span class="service-title-lbl">AP1</span>
                     </a>
                 </div>
+            </section>
+
+            <section class="partner-button-block" id="partnerButtonWrapper">
+                <a class="partner-button" id="partnerButtonLink" href="#" target="_blank" rel="noopener noreferrer">
+                    <img id="partnerButtonImage" alt="Partner Offer" draggable="false">
+                    <span class="partner-button-cta">Tap <i class="fa-solid fa-arrow-right"></i></span>
+                </a>
             </section>
         </main>
 
@@ -947,25 +1065,23 @@ Dan u   .pd-wa-container:active {
     </div>
 
     <script type="module" src="dashboard.js"></script>
-    
-  <div id="pd-whatsapp-widget" class="pd-wa-container">
-    <div class="pd-wa-pulse-ring"></div>
-    <a href="https://wa.me/2347060739494?text=I%20am%20in%20need%20of%20help%20from%20the%20AmanData%20app" 
-       target="_blank" 
-       class="pd-wa-link" 
-       id="pd-wa-link"
-       draggable="false">
-        <img src="image/whatsapp.png" alt="WhatsApp Support" class="pd-wa-icon" draggable="false">
-    </a>
-</div>
 
+    <div id="pd-whatsapp-widget" class="pd-wa-container">
+        <div class="pd-wa-pulse-ring"></div>
+        <a href="https://wa.me/2347060739494?text=I%20am%20in%20need%20of%20help%20from%20the%20AmanData%20app"
+           target="_blank"
+           class="pd-wa-link"
+           id="pd-wa-link"
+           draggable="false">
+            <img src="image/whatsapp.png" alt="WhatsApp Support" class="pd-wa-icon" draggable="false">
+        </a>
+    </div>
 
 <script>
-    
     (function() {
     const widget = document.getElementById('pd-whatsapp-widget');
     const link = document.getElementById('pd-wa-link');
-    
+
     let isDragging = false;
     let startX, startY;
     let initialX, initialY;
@@ -988,7 +1104,7 @@ Dan u   .pd-wa-container:active {
     function dragStart(e) {
         hasMoved = false;
         isDragging = true;
-        
+
         const clientX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
         const clientY = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
 
@@ -1002,7 +1118,7 @@ Dan u   .pd-wa-container:active {
 
     function drag(e) {
         if (!isDragging) return;
-        
+
         if (e.cancelable) {
             e.preventDefault();
         }
@@ -1040,7 +1156,6 @@ Dan u   .pd-wa-container:active {
         isDragging = false;
     }
 })();
-    
 </script>
 
 </body>
