@@ -1,20 +1,34 @@
 import { supabase } from './supabase.js';
 
-(function() {
+(function () {
 
-    const sessionTokenString = localStorage.getItem('puredata_user_session');
+    const SESSION_KEY = 'puredata_user_session';
+    const PARTNER_CACHE_KEY = 'puredata_partner_button_cache';
+    const ADS_CACHE_KEY = 'puredata_seen_ads';
+    const REQUEST_TIMEOUT = 8000;
 
-    if (!sessionTokenString) {
+    function goToRegister() {
+        try { localStorage.removeItem(SESSION_KEY); } catch (e) {}
         window.location.replace('register.html');
+    }
+
+    let activeSession = null;
+    try {
+        const sessionTokenString = localStorage.getItem(SESSION_KEY);
+        if (sessionTokenString) activeSession = JSON.parse(sessionTokenString);
+    } catch (e) {
+        activeSession = null;
+    }
+
+    if (!activeSession) {
+        goToRegister();
         return;
     }
 
-    const activeSession = JSON.parse(sessionTokenString);
     const currentUserId = activeSession.userId || activeSession.id;
 
     if (!currentUserId) {
-        localStorage.removeItem('puredata_user_session');
-        window.location.replace('register.html');
+        goToRegister();
         return;
     }
 
@@ -39,49 +53,64 @@ import { supabase } from './supabase.js';
     const adBannerImage = document.getElementById('adBannerImage');
     const adBannerWrapper = document.getElementById('adBannerWrapper');
     const toastNotificationBox = document.getElementById('toastNotificationBox');
-
     const partnerButtonWrapper = document.getElementById('partnerButtonWrapper');
     const partnerButtonLink = document.getElementById('partnerButtonLink');
     const partnerButtonImage = document.getElementById('partnerButtonImage');
 
-    const PARTNER_CACHE_KEY = 'puredata_partner_button_cache';
-    const ADS_CACHE_KEY = 'puredata_seen_ads';
-
     let cachedRealBalance = "0.00";
     let isBalanceMasked = false;
     let localNotificationsArray = [];
+    let isSyncing = false;
+    let loaderHidden = false;
 
-    if ('connection' in navigator) {
-        const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-
-        function checkDataUsage() {
-            if (connection.saveData) {
-                showDataAlert("Data Saver: Turn it on to reduce image loading and save your mobile data.");
-            }
-
-            if (connection.effectiveType === '2g' || connection.effectiveType === '3g') {
-                showDataAlert("Notice: Your internet speed is slow. Please ensure you have sufficient mobile data.");
-            }
-        }
-
-        connection.addEventListener('change', checkDataUsage);
-        checkDataUsage();
+    function withTimeout(promise, ms) {
+        return new Promise((resolve, reject) => {
+            const timer = setTimeout(() => reject(new Error('timeout')), ms);
+            Promise.resolve(promise).then(
+                (value) => { clearTimeout(timer); resolve(value); },
+                (error) => { clearTimeout(timer); reject(error); }
+            );
+        });
     }
 
     function showDataAlert(message) {
-        if (Notification.permission === 'granted') {
-            navigator.serviceWorker.ready.then(function(registration) {
-                registration.showNotification('AmanData warning!', {
-                    body: message,
-                    icon: 'https://i.imgur.com/gv5b3VT.png',
-                    badge: 'https://i.imgur.com/gv5b3VT.png',
-                    vibrate: [200, 100, 200]
-                });
-            });
-        } else if (Notification.permission !== 'denied') {
-            Notification.requestPermission();
-        }
+        try {
+            if (typeof Notification === 'undefined' || !('serviceWorker' in navigator)) return;
+
+            if (Notification.permission === 'granted') {
+                navigator.serviceWorker.getRegistration().then((registration) => {
+                    if (registration) {
+                        registration.showNotification('AmanData warning!', {
+                            body: message,
+                            icon: 'https://i.imgur.com/gv5b3VT.png',
+                            badge: 'https://i.imgur.com/gv5b3VT.png',
+                            vibrate: [200, 100, 200]
+                        });
+                    }
+                }).catch(() => {});
+            } else if (Notification.permission !== 'denied') {
+                Notification.requestPermission();
+            }
+        } catch (e) {}
     }
+
+    try {
+        const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+
+        if (connection) {
+            const checkDataUsage = function () {
+                if (connection.saveData) {
+                    showDataAlert("Data Saver: Turn it on to reduce image loading and save your mobile data.");
+                }
+                if (connection.effectiveType === '2g' || connection.effectiveType === '3g') {
+                    showDataAlert("Notice: Your internet speed is slow. Please ensure you have sufficient mobile data.");
+                }
+            };
+
+            if (connection.addEventListener) connection.addEventListener('change', checkDataUsage);
+            checkDataUsage();
+        }
+    } catch (e) {}
 
     function showToastNotification(text) {
         if (!toastNotificationBox) return;
@@ -94,12 +123,28 @@ import { supabase } from './supabase.js';
         if (!appUniversalLoader || !liquidLoaderFill) return;
 
         if (visible) {
+            if (loaderHidden) return;
             appUniversalLoader.classList.remove('hidden');
             setTimeout(() => { liquidLoaderFill.style.height = '100%'; }, 50);
         } else {
+            loaderHidden = true;
             liquidLoaderFill.style.height = '0%';
             setTimeout(() => { appUniversalLoader.classList.add('hidden'); }, 600);
         }
+    }
+
+    function formatNaira(value) {
+        const number = parseFloat(value);
+        const safeNumber = isNaN(number) ? 0 : number;
+        return `₦${safeNumber.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    }
+
+    function escapeHtml(value) {
+        return String(value === undefined || value === null ? '' : value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
     }
 
     if (openMenuBtn && sidebarMenuDrawer) openMenuBtn.addEventListener('click', () => sidebarMenuDrawer.classList.add('active'));
@@ -139,10 +184,10 @@ import { supabase } from './supabase.js';
 
     if (closeHelpModal && helpModalView) closeHelpModal.addEventListener('click', () => helpModalView.classList.remove('active'));
 
-    document.querySelectorAll('.support-agent-row').forEach(row => {
-        row.addEventListener('click', function() {
-            const phoneNumber = this.getAttribute('data-phone');
-            const messageBody = this.getAttribute('data-msg');
+    document.querySelectorAll('.support-agent-row').forEach((row) => {
+        row.addEventListener('click', function () {
+            const phoneNumber = (this.getAttribute('data-phone') || '').replace('+', '');
+            const messageBody = this.getAttribute('data-msg') || '';
             window.open(`https://wa.me/${phoneNumber}?text=${encodeURIComponent(messageBody)}`, '_blank');
         });
     });
@@ -150,8 +195,7 @@ import { supabase } from './supabase.js';
     if (accountLogoutTrigger) {
         accountLogoutTrigger.addEventListener('click', (e) => {
             e.preventDefault();
-            localStorage.removeItem('puredata_user_session');
-            window.location.replace('register.html');
+            goToRegister();
         });
     }
 
@@ -161,23 +205,42 @@ import { supabase } from './supabase.js';
 
             if (isBalanceMasked) {
                 walletBalanceDisplay.textContent = "••••";
-                toggleBalanceVisibility.classList.replace('fa-eye', 'fa-eye-slash');
+                toggleBalanceVisibility.classList.remove('fa-eye');
+                toggleBalanceVisibility.classList.add('fa-eye-slash');
             } else {
-                walletBalanceDisplay.textContent = `₦${parseFloat(cachedRealBalance).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-                toggleBalanceVisibility.classList.replace('fa-eye-slash', 'fa-eye');
+                walletBalanceDisplay.textContent = formatNaira(cachedRealBalance);
+                toggleBalanceVisibility.classList.remove('fa-eye-slash');
+                toggleBalanceVisibility.classList.add('fa-eye');
             }
         });
     }
 
     function executeVirtualStringCopy(text) {
-        navigator.clipboard.writeText(text).then(() => {
+        try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(() => {
+                    showToastNotification("Account number copied successfully!");
+                }).catch(() => {});
+                return;
+            }
+
+            const temp = document.createElement('textarea');
+            temp.value = text;
+            temp.style.position = 'fixed';
+            temp.style.opacity = '0';
+            document.body.appendChild(temp);
+            temp.select();
+            document.execCommand('copy');
+            document.body.removeChild(temp);
             showToastNotification("Account number copied successfully!");
-        }).catch(() => {});
+        } catch (e) {}
     }
 
     function triggerAudioNotificationAlert() {
         try {
-            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+            if (!AudioContextClass) return;
+            const audioCtx = new AudioContextClass();
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
             osc.connect(gain);
@@ -196,10 +259,10 @@ import { supabase } from './supabase.js';
 
         const rowNode = document.createElement('div');
         rowNode.className = `alert-entry ${type}`;
-        rowNode.innerHTML = `<p class="alert-body-text">${text}</p>`;
+        rowNode.innerHTML = `<p class="alert-body-text">${escapeHtml(text)}</p>`;
 
         if (alertsItemsContainer) {
-            if (alertsItemsContainer.firstChild && alertsItemsContainer.firstChild.innerText === "No new notifications") {
+            if (alertsItemsContainer.firstChild && alertsItemsContainer.firstChild.textContent.trim() === "No new notifications") {
                 alertsItemsContainer.innerHTML = "";
             }
             alertsItemsContainer.insertBefore(rowNode, alertsItemsContainer.firstChild);
@@ -213,7 +276,7 @@ import { supabase } from './supabase.js';
         if (!raw) return {};
         if (typeof raw === 'string') {
             try {
-                return JSON.parse(raw);
+                return JSON.parse(raw) || {};
             } catch (e) {
                 return {};
             }
@@ -252,7 +315,7 @@ import { supabase } from './supabase.js';
             partnerButtonLink.style.pointerEvents = 'none';
         }
 
-        partnerButtonImage.onerror = function() {
+        partnerButtonImage.onerror = function () {
             partnerButtonWrapper.classList.remove('visible');
         };
 
@@ -269,14 +332,12 @@ import { supabase } from './supabase.js';
         }
 
         try {
-            const { data, error } = await supabase
-                .from('patner')
-                .select('*');
+            const { data, error } = await withTimeout(supabase.from('patner').select('*'), REQUEST_TIMEOUT);
 
             if (error) throw error;
 
             if (!data || data.length === 0) {
-                localStorage.removeItem(PARTNER_CACHE_KEY);
+                try { localStorage.removeItem(PARTNER_CACHE_KEY); } catch (e) {}
                 renderPartnerButton(null, null);
                 return;
             }
@@ -291,7 +352,7 @@ import { supabase } from './supabase.js';
             const cachedSignature = cached ? JSON.stringify({ imageUrl: cached.imageUrl, openLink: cached.openLink }) : null;
 
             if (freshSignature !== cachedSignature) {
-                localStorage.setItem(PARTNER_CACHE_KEY, freshSignature);
+                try { localStorage.setItem(PARTNER_CACHE_KEY, freshSignature); } catch (e) {}
                 renderPartnerButton(imageUrl, openLink);
             } else if (imageUrl) {
                 partnerButtonWrapper.classList.add('visible');
@@ -303,38 +364,117 @@ import { supabase } from './supabase.js';
         }
     }
 
+    async function loadMarketingCampaignBanner() {
+        if (!adBannerImage || !adBannerWrapper) return;
+
+        try {
+            const { data: ads, error } = await withTimeout(supabase.from('ad_image').select('*'), REQUEST_TIMEOUT);
+
+            if (error) throw error;
+
+            if (ads && ads.length > 0) {
+                let seenAdsIdsArray = [];
+                try {
+                    seenAdsIdsArray = JSON.parse(localStorage.getItem(ADS_CACHE_KEY) || '[]');
+                    if (!Array.isArray(seenAdsIdsArray)) seenAdsIdsArray = [];
+                } catch (e) {
+                    seenAdsIdsArray = [];
+                }
+
+                let targetAd = ads.find((item) => !seenAdsIdsArray.includes(item.id));
+
+                if (!targetAd) {
+                    seenAdsIdsArray = [];
+                    try { localStorage.setItem(ADS_CACHE_KEY, '[]'); } catch (e) {}
+                    targetAd = ads[0];
+                }
+
+                const adContent = parseJsonbValue(targetAd.ad_image);
+                const resolvedUrl = typeof targetAd.ad_image === 'string' && targetAd.ad_image.indexOf('{') !== 0
+                    ? targetAd.ad_image
+                    : adContent.url;
+
+                if (resolvedUrl) {
+                    if (adBannerImage.getAttribute('src') !== resolvedUrl) {
+                        adBannerImage.src = resolvedUrl;
+                    }
+
+                    adBannerWrapper.onclick = () => {
+                        if (adContent.link) {
+                            window.open(adContent.link, '_blank');
+                        }
+                    };
+
+                    if (!seenAdsIdsArray.includes(targetAd.id)) {
+                        seenAdsIdsArray.push(targetAd.id);
+                        try { localStorage.setItem(ADS_CACHE_KEY, JSON.stringify(seenAdsIdsArray)); } catch (e) {}
+                    }
+                }
+            }
+        } catch (e) {}
+    }
+
+    function renderVirtualAccounts(accounts) {
+        if (!virtualAccountsContainer) return;
+
+        virtualAccountsContainer.innerHTML = "";
+
+        if (accounts.length > 0) {
+            accounts.forEach((acc) => {
+                const tile = document.createElement('div');
+                tile.className = "account-tile";
+                tile.innerHTML = `
+                    <div class="account-meta-info">
+                        <span class="bank-title-lbl">${escapeHtml(acc.bankName)}</span>
+                        <span class="bank-num-string">${escapeHtml(acc.accountNumber)}</span>
+                    </div>
+                    <i class="fa-regular fa-copy bank-copy-icon"></i>
+                `;
+                tile.querySelector('.bank-copy-icon').addEventListener('click', () => executeVirtualStringCopy(acc.accountNumber));
+                virtualAccountsContainer.appendChild(tile);
+            });
+        } else {
+            virtualAccountsContainer.innerHTML = `
+                <div style="text-align:center; padding:10px; font-size:12px; color:#64748b; font-weight:500;">
+                    <i class="fa-solid fa-triangle-exclamation"></i> Virtual Accounts generating...
+                </div>`;
+        }
+    }
+
     async function synchronousDashboardStateSync(showLoader = false) {
+        if (isSyncing) return;
+        isSyncing = true;
+
         if (showLoader) toggleLoaderDisplay(true);
 
         try {
-            const { data: profiles, error } = await supabase
-                .from('user_profiles')
-                .select('*')
-                .eq('id', currentUserId);
+            const { data: profiles, error } = await withTimeout(
+                supabase.from('user_profiles').select('*').eq('id', currentUserId),
+                REQUEST_TIMEOUT
+            );
 
             if (error) throw error;
 
             if (!profiles || profiles.length === 0) {
-                localStorage.removeItem('puredata_user_session');
-                window.location.replace('register.html');
+                goToRegister();
                 return;
             }
 
-            const payloadData = profiles[0].user_data;
+            const payloadData = parseJsonbValue(profiles[0].user_data);
 
             if (userGreetingDisplay && payloadData.full_name) {
-                userGreetingDisplay.textContent = `Hello, ${payloadData.full_name.split(' ')[0]} 👋`;
+                userGreetingDisplay.textContent = `Hello, ${String(payloadData.full_name).split(' ')[0]} 👋`;
             }
 
-            const incomingBalance = payloadData.user_balance || "0.00";
+            const incomingBalance = String(payloadData.user_balance || "0.00");
 
             if (incomingBalance !== cachedRealBalance) {
-                const oldBalance = parseFloat(cachedRealBalance);
-                const newBalance = parseFloat(incomingBalance);
+                const oldBalance = parseFloat(cachedRealBalance) || 0;
+                const newBalance = parseFloat(incomingBalance) || 0;
                 cachedRealBalance = incomingBalance;
 
                 if (!isBalanceMasked && walletBalanceDisplay) {
-                    walletBalanceDisplay.textContent = `₦${newBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                    walletBalanceDisplay.textContent = formatNaira(newBalance);
                 }
 
                 if (oldBalance > 0 || incomingBalance !== "0.00") {
@@ -348,85 +488,22 @@ import { supabase } from './supabase.js';
                 }
             }
 
-            if (virtualAccountsContainer) {
-                virtualAccountsContainer.innerHTML = "";
-                const accounts = payloadData.virtual_accounts || [];
+            renderVirtualAccounts(Array.isArray(payloadData.virtual_accounts) ? payloadData.virtual_accounts : []);
 
-                if (accounts.length > 0) {
-                    accounts.forEach(acc => {
-                        const tile = document.createElement('div');
-                        tile.className = "account-tile";
-                        tile.innerHTML = `
-                            <div class="account-meta-info">
-                                <span class="bank-title-lbl">${acc.bankName}</span>
-                                <span class="bank-num-string">${acc.accountNumber}</span>
-                            </div>
-                            <i class="fa-regular fa-copy bank-copy-icon"></i>
-                        `;
-                        tile.querySelector('.bank-copy-icon').addEventListener('click', () => executeVirtualStringCopy(acc.accountNumber));
-                        virtualAccountsContainer.appendChild(tile);
-                    });
-                } else {
-                    virtualAccountsContainer.innerHTML = `
-                        <div style="text-align:center; padding:10px; font-size:12px; color:#64748b; font-weight:500;">
-                            <i class="fa-solid fa-triangle-exclamation"></i> Virtual Accounts generating...
-                        </div>`;
-                }
-            }
+            if (showLoader) toggleLoaderDisplay(false);
 
-            await loadMarketingCampaignBanner();
-            await loadPartnerButton();
+            loadMarketingCampaignBanner();
+            loadPartnerButton();
 
         } catch (err) {
-            showToastNotification("Sync engine validation tracking warning.");
+            showToastNotification("Network is slow. Please check your connection.");
         } finally {
             if (showLoader) toggleLoaderDisplay(false);
+            isSyncing = false;
         }
     }
 
-    async function loadMarketingCampaignBanner() {
-        if (!adBannerImage || !adBannerWrapper) return;
-
-        try {
-            const { data: ads, error } = await supabase
-                .from('ad_image')
-                .select('*');
-
-            if (error) throw error;
-
-            if (ads && ads.length > 0) {
-                const seenAdsIdsArray = JSON.parse(localStorage.getItem(ADS_CACHE_KEY) || '[]');
-                let targetAd = ads.find(item => !seenAdsIdsArray.includes(item.id));
-
-                if (!targetAd) {
-                    localStorage.setItem(ADS_CACHE_KEY, '[]');
-                    targetAd = ads[0];
-                }
-
-                const adContent = targetAd.ad_image;
-
-                if (adContent) {
-                    const resolvedUrl = adContent.url || adContent;
-                    if (adBannerImage.getAttribute('src') !== resolvedUrl) {
-                        adBannerImage.src = resolvedUrl;
-                    }
-
-                    adBannerWrapper.onclick = () => {
-                        if (adContent.link) {
-                            window.open(adContent.link, '_blank');
-                        }
-                    };
-
-                    if (!seenAdsIdsArray.includes(targetAd.id)) {
-                        seenAdsIdsArray.push(targetAd.id);
-                        localStorage.setItem(ADS_CACHE_KEY, JSON.stringify(seenAdsIdsArray));
-                    }
-                }
-            }
-        } catch (e) {}
-    }
-
-    window.addEventListener('DOMContentLoaded', () => {
+    function startDashboard() {
         if (alertsItemsContainer) {
             alertsItemsContainer.innerHTML = `<div style="text-align:center; color:#94a3b8; font-size:13px; padding:20px 0;">No new notifications</div>`;
         }
@@ -436,6 +513,14 @@ import { supabase } from './supabase.js';
         setInterval(() => {
             synchronousDashboardStateSync(false);
         }, 10000);
-    });
+    }
+
+    setTimeout(() => { toggleLoaderDisplay(false); }, 10000);
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', startDashboard);
+    } else {
+        startDashboard();
+    }
 
 })();
