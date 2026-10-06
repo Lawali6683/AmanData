@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TV Pay - AmanData</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="ui.css">
+    
+</head>
+<body>
+    <div class="app-container" id="appContainer">
+        <header>
+            <button type="button" class="btn-back" id="btnBack" aria-label="Back"><i class="fa-solid fa-arrow-left"></i></button>
+            <img src="https://i.imgur.com/bNK9ccG.png" class="page-logo" alt="AmanData Logo">
+            <span class="header-spacer"></span>
+        </header>
+
+        <p class="hello">Hello, <strong id="userName">User</strong></p>
+
+        <section class="summary-card">
+            <div class="summary-label">Wallet Balance</div>
+            <div class="summary-balance">₦<span id="sumBalance">0.00</span></div>
+        </section>
+
+        <div class="net-grid three" id="provGrid"></div>
+        <main class="history-list" id="planList"></main>
+
+        <section class="form-card hidden" id="buyForm">
+            <h3 class="form-title">Renew Subscription</h3>
+            <div class="detail-rows">
+                <div class="detail-row"><span class="detail-row-label">Provider</span><span class="detail-row-val" id="fProvider">-</span></div>
+                <div class="detail-row"><span class="detail-row-label">Package</span><span class="detail-row-val" id="fPlan">-</span></div>
+                <div class="detail-row"><span class="detail-row-label">Amount</span><span class="detail-row-val" id="fPrice">-</span></div>
+            </div>
+            <div class="field">
+                <label for="iuc">Smart Card / IUC Number</label>
+                <input class="input" id="iuc" type="tel" inputmode="numeric" maxlength="10" placeholder="10 digits" autocomplete="off">
+            </div>
+            <div class="field">
+                <label for="phone">Phone Number (optional)</label>
+                <input class="input" id="phone" type="tel" inputmode="numeric" maxlength="13" placeholder="08012345678" autocomplete="off">
+            </div>
+            <div class="field">
+                <label>Transaction PIN</label>
+                <div class="pin-row" id="pinRow"></div>
+            </div>
+            <button type="button" class="btn-primary" id="btnBuy" hidden>Pay Now</button>
+        </section>
+    </div>
+    <script type="module" src="tvpay.js"></script>
+</body>
+</html>

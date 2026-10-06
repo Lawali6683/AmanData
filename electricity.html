@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Electricity - AmanData</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <link rel="stylesheet" href="ui.css">
+    
+    
+</head>
+<body>
+    <div class="app-container" id="appContainer">
+        <header>
+            <button type="button" class="btn-back" id="btnBack" aria-label="Back"><i class="fa-solid fa-arrow-left"></i></button>
+            <img src="https://i.imgur.com/bNK9ccG.png" class="page-logo" alt="AmanData Logo">
+            <span class="header-spacer"></span>
+        </header>
+
+        <p class="hello">Hello, <strong id="userName">User</strong></p>
+
+        <section class="summary-card">
+            <div class="summary-label">Wallet Balance</div>
+            <div class="summary-balance">₦<span id="sumBalance">0.00</span></div>
+        </section>
+
+        <section class="form-card hidden" id="resultCard">
+            <h3 class="form-title">Payment Successful</h3>
+            <p class="empty-desc" id="resultMsg"></p>
+            <div class="detail-rows" id="resultRows"></div>
+            <div class="token-box" id="tokenBox"></div>
+            <button type="button" class="btn-primary" id="btnCopy"><i class="fa-solid fa-copy"></i> Copy Token</button>
+            <button type="button" class="link-btn" id="btnCloseResult">Close</button>
+        </section>
+
+        <main class="history-list" id="discoList"></main>
+
+        <section class="form-card hidden" id="buyForm">
+            <h3 class="form-title">Pay Electricity Bill</h3>
+            <div class="detail-rows">
+                <div class="detail-row"><span class="detail-row-label">Company</span><span class="detail-row-val" id="fDisco">-</span></div>
+            </div>
+            <div class="filter-tabs">
+                <button type="button" class="tab-btn active" id="tabPre">Prepaid</button>
+                <button type="button" class="tab-btn" id="tabPost">Postpaid</button>
+            </div>
+            <div class="field">
+                <label for="meter">Meter / Account Number</label>
+                <input class="input" id="meter" type="tel" inputmode="numeric" maxlength="20" placeholder="Meter number" autocomplete="off">
+            </div>
+            <div class="field">
+                <label for="amount">Amount (₦500 - ₦500,000)</label>
+                <input class="input" id="amount" type="tel" inputmode="numeric" maxlength="6" placeholder="2000" autocomplete="off">
+            </div>
+            <div class="field">
+                <label for="phone">Phone Number (optional)</label>
+                <input class="input" id="phone" type="tel" inputmode="numeric" maxlength="13" placeholder="08012345678" autocomplete="off">
+            </div>
+            <div class="field">
+                <label>Transaction PIN</label>
+                <div class="pin-row" id="pinRow"></div>
+            </div>
+            <button type="button" class="btn-primary" id="btnBuy" hidden>Pay Now</button>
+        </section>
+    </div>
+    <script type="module" src="electricity.js"></script>
+</body>
+</html>

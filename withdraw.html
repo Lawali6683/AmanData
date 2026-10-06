@@ -1,0 +1,987 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Secure Withdrawal</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        
+        html, body {
+  background-color: #0f172a !important; 
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+}
+        :root {
+            --primary: #0066ff;
+            --primary-dark: #0052cc;
+            --text-dark: #0f172a;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+            --error: #ef4444;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --bg-dark:#0f172a;
+        }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+        html {
+            -webkit-text-size-adjust: 100%;
+        }
+        body {
+            background: linear-gradient(180deg, #0055ff 0%, #0022aa 35%, rgba(0, 34, 170, 0.3) 65%, var(--bg-dark) 100%);
+            color: var(--text-dark);
+            min-height: 100vh;
+            min-height: 100dvh;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 20px 16px 40px;
+        }
+        .page-container {
+            position: relative;
+            overflow: hidden;
+            background-color: #ffffff;
+            background-image:
+                radial-gradient(circle at 100% 0%, rgba(0, 102, 255, 0.05) 0%, transparent 40%),
+                radial-gradient(circle at 0% 100%, rgba(0, 102, 255, 0.08) 0%, transparent 50%);
+            width: 100%;
+            max-width: 440px;
+            margin: auto;
+            border-radius: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.04);
+            padding: 24px;
+            z-index: 2;
+        }
+        .page-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 100px;
+            background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 120' preserveAspectRatio='none'%3E%3Cpath d='M0,0V46.29c47.79,22.2,103.59,32.17,158,28,70.36-5.37,136.33-33.31,206.8-37.5C438.64,32.43,512.34,53.67,583,72.05c69.27,18,138.3,24.88,209.4,13.08,36.15-6,69.85-17.84,104.45-29.34C989.49,25,1113-14.29,1200,42.4V0Z' fill='%230066ff' fill-opacity='0.08'/%3E%3C/svg%3E") no-repeat top;
+            background-size: cover;
+            pointer-events: none;
+            z-index: 1;
+        }
+        .page-container::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 100px;
+            background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 120' preserveAspectRatio='none'%3E%3Cpath d='M0,0V120H1200V0C1113,56.69,989.49,17.4,896.85,46.19c-34.6,11.5-68.3,23.38-104.45,29.34-71.1,11.8-140.13,4.92-209.4-13.08C512.34,44.07,438.64,22.83,364.8,26.79c-70.47,4.19-136.44,32.13-206.8,37.5C103.59,68.46,47.79,58.49,0,36.29Z' fill='%230066ff' fill-opacity='0.06'/%3E%3C/svg%3E") no-repeat bottom;
+            background-size: cover;
+            pointer-events: none;
+            z-index: 1;
+        }
+        .top-bar {
+            position: relative;
+            z-index: 5;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+        .top-bar h1 {
+            font-size: 18px;
+            font-weight: 800;
+            color: var(--text-dark);
+        }
+        .btn-history {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 14px;
+            border: 2px solid var(--primary);
+            border-radius: 12px;
+            background: #ffffff;
+            color: var(--primary);
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-history:active {
+            transform: scale(0.96);
+            background: rgba(0, 102, 255, 0.08);
+        }
+        .balance-card {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            border-radius: 20px;
+            padding: 20px;
+            color: white;
+            text-align: center;
+            margin-top: 20px;
+            margin-bottom: 24px;
+            position: relative;
+            z-index: 5;
+            box-shadow: 0 12px 24px rgba(0, 102, 255, 0.2);
+        }
+        .balance-label {
+            font-size: 12px;
+            opacity: 0.8;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .balance-amount {
+            font-size: 32px;
+            font-weight: 800;
+            margin-top: 5px;
+            word-break: break-all;
+        }
+        .info-note {
+            position: relative;
+            z-index: 5;
+            background-color: rgba(0, 102, 255, 0.05);
+            border: 1px solid rgba(0, 102, 255, 0.1);
+            border-radius: 12px;
+            padding: 12px;
+            font-size: 13px;
+            color: var(--primary-dark);
+            margin-bottom: 20px;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .status-box {
+            position: relative;
+            z-index: 5;
+            border-radius: 18px;
+            padding: 18px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        .status-box.visible {
+            display: block;
+        }
+        .status-box.empty {
+            background: #fff7ed;
+            border: 2px solid #fdba74;
+            color: #9a3412;
+            text-align: center;
+        }
+        .status-box.empty i {
+            font-size: 30px;
+            margin-bottom: 10px;
+            display: block;
+        }
+        .status-box.empty strong {
+            display: block;
+            font-size: 16px;
+            margin-bottom: 6px;
+        }
+        .status-box.empty span {
+            font-size: 13px;
+            line-height: 1.5;
+        }
+        .status-box.pending {
+            background: #f0fdf4;
+            border: 2px solid #86efac;
+            color: #14532d;
+        }
+        .pending-head {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+        .pending-head i {
+            font-size: 26px;
+            color: var(--success);
+        }
+        .pending-head strong {
+            display: block;
+            font-size: 15px;
+            margin-bottom: 3px;
+        }
+        .pending-head span {
+            font-size: 12.5px;
+            line-height: 1.45;
+            color: #166534;
+        }
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 8px 0;
+            border-top: 1px dashed #bbf7d0;
+            font-size: 13px;
+        }
+        .detail-row span:first-child {
+            color: #166534;
+        }
+        .detail-row span:last-child {
+            font-weight: 700;
+            text-align: right;
+            word-break: break-word;
+        }
+        .form-group {
+            margin-bottom: 16px;
+            position: relative;
+            z-index: 5;
+        }
+        label {
+            display: block;
+            font-size: 15px;
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 6px;
+        }
+        .input-wrapper {
+            position: relative;
+        }
+        .input-wrapper i {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            pointer-events: none;
+        }
+        .form-control {
+            width: 100%;
+            padding: 13px 14px 13px 42px;
+            border: 3px solid #1e293b;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-dark);
+            background-color: #ffffff;
+            transition: all 0.2s ease-in-out;
+            outline: none;
+            appearance: none;
+            -webkit-appearance: none;
+        }
+        select.form-control {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%231e293b' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 14px center;
+            padding-right: 38px;
+        }
+        .form-control:focus {
+            border-color: #2563eb;
+            outline: 1px solid #93c5fd;
+            background-color: #f8fafc;
+        }
+        .form-control[readonly] {
+            background-color: #f1f5f9;
+        }
+        input[type="number"]::-webkit-outer-spin-button,
+        input[type="number"]::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type="number"] {
+            -moz-appearance: textfield;
+        }
+        .fee-display {
+            display: block;
+            margin-top: 8px;
+            padding: 10px;
+            background-color: #f1f5f9;
+            border-left: 5px solid #2563eb;
+            border-radius: 4px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #1e293b;
+            line-height: 1.5;
+        }
+        .fee-display.error {
+            border-left-color: var(--error);
+            color: #b91c1c;
+            background-color: #fef2f2;
+        }
+        .inline-loader {
+            font-size: 12px;
+            color: var(--primary);
+            margin-top: 6px;
+            display: none;
+        }
+        .pin-label {
+            position: relative;
+            z-index: 5;
+        }
+        .pin-container {
+            position: relative;
+            z-index: 5;
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            margin: 14px 0 20px;
+        }
+        .pin-wrapper {
+            position: relative;
+            width: 22%;
+        }
+        .pin-box {
+            width: 100%;
+            height: 56px;
+            text-align: center;
+            font-size: 24px;
+            font-weight: 800;
+            border: 3px solid #0f172a;
+            border-radius: 10px;
+            outline: none;
+            background: #fff;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        .pin-box:focus {
+            border-color: #10b981;
+            outline: 4px solid #a7f3d0;
+        }
+        .pin-wrapper .status-icon {
+            position: absolute;
+            top: -8px;
+            right: -4px;
+            font-size: 10px;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+        }
+        .status-icon.valid {
+            background: var(--success);
+        }
+        .status-icon.invalid {
+            background: var(--error);
+        }
+        .btn-submit {
+            position: relative;
+            z-index: 5;
+            width: 100%;
+            padding: 16px;
+            border-radius: 14px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 8px 20px rgba(0, 102, 255, 0.2);
+            display: none;
+        }
+        .btn-submit:active {
+            transform: scale(0.98);
+        }
+        .btn-submit:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            max-width: 400px;
+            z-index: 1000000;
+            pointer-events: none;
+        }
+        .toast {
+            background: #1e293b;
+            color: white;
+            padding: 14px 18px;
+            border-radius: 12px;
+            font-size: 14px;
+            line-height: 1.4;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            margin-bottom: 10px;
+            opacity: 0;
+            transform: translateY(-20px);
+            transition: all 0.3s;
+        }
+        .toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .scene {
+            position: fixed;
+            inset: 0;
+            background: #001233;
+            z-index: 99999;
+            display: block;
+            transition: opacity 0.6s ease, visibility 0.6s;
+        }
+        .scene.hide {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+        .bg {
+            position: absolute;
+            inset: 0;
+            background: #fff;
+            opacity: 0;
+            transition: opacity 0.6s ease, transform 0.6s ease;
+            transform: scale(0.95);
+        }
+        .bg.show {
+            opacity: 1;
+            transform: scale(1);
+        }
+        .liquid {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            height: 0%;
+            background: linear-gradient(180deg, #6c5ce7 0%, #4834d4 100%);
+            transition: height 1.6s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .liquid.fill {
+            height: 100%;
+        }
+        .wave {
+            position: absolute;
+            top: -40px;
+            left: 0;
+            right: 0;
+            height: 80px;
+            width: 200%;
+        }
+        .wave svg {
+            width: 100%;
+            height: 100%;
+        }
+        .wave path {
+            fill: #6c5ce7;
+        }
+        .wave-2 {
+            animation: drift 3s linear infinite;
+        }
+        .wave-1 {
+            animation: drift 5s linear infinite reverse;
+            opacity: 0.5;
+        }
+        @keyframes drift {
+            from { transform: translateX(0); }
+            to { transform: translateX(-50%); }
+        }
+        .brand {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 100000;
+            color: #fff;
+            font-size: 14px;
+            letter-spacing: 6px;
+            font-weight: 200;
+            text-transform: uppercase;
+            transition: opacity 0.6s ease;
+            pointer-events: none;
+            white-space: nowrap;
+        }
+        .brand.hide {
+            opacity: 0;
+        }
+        .brand .bdot {
+            display: inline-block;
+            animation: blink 1.4s infinite;
+        }
+        .brand .bdot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+        .brand .bdot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+        @keyframes blink {
+            0%, 60%, 100% { opacity: 0.2; }
+            30% { opacity: 1; }
+        }
+        .loader-logo {
+            max-width: 140px;
+            height: auto;
+            opacity: 0.9;
+            position: fixed;
+            top: 40%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 100001;
+            transition: opacity 0.6s ease;
+            pointer-events: none;
+        }
+        .loader-logo.hide {
+            opacity: 0;
+        }
+        .sheet-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.55);
+            z-index: 50000;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.25s ease, visibility 0.25s;
+        }
+        .sheet-overlay.open {
+            opacity: 1;
+            visibility: visible;
+        }
+        .sheet {
+            width: 100%;
+            max-width: 480px;
+            max-height: 86vh;
+            max-height: 86dvh;
+            background: #ffffff;
+            border-radius: 26px 26px 0 0;
+            display: flex;
+            flex-direction: column;
+            transform: translateY(40px);
+            transition: transform 0.3s ease;
+        }
+        .sheet-overlay.open .sheet {
+            transform: translateY(0);
+        }
+        .sheet-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px 20px 14px;
+            border-bottom: 1px solid var(--border);
+        }
+        .sheet-head h2 {
+            font-size: 17px;
+            font-weight: 800;
+        }
+        .sheet-close {
+            width: 36px;
+            height: 36px;
+            border: none;
+            border-radius: 50%;
+            background: #f1f5f9;
+            color: #334155;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        .sheet-body {
+            padding: 16px 20px 28px;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        .history-empty {
+            text-align: center;
+            padding: 36px 10px;
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+        .history-empty i {
+            display: block;
+            font-size: 34px;
+            margin-bottom: 12px;
+            color: #cbd5e1;
+        }
+        .history-item {
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 14px;
+            margin-bottom: 12px;
+            background: #ffffff;
+        }
+        .history-item.is-pending {
+            border-color: #fcd34d;
+            background: #fffbeb;
+        }
+        .history-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+        .history-amount {
+            font-size: 17px;
+            font-weight: 800;
+        }
+        .badge {
+            font-size: 11px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 5px 10px;
+            border-radius: 999px;
+            white-space: nowrap;
+        }
+        .badge.pending {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .badge.completed {
+            background: #dcfce7;
+            color: #166534;
+        }
+        .badge.cancelled {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        .history-line {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            font-size: 12.5px;
+            color: var(--text-muted);
+            padding: 3px 0;
+        }
+        .history-line strong {
+            color: var(--text-dark);
+            text-align: right;
+            word-break: break-word;
+        }
+        .history-section-title {
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin: 4px 0 10px;
+        }
+        .pd-wa-container {
+            position: fixed;
+            bottom: 270px;
+            right: 24px;
+            width: 60px;
+            height: 60px;
+            z-index: 9;
+            cursor: grab;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            -webkit-user-drag: none;
+            touch-action: none;
+        }
+        .pd-wa-container:active {
+            cursor: grabbing;
+        }
+        .pd-wa-link {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            box-shadow: 0 8px 24px rgba(37, 211, 102, 0.35);
+            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            -webkit-user-drag: none;
+        }
+        .pd-wa-link:active {
+            transform: scale(0.9);
+        }
+        .pd-wa-icon {
+            width: 60px;
+            height: 60px;
+            object-fit: contain;
+            pointer-events: none;
+            animation: pd-wa-bounce 3s ease-in-out infinite;
+        }
+        .pd-wa-pulse-ring {
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            background-color: #25d366;
+            opacity: 0.4;
+            z-index: -1;
+            animation: pd-wa-ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+            pointer-events: none;
+        }
+        @keyframes pd-wa-ping {
+            75%, 100% {
+                transform: scale(1.6);
+                opacity: 0;
+            }
+        }
+        @keyframes pd-wa-bounce {
+            0%, 100% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-5px);
+            }
+        }
+        @media (max-width: 380px) {
+            .page-container {
+                padding: 18px;
+                border-radius: 24px;
+            }
+            .balance-amount {
+                font-size: 26px;
+            }
+            .pin-box {
+                height: 50px;
+                font-size: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="toast-container" id="toastContainer"></div>
+
+    <div class="scene" id="loadingScene">
+        <div class="bg" id="bg"></div>
+        <div class="liquid" id="liquid">
+            <div class="wave wave-1"><svg viewBox="0 0 1200 80" preserveAspectRatio="none"><path d="M0,40 C200,80 400,0 600,40 C800,80 1000,0 1200,40 L1200,80 L0,80 Z"></path></svg></div>
+            <div class="wave wave-2"><svg viewBox="0 0 1200 80" preserveAspectRatio="none"><path d="M0,40 C200,80 400,0 600,40 C800,80 1000,0 1200,40 L1200,80 L0,80 Z"></path></svg></div>
+        </div>
+    </div>
+    <img src="image/logo.png" class="loader-logo" id="loaderLogo" alt="Logo">
+    <div class="brand" id="brand">Loading<span class="bdot">.</span><span class="bdot">.</span><span class="bdot">.</span></div>
+
+    <div class="page-container">
+        <div class="top-bar">
+            <h1>Withdraw Funds</h1>
+            <button type="button" class="btn-history" id="historyBtn">
+                <i class="fa-solid fa-clock-rotate-left"></i> History
+            </button>
+        </div>
+
+        <div class="balance-card">
+            <div class="balance-label">Available Balance</div>
+            <div class="balance-amount">₦<span id="user_balance">0.00</span></div>
+        </div>
+
+        <div class="status-box empty" id="noFundsBox">
+            <i class="fa-solid fa-wallet"></i>
+            <strong>You do not have any funds</strong>
+            <span>Your wallet balance is ₦0.00. Fund your wallet first, then come back to make a withdrawal.</span>
+        </div>
+
+        <div class="status-box pending" id="pendingBox">
+            <div class="pending-head">
+                <i class="fa-solid fa-circle-check"></i>
+                <div>
+                    <strong id="pendingTitle">Withdrawal request pending</strong>
+                    <span id="pendingMessage">Your withdrawal is waiting to be paid. You can make a new withdrawal once this one is completed.</span>
+                </div>
+            </div>
+            <div id="pendingDetails"></div>
+        </div>
+
+        <div id="formArea">
+            <div class="info-note">
+                <i class="fa-solid fa-circle-info"></i>
+                <div>A 1% withdrawal fee is deducted from the amount you withdraw. Payment may take a few minutes.</div>
+            </div>
+
+            <div class="form-group">
+                <label for="amount">Amount to Withdraw (NGN)</label>
+                <div class="input-wrapper">
+                    <i class="fa-solid fa-wallet"></i>
+                    <input type="number" id="amount" class="form-control" placeholder="0.00" inputmode="decimal" min="0" step="0.01">
+                </div>
+                <span class="fee-display" id="fee_calc">You will receive: ₦0.00 (Withdrawal Fee 1%: ₦0.00)</span>
+            </div>
+
+            <div class="form-group">
+                <label for="bank_code">Select Destination Bank</label>
+                <div class="input-wrapper">
+                    <i class="fa-solid fa-building-columns"></i>
+                    <select id="bank_code" class="form-control">
+                        <option value="">-- Choose Bank --</option>
+                        <option value="999992">OPay</option>
+                        <option value="999991">PalmPay</option>
+                        <option value="50515">Moniepoint MFB</option>
+                        <option value="50211">Kuda Bank</option>
+                        <option value="120001">9Payment Service Bank (9PSB)</option>
+                        <option value="011">First Bank of Nigeria</option>
+                        <option value="058">Guaranty Trust Bank (GTBank)</option>
+                        <option value="057">Zenith Bank</option>
+                        <option value="033">United Bank for Africa (UBA)</option>
+                        <option value="044">Access Bank</option>
+                        <option value="063">Access Bank (Diamond)</option>
+                        <option value="050">Ecobank Nigeria</option>
+                        <option value="070">Fidelity Bank</option>
+                        <option value="214">First City Monument Bank (FCMB)</option>
+                        <option value="030">Heritage Bank</option>
+                        <option value="082">Keystone Bank</option>
+                        <option value="101">Providus Bank</option>
+                        <option value="076">Polaris Bank</option>
+                        <option value="232">Sterling Bank</option>
+                        <option value="032">Union Bank of Nigeria</option>
+                        <option value="221">Stanbic IBTC Bank</option>
+                        <option value="215">Unity Bank</option>
+                        <option value="035">Wema Bank</option>
+                        <option value="301">Jaiz Bank</option>
+                        <option value="100039">Titan Trust Bank</option>
+                        <option value="103">Globus Bank</option>
+                        <option value="000026">Taj Bank</option>
+                        <option value="104">Parallex Bank</option>
+                        <option value="105">PremiumTrust Bank</option>
+                        <option value="107">Optimus Bank</option>
+                        <option value="565">Carbon</option>
+                        <option value="125">Rubies MFB</option>
+                        <option value="566">VFD Microfinance Bank</option>
+                        <option value="51310">Sparkle Microfinance Bank</option>
+                        <option value="50304">Mint Finance Bank</option>
+                        <option value="068">Standard Chartered Bank</option>
+                        <option value="023">Citibank Nigeria</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="account_number">Account Number</label>
+                <div class="input-wrapper">
+                    <i class="fa-solid fa-hashtag"></i>
+                    <input type="text" id="account_number" class="form-control" placeholder="10 Digits" maxlength="10" inputmode="numeric" autocomplete="off">
+                </div>
+                <div class="inline-loader" id="verificationLoader"><i class="fa-solid fa-spinner fa-spin"></i> Verifying...</div>
+            </div>
+
+            <div class="form-group" id="nameGroup" style="display:none;">
+                <label for="account_name">Account Name</label>
+                <div class="input-wrapper">
+                    <i class="fa-solid fa-user-check"></i>
+                    <input type="text" id="account_name" class="form-control" readonly>
+                </div>
+            </div>
+
+            <label class="pin-label">Enter Transaction PIN</label>
+            <div class="pin-container">
+                <div class="pin-wrapper">
+                    <input type="password" class="pin-box" maxlength="1" id="p1" inputmode="numeric" autocomplete="off">
+                    <div class="status-icon" id="s1"></div>
+                </div>
+                <div class="pin-wrapper">
+                    <input type="password" class="pin-box" maxlength="1" id="p2" inputmode="numeric" autocomplete="off">
+                    <div class="status-icon" id="s2"></div>
+                </div>
+                <div class="pin-wrapper">
+                    <input type="password" class="pin-box" maxlength="1" id="p3" inputmode="numeric" autocomplete="off">
+                    <div class="status-icon" id="s3"></div>
+                </div>
+                <div class="pin-wrapper">
+                    <input type="password" class="pin-box" maxlength="1" id="p4" inputmode="numeric" autocomplete="off">
+                    <div class="status-icon" id="s4"></div>
+                </div>
+            </div>
+
+            <button type="button" class="btn-submit" id="submitBtn">Confirm &amp; Withdraw Funds</button>
+        </div>
+    </div>
+
+    <div class="sheet-overlay" id="historyOverlay">
+        <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="historyTitle">
+            <div class="sheet-head">
+                <h2 id="historyTitle">Withdrawal History</h2>
+                <button type="button" class="sheet-close" id="historyClose" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="sheet-body" id="historyBody"></div>
+        </div>
+    </div>
+
+    <script type="module" src="withdraw.js"></script>
+
+    <div id="pd-whatsapp-widget" class="pd-wa-container">
+        <div class="pd-wa-pulse-ring"></div>
+        <a href="https://wa.me/2347060739494?text=I%20am%20in%20need%20of%20help%20from%20the%20AmnData%20app"
+           target="_blank"
+           rel="noopener"
+           class="pd-wa-link"
+           id="pd-wa-link"
+           draggable="false">
+            <img src="image/whatsapp.png" alt="WhatsApp Support" class="pd-wa-icon" draggable="false">
+        </a>
+    </div>
+
+    <script>
+        (function () {
+            const widget = document.getElementById('pd-whatsapp-widget');
+            const link = document.getElementById('pd-wa-link');
+
+            let isDragging = false;
+            let startX = 0;
+            let startY = 0;
+            let initialX = 0;
+            let initialY = 0;
+            let hasMoved = false;
+
+            widget.addEventListener('mousedown', dragStart);
+            document.addEventListener('mousemove', drag);
+            document.addEventListener('mouseup', dragEnd);
+
+            widget.addEventListener('touchstart', dragStart, { passive: false });
+            document.addEventListener('touchmove', drag, { passive: false });
+            document.addEventListener('touchend', dragEnd);
+
+            link.addEventListener('click', function (e) {
+                if (hasMoved) {
+                    e.preventDefault();
+                }
+            });
+
+            function dragStart(e) {
+                hasMoved = false;
+                isDragging = true;
+
+                const clientX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
+                const clientY = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
+
+                const rect = widget.getBoundingClientRect();
+                initialX = rect.left;
+                initialY = rect.top;
+
+                startX = clientX;
+                startY = clientY;
+            }
+
+            function drag(e) {
+                if (!isDragging) return;
+
+                if (e.cancelable) {
+                    e.preventDefault();
+                }
+
+                const clientX = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX;
+                const clientY = e.type === 'touchmove' ? e.touches[0].clientY : e.clientY;
+
+                const dx = clientX - startX;
+                const dy = clientY - startY;
+
+                if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+                    hasMoved = true;
+                }
+
+                let newX = initialX + dx;
+                let newY = initialY + dy;
+
+                const widgetWidth = widget.offsetWidth;
+                const widgetHeight = widget.offsetHeight;
+                const windowWidth = window.innerWidth;
+                const windowHeight = window.innerHeight;
+
+                if (newX < 10) newX = 10;
+                if (newX > windowWidth - widgetWidth - 10) newX = windowWidth - widgetWidth - 10;
+                if (newY < 10) newY = 10;
+                if (newY > windowHeight - widgetHeight - 10) newY = windowHeight - widgetHeight - 10;
+
+                widget.style.left = newX + 'px';
+                widget.style.top = newY + 'px';
+                widget.style.bottom = 'auto';
+                widget.style.right = 'auto';
+            }
+
+            function dragEnd() {
+                isDragging = false;
+            }
+        })();
+    </script>
+</body>
+</html>
