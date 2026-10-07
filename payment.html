@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Withdrawals - AmanData</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link rel="stylesheet" href="uix.css">
+</head>
+<body>
+<div class="app-container wide" id="appContainer">
+<header><button type="button" class="btn-back" id="btnBack" aria-label="Back"><i class="fa-solid fa-arrow-left"></i></button><img src="https://i.imgur.com/bNK9ccG.png" class="page-logo" alt="AmanData"><button type="button" class="btn-back" id="btnRefresh" aria-label="Refresh"><i class="fa-solid fa-rotate"></i></button></header>
+<section class="stats-grid">
+<div class="stat-card"><div class="stat-label">Total users</div><div class="stat-value" id="statUsers">0</div></div>
+<div class="stat-card"><div class="stat-label">Total wallet money</div><div class="stat-value" id="statWallet">₦0.00</div></div>
+<div class="stat-card"><div class="stat-label">Users with funds</div><div class="stat-value good" id="statFunded">0</div></div>
+</section>
+<div class="section-head"><h2>Pending withdrawals</h2><span class="count-pill" id="pendingCount">0 pending</span></div>
+<div class="pending-list" id="pendingList"></div>
+<div class="empty-state hidden" id="emptyState"><i class="fa-solid fa-circle-check empty-icon"></i><h3 class="empty-title">No pending withdrawals</h3><p class="empty-desc">New withdrawal requests will appear here.</p></div>
+</div>
+<script type="module" src="payment.js"></script>
+</body>
+</html>

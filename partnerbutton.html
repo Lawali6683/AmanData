@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Partner button - AmanData</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link rel="stylesheet" href="uix.css">
+</head>
+<body>
+<div class="app-container" id="appContainer">
+<header><button type="button" class="btn-back" id="btnBack" aria-label="Back"><i class="fa-solid fa-arrow-left"></i></button><img src="https://i.imgur.com/bNK9ccG.png" class="page-logo" alt="AmanData"><span class="header-spacer"></span></header>
+<form class="form-card" id="pbForm" novalidate>
+<h3 class="form-title">Partner button</h3>
+<p class="form-desc">Set the image and the link for the partner button on the user dashboard.</p>
+<div class="field"><label for="imageUrl">Image link</label><input class="input" id="imageUrl" type="url" inputmode="url" autocomplete="off" placeholder="https://example.com/banner.png"></div>
+<div class="preview-box hidden" id="previewBox"><img id="previewImage" alt="Preview"><span class="muted" id="previewMsg"></span></div>
+<div class="field"><label for="openLink">Button link</label><input class="input" id="openLink" type="url" inputmode="url" autocomplete="off" placeholder="https://example.com/offer"></div>
+<button type="submit" class="btn-primary" id="btnSave">Save button</button>
+<button type="button" class="btn-small danger block" id="btnClear"><i class="fa-solid fa-trash-can"></i> Remove button</button>
+</form>
+</div>
+<script type="module" src="partnerbutton.js"></script>
+</body>
+</html>

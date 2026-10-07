@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Worker - AmanData</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="uix.css">
+    
+    
+</head>
+<body>
+    <div class="app-container" id="appContainer">
+        <header>
+            <button type="button" class="btn-back" id="btnBack" aria-label="Back"><i class="fa-solid fa-arrow-left"></i></button>
+            <img src="https://i.imgur.com/bNK9ccG.png" class="page-logo" alt="AmanData Logo">
+            <span class="header-spacer"></span>
+        </header>
+
+        <section class="form-card" id="loginCard">
+            <h3 class="form-title">Worker Login</h3>
+            <div class="field">
+                <label for="email">Email</label>
+                <input class="input" id="email" type="email" autocomplete="username" placeholder="name@example.com">
+            </div>
+            <div class="field">
+                <label for="password">Password</label>
+                <div class="input-wrap">
+                    <input class="input" id="password" type="password" autocomplete="current-password" placeholder="Password">
+                    <button type="button" class="eye-btn" id="btnEye" aria-label="Show password"><i class="fa-solid fa-eye"></i></button>
+                </div>
+            </div>
+            <button type="button" class="btn-primary" id="btnLogin" hidden>Submit</button>
+        </section>
+
+        <section class="hidden form-card" id="menu">
+            <p class="hello">Signed in as <strong id="adminEmail">-</strong></p>
+            <div class="menu-grid">
+                <a class="menu-btn" href="apiData.html"><div class="tx-icon-frame"><i class="fa-solid fa-database"></i></div><div>API Data<small>View plans and set your prices</small></div></a>
+                <a class="menu-btn" href="profit.html"><div class="tx-icon-frame"><i class="fa-solid fa-chart-line"></i></div><div>Profit<small>Daily, weekly and monthly report</small></div></a>
+                <a class="menu-btn" href="apiWallet.html"><div class="tx-icon-frame"><i class="fa-solid fa-wallet"></i></div><div>API Wallet<small>Provider wallet and balance</small></div></a>
+            </div>
+            <button type="button" class="link-btn" id="btnLogout">Sign out</button>
+        </section>
+    </div>
+    <script type="module" src="worker.js"></script>
+</body>
+</html>

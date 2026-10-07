@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Check user - AmanData</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link rel="stylesheet" href="uix.css">
+</head>
+<body>
+<div class="app-container wide" id="appContainer">
+<header><button type="button" class="btn-back" id="btnBack" aria-label="Back"><i class="fa-solid fa-arrow-left"></i></button><img src="https://i.imgur.com/bNK9ccG.png" class="page-logo" alt="AmanData"><span class="header-spacer"></span></header>
+<section class="stats-grid">
+<div class="stat-card"><div class="stat-label">Total registered</div><div class="stat-value" id="totalUsers">0</div></div>
+<div class="stat-card"><div class="stat-label">With balance</div><div class="stat-value good" id="withBalance">0</div></div>
+<div class="stat-card"><div class="stat-label">Without balance</div><div class="stat-value muted" id="withoutBalance">0</div></div>
+</section>
+<section class="form-card">
+<h3 class="form-title">Search user</h3>
+<form class="search-row" id="searchForm" novalidate>
+<input class="input" id="searchInput" type="text" autocomplete="off" placeholder="Name, email, phone or account number">
+<button type="submit" class="btn-small" id="searchBtn">Search</button>
+</form>
+</section>
+<section class="form-card hidden" id="resultCard">
+<h3 class="form-title">User details</h3>
+<p class="detail-row-label" id="userId"></p>
+<div class="data-grid" id="dataGrid"></div>
+<button type="button" class="btn-small alt" id="btnAnother">Search another user</button>
+</section>
+<section class="empty-state hidden" id="noResult"><i class="fa-solid fa-magnifying-glass empty-icon"></i><h3 class="empty-title">No user found</h3><p class="empty-desc">Check the account number, email or phone number and search again.</p></section>
+</div>
+<script type="module" src="check.js"></script>
+</body>
+</html>

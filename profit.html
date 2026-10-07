@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Profit - AmanData</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link rel="stylesheet" href="uix.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+</head>
+<body>
+<div class="app-container" id="appContainer">
+<header><button type="button" class="btn-back" id="btnBack" aria-label="Back"><i class="fa-solid fa-arrow-left"></i></button><img src="https://i.imgur.com/bNK9ccG.png" class="page-logo" alt="AmanData"><span class="header-spacer"></span></header>
+<div class="month-bar">
+<button type="button" class="btn-back" id="btnPrev" aria-label="Previous month"><i class="fa-solid fa-chevron-left"></i></button>
+<span class="month-label" id="monthLabel">-</span>
+<button type="button" class="btn-back" id="btnNext" aria-label="Next month"><i class="fa-solid fa-chevron-right"></i></button>
+</div>
+<section class="summary-card">
+<div class="summary-label">Profit this month</div>
+<div class="summary-balance">₦<span id="sumProfit">0.00</span></div>
+<div class="summary-split">
+<div class="summary-box"><span>Items sold</span><strong id="sumCount">0</strong></div>
+<div class="summary-box"><span>Sales amount</span><strong>₦<span id="sumSales">0.00</span></strong></div>
+</div>
+</section>
+<section class="filter-tabs">
+<button type="button" class="tab-btn active" id="tabDaily"><i class="fa-solid fa-calendar-day"></i> Daily</button>
+<button type="button" class="tab-btn" id="tabWeekly"><i class="fa-solid fa-calendar-week"></i> Weekly</button>
+<button type="button" class="tab-btn" id="tabMonthly"><i class="fa-solid fa-calendar"></i> Monthly</button>
+</section>
+<main class="history-list" id="rowList"></main>
+<button type="button" class="btn-primary" id="btnPdf"><i class="fa-solid fa-file-pdf"></i> Download PDF</button>
+</div>
+<script type="module" src="profit.js"></script>
+</body>
+</html>

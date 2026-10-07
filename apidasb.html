@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>API Dashboard - AmanData</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link rel="stylesheet" href="uix.css">
+
+<style>
+    
+    .wa-btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:16px;border:none;border-radius:14px;background:linear-gradient(135deg,#25d366 0%,#128c7e 100%);color:#fff;font-size:15px;font-weight:800;text-decoration:none;box-shadow:0 10px 20px rgba(18,140,126,.28);transition:transform .2s}
+.wa-btn:active{transform:scale(.97)}
+.wa-btn i{font-size:22px}
+.code-box{background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:14px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;line-height:1.6;overflow-x:auto;white-space:pre;color:var(--text)}
+.code-head{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:12px;font-weight:800;letter-spacing:.6px;color:var(--muted)}
+.code-head .btn-small{min-height:34px;padding:0 12px}
+.token-box{background:var(--bg);border:1px dashed var(--primary);border-radius:14px;padding:16px;text-align:center;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:16px;font-weight:800;letter-spacing:1px;word-break:break-all}
+.tx-status{display:block;font-size:11px;font-weight:700;margin-top:2px}
+.tx-status.ok{color:var(--ok)}
+.tx-status.wait{color:#fbbf24}
+.tx-status.bad{color:var(--err)}
+.stats-grid.four{grid-template-columns:repeat(4,1fr)}
+.user-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.user-card{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--card);border:1px solid var(--border);border-radius:20px;padding:14px 16px}
+.user-main{display:flex;align-items:center;gap:12px;min-width:0}
+.avatar{width:46px;height:46px;flex-shrink:0;border-radius:14px;background:rgba(108,92,231,.18);color:#a5b4fc;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px}
+.user-meta{display:flex;flex-direction:column;gap:3px;min-width:0}
+.user-name{font-size:15px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.user-email{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sheet-overlay{position:fixed;inset:0;z-index:9000;background:rgba(2,6,23,.78);display:flex;align-items:flex-end;justify-content:center;opacity:0;visibility:hidden;transition:opacity .2s,visibility .2s}
+.sheet-overlay.open{opacity:1;visibility:visible}
+.sheet{width:100%;max-width:720px;max-height:92vh;max-height:92dvh;overflow-y:auto;background:var(--card);border:1px solid var(--border);border-radius:24px 24px 0 0;padding:20px;display:flex;flex-direction:column;gap:16px;transform:translateY(24px);transition:transform .25s ease}
+.sheet-overlay.open .sheet{transform:none}
+.sheet-head{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.close-btn{width:40px;height:40px;flex-shrink:0;border-radius:50%;border:1px solid rgba(239,68,68,.45);background:rgba(239,68,68,.15);color:#fca5a5;cursor:pointer}
+.actions-2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.reveal-btn{background:none;border:0;color:#a5b4fc;font-size:12px;font-weight:700;cursor:pointer;margin-left:8px}
+textarea.input{min-height:110px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;resize:vertical}
+.input[readonly]{opacity:.6}
+body.locked{overflow:hidden}
+@media(min-width:720px){.sheet-overlay{align-items:center}.sheet{border-radius:24px}}
+@media(max-width:720px){.stats-grid.four{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<div class="app-container" id="appContainer">
+<header><button type="button" class="btn-back" id="btnBack" aria-label="Back"><i class="fa-solid fa-arrow-left"></i></button><img src="https://i.imgur.com/bNK9ccG.png" class="page-logo" alt="AmanData"><button type="button" class="btn-back" id="btnRefresh" aria-label="Refresh"><i class="fa-solid fa-rotate"></i></button></header>
+
+<section class="form-card hidden" id="regCard">
+<h3 class="form-title">Finish your registration</h3>
+<div class="field"><label for="business">Business name</label><input class="input" id="business" type="text" maxlength="60" placeholder="Your business name"></div>
+<div class="field"><label for="phone">Phone number</label><input class="input" id="phone" type="tel" inputmode="numeric" maxlength="11" placeholder="08012345678"></div>
+<button type="button" class="btn-primary" id="btnRegister">Create API account</button>
+</section>
+
+<div class="hidden history-list" id="mainArea">
+<p class="hello">Welcome, <strong id="bizName">-</strong></p>
+<section class="summary-card">
+<div class="summary-label">API wallet balance</div>
+<div class="summary-balance">₦<span id="sumBalance">0.00</span></div>
+<div class="summary-split">
+<div class="summary-box"><span>API ID</span><strong id="sumApiId">-</strong></div>
+<div class="summary-box"><span>Status</span><strong id="sumStatus">-</strong></div>
+</div>
+</section>
+<a class="wa-btn" href="https://wa.me/2348166836059?text=Hello%2C%20I%20want%20to%20fund%20my%20API%20wallet." target="_blank" rel="noopener"><i class="fa-brands fa-whatsapp"></i> Fund wallet on WhatsApp</a>
+
+<section class="form-card hidden" id="keyCard">
+<h3 class="form-title">Your new API key</h3>
+<p class="form-desc">Copy it now and keep it safe. It will not be shown again.</p>
+<div class="token-box" id="keyBox"></div>
+<button type="button" class="btn-primary" id="btnCopyKey"><i class="fa-solid fa-copy"></i> Copy key</button>
+<button type="button" class="link-btn" id="btnHideKey">I have saved it</button>
+</section>
+
+<section class="form-card">
+<h3 class="form-title">Credentials</h3>
+<div class="detail-rows">
+<div class="detail-row"><span class="detail-row-label">API ID</span><span class="detail-row-val" id="credId">-</span></div>
+<div class="detail-row"><span class="detail-row-label">API key</span><span class="detail-row-val" id="credKey">-</span></div>
+</div>
+<button type="button" class="btn-small alt" id="btnRotate">Create new API key</button>
+</section>
+
+<section class="form-card">
+<h3 class="form-title">How to use the API</h3>
+<div class="code-head"><span>Buy data</span><button type="button" class="btn-small alt" data-copy="docRequest">Copy</button></div>
+<div class="code-box" id="docRequest"></div>
+<div class="code-head"><span>Success response</span><button type="button" class="btn-small alt" data-copy="docSuccess">Copy</button></div>
+<div class="code-box" id="docSuccess"></div>
+<div class="code-head"><span>Error response</span><button type="button" class="btn-small alt" data-copy="docError">Copy</button></div>
+<div class="code-box" id="docError"></div>
+<div class="code-head"><span>Check order</span><button type="button" class="btn-small alt" data-copy="docOrder">Copy</button></div>
+<div class="code-box" id="docOrder"></div>
+<div class="code-head"><span>List plans</span><button type="button" class="btn-small alt" data-copy="docPlans">Copy</button></div>
+<div class="code-box" id="docPlans"></div>
+</section>
+
+<h3 class="form-title">Recent orders</h3>
+<div class="history-list" id="orderList"></div>
+</div>
+<button type="button" class="link-btn" id="btnLogout">Sign out</button>
+</div>
+<script type="module" src="apidash.js"></script>
+</body>
+</html>
