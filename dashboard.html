@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -46,6 +48,7 @@ body {
 }
 .dashboard-header {
     background: linear-gradient(135deg, #0055ff 0%, #0022aa 100%);
+     
     padding: 20px 20px 460px 20px;
     color: #ffffff;
     position: absolute;
@@ -168,6 +171,7 @@ body {
     font-size: 28px;
     font-weight: 800;
     color: black;
+    
 }
 .balance-visibility-toggle {
     color: #94a3b8;
@@ -392,7 +396,6 @@ body {
     inset: 0;
     background: rgba(0,18,51,0.5);
     backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
     z-index: 1000;
     opacity: 0;
     pointer-events: none;
@@ -645,7 +648,7 @@ body {
 .bottom-nav-bar {
     position: fixed;
     bottom: 0;
-    left: 50%;
+    left: 60%;
     transform: translateX(-50%);
     width: 100%;
     max-width: 450px;
@@ -655,7 +658,7 @@ body {
     -webkit-backdrop-filter: blur(20px) saturate(180%);
     border-top: 1px solid rgba(0, 0, 0, 0.05);
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr 1fr;
+    grid-template-columns: 1fr 1fr 0.8fr 1fr 1fr;
     z-index: 999;
     box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.04);
     padding-bottom: env(safe-area-inset-bottom);
@@ -683,6 +686,33 @@ body {
 .nav-item-anchor span {
     font-size: 11px;
     font-weight: 600;
+}
+.nav-center-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    width: 100%;
+}
+.nav-center-btn .fab-trigger {
+    position: absolute;
+    top: -24px;
+    width: 56px;
+    height: 56px;
+    background: #0066ff;
+    border-radius: 50%;
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    box-shadow: 0 4px 16px rgba(0, 102, 255, 0.4);
+    border: 4px solid #ffffff;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+.nav-center-btn .fab-trigger:active {
+    transform: scale(0.92);
 }
 .toast-popup-msg {
     position: fixed;
@@ -713,7 +743,6 @@ body {
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    overflow: hidden;
 }
 .app-loading-screen.hidden {
     display: none;
@@ -750,18 +779,12 @@ body {
     height: 100%;
 }
 .wave-svg-node path {
+    
     fill: #6c5ce7;
+    
 }
 .wave-anim-fast { animation: drift 3s linear infinite; }
 .wave-anim-slow { animation: drift 5s linear infinite reverse; opacity: 0.5; }
-@keyframes drift {
-    0% { transform: translateX(0); }
-    100% { transform: translateX(-50%); }
-}
-@keyframes blink {
-    0%, 100% { opacity: 0.2; }
-    50% { opacity: 1; }
-}
 .loading-text-string {
     position: absolute;
     top: 60%;
@@ -780,37 +803,6 @@ body {
 }
 .loading-text-string span:nth-child(2) { animation-delay: 0.2s; }
 .loading-text-string span:nth-child(3) { animation-delay: 0.4s; }
-.app-error-banner {
-    display: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    z-index: 200000;
-    background: #b91c1c;
-    color: #ffffff;
-    padding: 14px 16px;
-    font-size: 13px;
-    font-weight: 600;
-    line-height: 1.4;
-    text-align: center;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.3);
-    word-break: break-word;
-}
-.app-error-banner.visible {
-    display: block;
-}
-.app-error-banner button {
-    margin-top: 8px;
-    background: #ffffff;
-    color: #b91c1c;
-    border: none;
-    border-radius: 20px;
-    padding: 6px 18px;
-    font-size: 12px;
-    font-weight: 700;
-    cursor: pointer;
-}
 .pd-wa-container {
     position: fixed;
     bottom: 270px;
@@ -874,24 +866,21 @@ body {
         transform: translateY(-5px);
     }
 }
-#toggleBalanceVisibility {
-    color: black;
+
+#toggleBalanceVisibility{
+    color: Black;
 }
+
     </style>
 </head>
 <body>
-
-    <div class="app-error-banner" id="appErrorBanner">
-        <div id="appErrorText"></div>
-        <button type="button" id="appErrorReload">Reload</button>
-    </div>
 
     <div class="phone-wrapper">
         <header class="dashboard-header">
             <img src="image/logo.png" class="header-watermark" alt="Watermark">
             <div class="top-bar">
-                <button class="menu-trigger" id="openMenuBtn" type="button"><i class="fa-solid fa-bars"></i></button>
-                <button class="notification-trigger" id="openAlertsBtn" type="button">
+                <button class="menu-trigger" id="openMenuBtn"><i class="fa-solid fa-bars"></i></button>
+                <button class="notification-trigger" id="openAlertsBtn">
                     <i class="fa-solid fa-bell"></i>
                     <span class="notification-badge" id="alertCounter">0</span>
                 </button>
@@ -997,7 +986,7 @@ body {
         <div class="navigation-drawer-card">
             <div class="drawer-brand-header">
                 <img src="image/logo.png" class="drawer-logo-img" alt="AmanData">
-                <button class="drawer-dismiss-btn" id="closeMenuBtn" type="button"><i class="fa-solid fa-xmark"></i></button>
+                <button class="drawer-dismiss-btn" id="closeMenuBtn"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <div class="drawer-menu-links-list">
                 <a href="index.html" class="drawer-item-link"><i class="fa-solid fa-house"></i> Home</a>
@@ -1019,7 +1008,7 @@ body {
         <div class="modal-content-box">
             <div class="modal-title-bar">
                 <span>Notifications</span>
-                <button class="modal-close-trigger" id="closeAlertsBtn" type="button"><i class="fa-solid fa-xmark"></i></button>
+                <button class="modal-close-trigger" id="closeAlertsBtn"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <div class="modal-body-scroll" id="alertsItemsContainer"></div>
         </div>
@@ -1032,7 +1021,7 @@ body {
                     <div class="help-headline">Customer Care</div>
                     <div class="help-subline">Select a channel to get instant support</div>
                 </div>
-                <button class="modal-close-trigger" id="closeHelpModal" type="button"><i class="fa-solid fa-xmark"></i></button>
+                <button class="modal-close-trigger" id="closeHelpModal"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <div class="support-agent-row" data-phone="+2348087311654" data-msg="I am a AmanData customer and I have issues with my account.">
                 <div class="agent-mock-avatar">CC</div>
@@ -1046,7 +1035,7 @@ body {
                 <div class="agent-mock-avatar">CC</div>
                 <div class="agent-meta-block">
                     <div class="agent-title-string">Customer Care 2</div>
-                    <div class="agent-phone-string">+2347033963960</div>
+                    <div class="agent-phone-string">+2347033963960 </div>
                 </div>
                 <i class="fa-brands fa-whatsapp agent-whatsapp-badge"></i>
             </div>
@@ -1080,11 +1069,12 @@ body {
         <div class="loading-text-string">Loading<span>.</span><span>.</span><span>.</span></div>
     </div>
 
+    
+
     <div id="pd-whatsapp-widget" class="pd-wa-container">
         <div class="pd-wa-pulse-ring"></div>
         <a href="https://wa.me/2347060739494?text=I%20am%20in%20need%20of%20help%20from%20the%20AmanData%20app"
            target="_blank"
-           rel="noopener noreferrer"
            class="pd-wa-link"
            id="pd-wa-link"
            draggable="false">
@@ -1093,122 +1083,76 @@ body {
     </div>
 
 <script>
-(function () {
-    function byId(id) {
-        return document.getElementById(id);
-    }
+    (function() {
+    const widget = document.getElementById('pd-whatsapp-widget');
+    const link = document.getElementById('pd-wa-link');
 
-    window.showAppError = function (message) {
-        try {
-            var banner = byId('appErrorBanner');
-            var text = byId('appErrorText');
-            if (!banner || !text) return;
-            text.textContent = String(message || 'Unknown error');
-            banner.classList.add('visible');
-        } catch (e) {}
-    };
+    let isDragging = false;
+    let startX, startY;
+    let initialX, initialY;
+    let hasMoved = false;
 
-    window.hideAppError = function () {
-        try {
-            var banner = byId('appErrorBanner');
-            if (banner) banner.classList.remove('visible');
-        } catch (e) {}
-    };
+    widget.addEventListener('mousedown', dragStart);
+    document.addEventListener('mousemove', drag);
+    document.addEventListener('mouseup', dragEnd);
 
-    window.forceHideLoader = function () {
-        try {
-            var loader = byId('appUniversalLoader');
-            if (loader) loader.classList.add('hidden');
-        } catch (e) {}
-    };
+    widget.addEventListener('touchstart', dragStart, { passive: false });
+    document.addEventListener('touchmove', drag, { passive: false });
+    document.addEventListener('touchend', dragEnd);
 
-    var reloadBtn = byId('appErrorReload');
-    if (reloadBtn) {
-        reloadBtn.addEventListener('click', function () {
-            window.location.reload();
-        });
-    }
-
-    window.addEventListener('error', function (event) {
-        var msg = event && event.message ? event.message : 'Script error';
-        window.forceHideLoader();
-        window.showAppError('Error: ' + msg);
+    link.addEventListener('click', function(e) {
+        if (hasMoved) {
+            e.preventDefault();
+        }
     });
-
-    window.addEventListener('unhandledrejection', function (event) {
-        var reason = event && event.reason;
-        var msg = reason && reason.message ? reason.message : String(reason || 'Unknown error');
-        window.forceHideLoader();
-        window.showAppError('Error: ' + msg);
-    });
-
-    setTimeout(function () {
-        var loader = byId('appUniversalLoader');
-        if (loader && !loader.classList.contains('hidden')) {
-            window.forceHideLoader();
-            window.showAppError('The page took too long to load. Check your internet connection and reload.');
-        }
-    }, 20000);
-
-    try {
-        if ('serviceWorker' in navigator && navigator.serviceWorker.getRegistrations) {
-            navigator.serviceWorker.getRegistrations().then(function (regs) {
-                regs.forEach(function (reg) { reg.unregister(); });
-            }).catch(function () {});
-        }
-        if (window.caches && caches.keys) {
-            caches.keys().then(function (keys) {
-                keys.forEach(function (key) { caches.delete(key); });
-            }).catch(function () {});
-        }
-    } catch (e) {}
-
-    var widget = byId('pd-whatsapp-widget');
-    var link = byId('pd-wa-link');
-    if (!widget || !link) return;
-
-    var isDragging = false;
-    var startX = 0;
-    var startY = 0;
-    var initialX = 0;
-    var initialY = 0;
-    var hasMoved = false;
-
-    function getPoint(e) {
-        if (e.touches && e.touches.length) {
-            return { x: e.touches[0].clientX, y: e.touches[0].clientY };
-        }
-        return { x: e.clientX, y: e.clientY };
-    }
 
     function dragStart(e) {
         hasMoved = false;
         isDragging = true;
-        var p = getPoint(e);
-        var rect = widget.getBoundingClientRect();
+
+        const clientX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
+        const clientY = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
+
+        const rect = widget.getBoundingClientRect();
         initialX = rect.left;
         initialY = rect.top;
-        startX = p.x;
-        startY = p.y;
+
+        startX = clientX;
+        startY = clientY;
     }
 
     function drag(e) {
         if (!isDragging) return;
-        if (e.cancelable) e.preventDefault();
-        var p = getPoint(e);
-        var dx = p.x - startX;
-        var dy = p.y - startY;
-        if (Math.abs(dx) > 5 || Math.abs(dy) > 5) hasMoved = true;
-        var newX = initialX + dx;
-        var newY = initialY + dy;
-        var maxX = window.innerWidth - widget.offsetWidth - 10;
-        var maxY = window.innerHeight - widget.offsetHeight - 10;
+
+        if (e.cancelable) {
+            e.preventDefault();
+        }
+
+        const clientX = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX;
+        const clientY = e.type === 'touchmove' ? e.touches[0].clientY : e.clientY;
+
+        const dx = clientX - startX;
+        const dy = clientY - startY;
+
+        if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+            hasMoved = true;
+        }
+
+        let newX = initialX + dx;
+        let newY = initialY + dy;
+
+        const widgetWidth = widget.offsetWidth;
+        const widgetHeight = widget.offsetHeight;
+        const windowWidth = window.innerWidth;
+        const windowHeight = window.innerHeight;
+
         if (newX < 10) newX = 10;
-        if (newX > maxX) newX = maxX;
+        if (newX > windowWidth - widgetWidth - 10) newX = windowWidth - widgetWidth - 10;
         if (newY < 10) newY = 10;
-        if (newY > maxY) newY = maxY;
-        widget.style.left = newX + 'px';
-        widget.style.top = newY + 'px';
+        if (newY > windowHeight - widgetHeight - 10) newY = windowHeight - widgetHeight - 10;
+
+        widget.style.left = `${newX}px`;
+        widget.style.top = `${newY}px`;
         widget.style.bottom = 'auto';
         widget.style.right = 'auto';
     }
@@ -1216,21 +1160,10 @@ body {
     function dragEnd() {
         isDragging = false;
     }
-
-    widget.addEventListener('mousedown', dragStart);
-    document.addEventListener('mousemove', drag);
-    document.addEventListener('mouseup', dragEnd);
-    widget.addEventListener('touchstart', dragStart, { passive: true });
-    document.addEventListener('touchmove', drag, { passive: false });
-    document.addEventListener('touchend', dragEnd);
-
-    link.addEventListener('click', function (e) {
-        if (hasMoved) e.preventDefault();
-    });
 })();
 </script>
 
-<script type="module" src="dash.js?v=20261006" onerror="window.forceHideLoader && window.forceHideLoader(); window.showAppError && window.showAppError('Could not load dashboard.js. Check that the file exists and reload.');"></script>
+<script type="module" src="dash.js"></script>
 
 </body>
 </html>
