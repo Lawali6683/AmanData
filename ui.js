@@ -130,7 +130,7 @@ export function pinBoxes(root) {
 }
 
 export const LOGOS = {
-    dstv: 'https://i.imgur.com/XBe4eRi.png',
+    dstv: 'https://i.imgur.com/YZoTk8t.png',
     gotv: 'https://i.imgur.com/eaTdFAU.png',
     startimes: 'https://i.imgur.com/3DbujW2.png',
     glo: 'https://i.imgur.com/JlSw9vx.png',
