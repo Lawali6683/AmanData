@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>User Migration</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#f3f4f6;color:#111827;padding:16px}
+.card{max-width:760px;margin:0 auto;background:#fff;border-radius:12px;padding:20px;box-shadow:0 2px 10px rgba(0,0,0,.08)}
+h1{font-size:20px;margin:0 0 6px}
+p{margin:0 0 14px;color:#4b5563;font-size:14px}
+label{display:block;font-size:14px;margin-bottom:6px;font-weight:bold}
+input[type=password]{width:100%;padding:12px;border:1px solid #d1d5db;border-radius:8px;font-size:15px;margin-bottom:12px}
+.check{display:flex;gap:8px;align-items:flex-start;font-size:14px;margin-bottom:14px}
+.check input{margin-top:3px}
+.row{display:flex;gap:10px}
+button{flex:1;padding:12px;border:0;border-radius:8px;font-size:15px;font-weight:bold;cursor:pointer}
+#startBtn{background:#2563eb;color:#fff}
+#stopBtn{background:#e5e7eb;color:#111827}
+button:disabled{opacity:.5;cursor:not-allowed}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin:16px 0}
+.stat{background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:10px;text-align:center}
+.stat b{display:block;font-size:20px}
+.stat span{font-size:12px;color:#6b7280}
+#status{font-size:14px;margin:10px 0;font-weight:bold}
+#log{max-height:340px;overflow:auto;border:1px solid #e5e7eb;border-radius:8px;font-size:13px}
+.line{padding:8px 10px;border-bottom:1px solid #f3f4f6;word-break:break-all}
+.migrated{color:#047857}
+.already_exists{color:#2563eb}
+.skipped{color:#6b7280}
+.failed,.email_conflict{color:#b91c1c}
+.reset{color:#b45309}
+</style>
+</head>
+<body>
+<div class="card">
+<h1>Migrate existing users</h1>
+<p>Moves every old user into Supabase Auth with the same UUID so that sign in works from every page.</p>
+<label for="key">Migration key</label>
+<input type="password" id="key" autocomplete="off" placeholder="MIGRATION_SECRET value">
+<div class="check">
+<input type="checkbox" id="removePw">
+<span>Delete the plain text password from user_profiles after a successful migration</span>
+</div>
+<div class="row">
+<button id="startBtn" type="button">Start migration</button>
+<button id="stopBtn" type="button" disabled>Stop</button>
+</div>
+<div id="status"></div>
+<div class="stats">
+<div class="stat"><b id="sTotal">0</b><span>Processed</span></div>
+<div class="stat"><b id="sMigrated">0</b><span>Migrated</span></div>
+<div class="stat"><b id="sExisting">0</b><span>Already existed</span></div>
+<div class="stat"><b id="sReset">0</b><span>Need reset</span></div>
+<div class="stat"><b id="sFailed">0</b><span>Failed</span></div>
+</div>
+<div id="log"></div>
+</div>
+<script>
+(function () {
+  var keyInput = document.getElementById('key');
+  var removePw = document.getElementById('removePw');
+  var startBtn = document.getElementById('startBtn');
+  var stopBtn = document.getElementById('stopBtn');
+  var statusBox = document.getElementById('status');
+  var logBox = document.getElementById('log');
+  var counts = { total: 0, migrated: 0, existing: 0, reset: 0, failed: 0 };
+  var running = false;
+  var stopRequested = false;
+
+  function render() {
+    document.getElementById('sTotal').textContent = counts.total;
+    document.getElementById('sMigrated').textContent = counts.migrated;
+    document.getElementById('sExisting').textContent = counts.existing;
+    document.getElementById('sReset').textContent = counts.reset;
+    document.getElementById('sFailed').textContent = counts.failed;
+  }
+
+  function addLine(text, cls) {
+    var div = document.createElement('div');
+    div.className = 'line ' + cls;
+    div.textContent = text;
+    logBox.appendChild(div);
+    logBox.scrollTop = logBox.scrollHeight;
+  }
+
+  function handle(item) {
+    counts.total++;
+    var label = (item.email || item.id) + ' - ' + item.status;
+    if (item.status === 'migrated') {
+      counts.migrated++;
+      if (item.needsReset) {
+        counts.reset++;
+        addLine(label + ' (needs Forgot Password)', 'reset');
+      } else {
+        addLine(label, 'migrated');
+      }
+    } else if (item.status === 'already_exists') {
+      counts.existing++;
+      addLine(label, 'already_exists');
+    } else if (item.status === 'skipped') {
+      addLine(label + (item.note ? ' (' + item.note + ')' : ''), 'skipped');
+    } else {
+      counts.failed++;
+      addLine(label + (item.note ? ' (' + item.note + ')' : ''), item.status);
+    }
+  }
+
+  function finish(message) {
+    running = false;
+    startBtn.disabled = false;
+    stopBtn.disabled = true;
+    statusBox.textContent = message;
+    render();
+  }
+
+  async function run() {
+    if (running) return;
+    var key = keyInput.value.trim();
+    if (!key) {
+      statusBox.textContent = 'Enter the migration key first.';
+      return;
+    }
+    running = true;
+    stopRequested = false;
+    startBtn.disabled = true;
+    stopBtn.disabled = false;
+    logBox.innerHTML = '';
+    counts = { total: 0, migrated: 0, existing: 0, reset: 0, failed: 0 };
+    render();
+
+    var offset = 0;
+    var retries = 0;
+
+    while (true) {
+      if (stopRequested) {
+        finish('Stopped at user number ' + offset + '.');
+        return;
+      }
+      statusBox.textContent = 'Working... starting at user ' + (offset + 1);
+      var payload = null;
+      try {
+        var response = await fetch('/api/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key: key, offset: offset, removePasswords: removePw.checked })
+        });
+        payload = await response.json();
+        if (response.status === 401) {
+          finish('Wrong migration key.');
+          return;
+        }
+        if (!response.ok || !payload.success) {
+          throw new Error(payload && payload.message ? payload.message : 'Server error');
+        }
+      } catch (err) {
+        retries++;
+        if (retries > 3) {
+          finish('Stopped: ' + err.message + '. Run again to continue.');
+          return;
+        }
+        addLine('Retrying batch after error: ' + err.message, 'failed');
+        await new Promise(function (resolve) { setTimeout(resolve, 1500); });
+        continue;
+      }
+      retries = 0;
+      payload.results.forEach(handle);
+      render();
+      offset = payload.nextOffset;
+      if (payload.done) {
+        finish('Finished. ' + counts.total + ' users processed.');
+        return;
+      }
+    }
+  }
+
+  startBtn.addEventListener('click', run);
+  stopBtn.addEventListener('click', function () {
+    stopRequested = true;
+    stopBtn.disabled = true;
+  });
+})();
+</script>
+</body>
+</html>
