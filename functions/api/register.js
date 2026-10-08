@@ -1,5 +1,8 @@
+const VERSION = "auth-v3";
+const DEFAULT_ANON_KEY = "sb_publishable_T_-kOlpwp0GLGkv0TbMGBA_YiPrL-QI";
+
 const jsonResponse = (data, status) =>
-  new Response(JSON.stringify(data), {
+  new Response(JSON.stringify(Object.assign({ version: VERSION }, data)), {
     status: status,
     headers: { "Content-Type": "application/json" }
   });
@@ -16,15 +19,18 @@ export async function onRequestPost(context) {
   let baseUrl = "";
   let supabaseKey = "";
 
+  const adminHeaders = () => ({
+    "apikey": supabaseKey,
+    "Authorization": `Bearer ${supabaseKey}`,
+    "Content-Type": "application/json"
+  });
+
   const removeAuthUser = async () => {
     if (!createdAuthId) return;
     try {
       await fetch(`${baseUrl}/auth/v1/admin/users/${createdAuthId}`, {
         method: "DELETE",
-        headers: {
-          "apikey": supabaseKey,
-          "Authorization": `Bearer ${supabaseKey}`
-        }
+        headers: adminHeaders()
       });
     } catch (e) {}
     createdAuthId = null;
@@ -60,13 +66,15 @@ export async function onRequestPost(context) {
     }
 
     const email = String(rawEmail).trim().toLowerCase();
+    const passwordText = String(password);
 
-    if (String(password).length < 6) {
+    if (passwordText.length < 6) {
       return jsonResponse({ success: false, message: "Password must be at least 6 characters." }, 400);
     }
 
     baseUrl = getBaseUrl(env.SUPABASE_URL);
     supabaseKey = env.SUPABASE_SERVICE_ROLE_KEY;
+    const anonKey = env.SUPABASE_ANON_KEY || DEFAULT_ANON_KEY;
 
     if (!supabaseKey) {
       return jsonResponse({ success: false, message: "Server is not configured." }, 500);
@@ -76,19 +84,14 @@ export async function onRequestPost(context) {
 
     const checkUserRes = await fetch(`${restUrl}user_profiles?select=id,user_data`, {
       method: "GET",
-      headers: {
-        "apikey": supabaseKey,
-        "Authorization": `Bearer ${supabaseKey}`,
-        "Content-Type": "application/json"
-      }
+      headers: adminHeaders()
     });
 
     if (checkUserRes.ok) {
       const allProfiles = await checkUserRes.json();
-      const emailExists = allProfiles.some(profile =>
+      const emailExists = allProfiles.some((profile) =>
         profile.user_data && String(profile.user_data.email || "").trim().toLowerCase() === email
       );
-
       if (emailExists) {
         return jsonResponse({ success: false, message: "Email address already linked to another profile." }, 400);
       }
@@ -98,15 +101,11 @@ export async function onRequestPost(context) {
 
     const authCreateRes = await fetch(`${baseUrl}/auth/v1/admin/users`, {
       method: "POST",
-      headers: {
-        "apikey": supabaseKey,
-        "Authorization": `Bearer ${supabaseKey}`,
-        "Content-Type": "application/json"
-      },
+      headers: adminHeaders(),
       body: JSON.stringify({
         id: uniqueId,
         email: email,
-        password: String(password),
+        password: passwordText,
         email_confirm: true,
         user_metadata: {
           full_name: fullName,
@@ -116,23 +115,48 @@ export async function onRequestPost(context) {
     });
 
     if (!authCreateRes.ok) {
-      let authError = null;
+      let authError = {};
       try {
         authError = await authCreateRes.json();
       } catch (e) {}
-      const errorText = JSON.stringify(authError || {}).toLowerCase();
-      if (authCreateRes.status === 422 || errorText.includes("already") || errorText.includes("exists")) {
+      const errorText = JSON.stringify(authError).toLowerCase();
+      if (errorText.includes("already") || errorText.includes("exists") || errorText.includes("email_exists")) {
         return jsonResponse({ success: false, message: "Email address already linked to another profile." }, 400);
       }
-      return jsonResponse({ success: false, message: "Could not create login account. Registration aborted." }, 500);
+      const detail = authError.msg || authError.message || authError.error_description || "";
+      return jsonResponse({
+        success: false,
+        message: "Could not create login account (" + authCreateRes.status + ")" + (detail ? ": " + detail : ".")
+      }, 500);
     }
 
     const authUser = await authCreateRes.json();
-    createdAuthId = authUser && authUser.id ? authUser.id : uniqueId;
+    createdAuthId = authUser && authUser.id ? authUser.id : null;
 
     if (createdAuthId !== uniqueId) {
       await removeAuthUser();
       return jsonResponse({ success: false, message: "Account identifier mismatch. Registration aborted." }, 500);
+    }
+
+    let loginVerified = false;
+    try {
+      const verifyRes = await fetch(`${baseUrl}/auth/v1/token?grant_type=password`, {
+        method: "POST",
+        headers: { "apikey": anonKey, "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email, password: passwordText })
+      });
+      if (verifyRes.ok) {
+        const verifyData = await verifyRes.json();
+        loginVerified = !!(verifyData && verifyData.access_token);
+      }
+    } catch (e) {}
+
+    if (!loginVerified) {
+      await removeAuthUser();
+      return jsonResponse({
+        success: false,
+        message: "Login account was created but sign in check failed. Check Supabase Auth email provider settings and SUPABASE_ANON_KEY."
+      }, 500);
     }
 
     const generatedRefCode = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -140,9 +164,9 @@ export async function onRequestPost(context) {
     const registrationDate = new Date().toISOString();
 
     let monnifyAccessToken = null;
-    const monnifyAuthBase = btoa(`${env.MONNIFY_API_KEY}:${env.MONNIFY_SECRET_KEY}`);
 
     try {
+      const monnifyAuthBase = btoa(`${env.MONNIFY_API_KEY}:${env.MONNIFY_SECRET_KEY}`);
       const monnifyAuthRes = await fetch(`${env.MONNIFY_BASE_URL}/api/v1/auth/login`, {
         method: "POST",
         headers: {
@@ -180,7 +204,7 @@ export async function onRequestPost(context) {
         if (monnifyAccountRes.ok) {
           const accData = await monnifyAccountRes.json();
           if (accData.requestSuccessful && accData.responseBody) {
-            virtualAccounts = accData.responseBody.accounts.map(acc => ({
+            virtualAccounts = accData.responseBody.accounts.map((acc) => ({
               bankName: acc.bankName,
               accountNumber: acc.accountNumber,
               accountName: acc.accountName
@@ -209,12 +233,7 @@ export async function onRequestPost(context) {
 
     const insertProfileRes = await fetch(`${restUrl}user_profiles`, {
       method: "POST",
-      headers: {
-        "apikey": supabaseKey,
-        "Authorization": `Bearer ${supabaseKey}`,
-        "Content-Type": "application/json",
-        "Prefer": "return=minimal"
-      },
+      headers: Object.assign({}, adminHeaders(), { "Prefer": "return=minimal" }),
       body: JSON.stringify({
         id: uniqueId,
         user_data: finalUserData
@@ -222,8 +241,16 @@ export async function onRequestPost(context) {
     });
 
     if (!insertProfileRes.ok) {
+      let insertDetail = "";
+      try {
+        const insertError = await insertProfileRes.json();
+        insertDetail = insertError.message || "";
+      } catch (e) {}
       await removeAuthUser();
-      return jsonResponse({ success: false, message: "Database core execution error. Registration aborted." }, 500);
+      return jsonResponse({
+        success: false,
+        message: "Database error (" + insertProfileRes.status + ")" + (insertDetail ? ": " + insertDetail : ".") + " Registration aborted."
+      }, 500);
     }
 
     try {
@@ -239,7 +266,8 @@ export async function onRequestPost(context) {
     return jsonResponse({
       success: true,
       message: "Registration completed successfully.",
-      userId: uniqueId
+      userId: uniqueId,
+      loginVerified: true
     }, 201);
   } catch (globalError) {
     await removeAuthUser();
