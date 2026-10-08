@@ -43,14 +43,6 @@ import { supabase } from './supabase.js';
         setTimeout(() => { window.location.href = DASHBOARD_URL; }, 2500);
     }
 
-    function getClientHost() {
-        try {
-            return new URL(supabase.supabaseUrl).host;
-        } catch (e) {
-            return '';
-        }
-    }
-
     async function checkExistingSession() {
         try {
             const { data } = await supabase.auth.getSession();
@@ -260,36 +252,19 @@ import { supabase } from './supabase.js';
 
     function loginErrorMessage(error) {
         const text = String((error && error.message) || '').toLowerCase();
-        const code = String((error && error.code) || '').toLowerCase();
-        if (text.includes('invalid login credentials') || code === 'invalid_credentials') {
+        if (text.includes('invalid login credentials')) {
             return "Incorrect email or password. Try again!";
         }
-        if (text.includes('email not confirmed') || code === 'email_not_confirmed') {
+        if (text.includes('email not confirmed')) {
             return "Please confirm your email address first.";
         }
-        if (text.includes('rate limit') || text.includes('too many') || code.includes('rate_limit')) {
+        if (text.includes('rate limit') || text.includes('too many')) {
             return "Too many attempts. Please wait a moment and try again.";
         }
         if (text.includes('failed to fetch') || text.includes('network')) {
             return "Network error! Please check your internet connection.";
         }
-        if (text.includes('invalid api key') || text.includes('apikey')) {
-            return "App configuration error. Please contact support.";
-        }
         return "Login failed. Please try again.";
-    }
-
-    async function profileIsAvailable(userId) {
-        try {
-            const { data, error } = await withTimeout(
-                supabase.from('user_profiles').select('id').eq('id', userId).limit(1),
-                REQUEST_TIMEOUT
-            );
-            if (error) return true;
-            return !!(data && data.length > 0);
-        } catch (e) {
-            return true;
-        }
     }
 
     async function handleLogin() {
@@ -314,22 +289,12 @@ import { supabase } from './supabase.js';
             );
 
             if (error || !data || !data.user) {
-                console.error('Login error:', error);
                 toggleLoader(false);
                 showToast(loginErrorMessage(error));
                 return;
             }
 
             const user = data.user;
-
-            const profileOk = await profileIsAvailable(user.id);
-            if (!profileOk) {
-                try { await supabase.auth.signOut(); } catch (e) {}
-                try { localStorage.removeItem(SESSION_KEY); } catch (e) {}
-                toggleLoader(false);
-                showToast("Account profile not found. Please contact support.");
-                return;
-            }
 
             finishWithSuccess({
                 id: user.id,
@@ -425,12 +390,6 @@ import { supabase } from './supabase.js';
                 throw new Error((backendStatus && backendStatus.message) || "Registration operation rejected.");
             }
 
-            const clientHost = getClientHost();
-            if (backendStatus.authHost && clientHost && backendStatus.authHost !== clientHost) {
-                console.error('Supabase project mismatch:', backendStatus.authHost, clientHost);
-                throw new Error("Configuration error: server and app use different Supabase projects.");
-            }
-
             let signedUser = null;
 
             try {
@@ -438,7 +397,6 @@ import { supabase } from './supabase.js';
                     supabase.auth.signInWithPassword({ email: email, password: pass }),
                     REQUEST_TIMEOUT
                 );
-                if (error) console.error('Post-register login error:', error);
                 if (!error && data && data.user) signedUser = data.user;
             } catch (e) {}
 
