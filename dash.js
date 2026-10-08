@@ -2,18 +2,26 @@ import { supabase } from './supabase.js';
 
 (function() {
 
-    const sessionTokenString = localStorage.getItem('puredata_user_session');
+    const SESSION_KEY = 'puredata_user_session';
+
+    const sessionTokenString = localStorage.getItem(SESSION_KEY);
 
     if (!sessionTokenString) {
         window.location.replace('register.html');
         return;
     }
 
-    const activeSession = JSON.parse(sessionTokenString);
-    const currentUserId = activeSession.userId || activeSession.id;
+    let activeSession = null;
+    try {
+        activeSession = JSON.parse(sessionTokenString);
+    } catch (e) {
+        activeSession = null;
+    }
+
+    let currentUserId = activeSession ? (activeSession.userId || activeSession.id) : null;
 
     if (!currentUserId) {
-        localStorage.removeItem('puredata_user_session');
+        localStorage.removeItem(SESSION_KEY);
         window.location.replace('register.html');
         return;
     }
@@ -50,36 +58,43 @@ import { supabase } from './supabase.js';
     let cachedRealBalance = "0.00";
     let isBalanceMasked = false;
     let localNotificationsArray = [];
+    let syncInProgress = false;
+
+    function showDataAlert(message) {
+        try {
+            if (typeof Notification === 'undefined') return;
+            if (Notification.permission === 'granted') {
+                if (!('serviceWorker' in navigator)) return;
+                navigator.serviceWorker.ready.then(function(registration) {
+                    registration.showNotification('AmanData warning!', {
+                        body: message,
+                        icon: 'https://i.imgur.com/gv5b3VT.png',
+                        badge: 'https://i.imgur.com/gv5b3VT.png',
+                        vibrate: [200, 100, 200]
+                    });
+                }).catch(() => {});
+            } else if (Notification.permission !== 'denied') {
+                Notification.requestPermission();
+            }
+        } catch (e) {}
+    }
 
     if ('connection' in navigator) {
         const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
 
-        function checkDataUsage() {
-            if (connection.saveData) {
-                showDataAlert("Data Saver: Turn it on to reduce image loading and save your mobile data.");
-            }
+        if (connection) {
+            const checkDataUsage = function() {
+                if (connection.saveData) {
+                    showDataAlert("Data Saver: Turn it on to reduce image loading and save your mobile data.");
+                }
 
-            if (connection.effectiveType === '2g' || connection.effectiveType === '3g') {
-                showDataAlert("Notice: Your internet speed is slow. Please ensure you have sufficient mobile data.");
-            }
-        }
+                if (connection.effectiveType === '2g' || connection.effectiveType === '3g') {
+                    showDataAlert("Notice: Your internet speed is slow. Please ensure you have sufficient mobile data.");
+                }
+            };
 
-        connection.addEventListener('change', checkDataUsage);
-        checkDataUsage();
-    }
-
-    function showDataAlert(message) {
-        if (Notification.permission === 'granted') {
-            navigator.serviceWorker.ready.then(function(registration) {
-                registration.showNotification('AmanData warning!', {
-                    body: message,
-                    icon: 'https://i.imgur.com/gv5b3VT.png',
-                    badge: 'https://i.imgur.com/gv5b3VT.png',
-                    vibrate: [200, 100, 200]
-                });
-            });
-        } else if (Notification.permission !== 'denied') {
-            Notification.requestPermission();
+            if (connection.addEventListener) connection.addEventListener('change', checkDataUsage);
+            checkDataUsage();
         }
     }
 
@@ -100,6 +115,43 @@ import { supabase } from './supabase.js';
             liquidLoaderFill.style.height = '0%';
             setTimeout(() => { appUniversalLoader.classList.add('hidden'); }, 600);
         }
+    }
+
+    async function forceLogout() {
+        try { await supabase.auth.signOut(); } catch (e) {}
+        try { localStorage.removeItem(SESSION_KEY); } catch (e) {}
+        window.location.replace('register.html');
+    }
+
+    async function ensureAuthenticated() {
+        let session = null;
+
+        try {
+            const { data } = await supabase.auth.getSession();
+            session = data && data.session ? data.session : null;
+        } catch (e) {
+            session = null;
+        }
+
+        if (!session || !session.user || !session.user.id) {
+            console.error('Dashboard guard: no active Supabase session found.');
+            try { localStorage.removeItem(SESSION_KEY); } catch (e) {}
+            window.location.replace('register.html');
+            return false;
+        }
+
+        currentUserId = session.user.id;
+
+        try {
+            localStorage.setItem(SESSION_KEY, JSON.stringify({
+                id: session.user.id,
+                userId: session.user.id,
+                name: (session.user.user_metadata && session.user.user_metadata.full_name) || '',
+                email: session.user.email || ''
+            }));
+        } catch (e) {}
+
+        return true;
     }
 
     if (openMenuBtn && sidebarMenuDrawer) openMenuBtn.addEventListener('click', () => sidebarMenuDrawer.classList.add('active'));
@@ -150,8 +202,7 @@ import { supabase } from './supabase.js';
     if (accountLogoutTrigger) {
         accountLogoutTrigger.addEventListener('click', (e) => {
             e.preventDefault();
-            localStorage.removeItem('puredata_user_session');
-            window.location.replace('register.html');
+            forceLogout();
         });
     }
 
@@ -303,24 +354,42 @@ import { supabase } from './supabase.js';
         }
     }
 
-    async function synchronousDashboardStateSync(showLoader = false) {
-        if (showLoader) toggleLoaderDisplay(true);
-
-        try {
-            const { data: profiles, error } = await supabase
+    async function fetchProfileRow() {
+        for (let attempt = 0; attempt < 3; attempt++) {
+            const { data, error } = await supabase
                 .from('user_profiles')
                 .select('*')
                 .eq('id', currentUserId);
 
             if (error) throw error;
 
-            if (!profiles || profiles.length === 0) {
-                localStorage.removeItem('puredata_user_session');
-                window.location.replace('register.html');
+            if (data && data.length > 0) return data[0];
+
+            if (attempt < 2) {
+                await new Promise((resolve) => setTimeout(resolve, 900));
+            }
+        }
+        return null;
+    }
+
+    async function synchronousDashboardStateSync(showLoader = false) {
+        if (syncInProgress) return;
+        syncInProgress = true;
+
+        if (showLoader) toggleLoaderDisplay(true);
+
+        try {
+            const profileRow = await fetchProfileRow();
+
+            if (!profileRow) {
+                console.error('Dashboard guard: profile row not found for user', currentUserId);
+                if (showLoader) {
+                    await forceLogout();
+                }
                 return;
             }
 
-            const payloadData = profiles[0].user_data;
+            const payloadData = parseJsonbValue(profileRow.user_data);
 
             if (userGreetingDisplay && payloadData.full_name) {
                 userGreetingDisplay.textContent = `Hello, ${payloadData.full_name.split(' ')[0]} 👋`;
@@ -378,8 +447,10 @@ import { supabase } from './supabase.js';
             await loadPartnerButton();
 
         } catch (err) {
+            console.error('Dashboard sync error:', err);
             showToastNotification("Sync engine validation tracking warning.");
         } finally {
+            syncInProgress = false;
             if (showLoader) toggleLoaderDisplay(false);
         }
     }
@@ -426,16 +497,28 @@ import { supabase } from './supabase.js';
         } catch (e) {}
     }
 
-    window.addEventListener('DOMContentLoaded', () => {
+    async function startDashboard() {
         if (alertsItemsContainer) {
             alertsItemsContainer.innerHTML = `<div style="text-align:center; color:#94a3b8; font-size:13px; padding:20px 0;">No new notifications</div>`;
         }
 
-        synchronousDashboardStateSync(true);
+        toggleLoaderDisplay(true);
+        const authenticated = await ensureAuthenticated();
+        toggleLoaderDisplay(false);
+
+        if (!authenticated) return;
+
+        await synchronousDashboardStateSync(true);
 
         setInterval(() => {
             synchronousDashboardStateSync(false);
         }, 10000);
-    });
+    }
+
+    if (document.readyState === 'loading') {
+        window.addEventListener('DOMContentLoaded', startDashboard);
+    } else {
+        startDashboard();
+    }
 
 })();
