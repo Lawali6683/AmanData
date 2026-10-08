@@ -11,10 +11,6 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#f3f4f6;color:#1
 .card{max-width:760px;margin:0 auto;background:#fff;border-radius:12px;padding:20px;box-shadow:0 2px 10px rgba(0,0,0,.08)}
 h1{font-size:20px;margin:0 0 6px}
 p{margin:0 0 14px;color:#4b5563;font-size:14px}
-label{display:block;font-size:14px;margin-bottom:6px;font-weight:bold}
-input[type=password]{width:100%;padding:12px;border:1px solid #d1d5db;border-radius:8px;font-size:15px;margin-bottom:12px}
-.check{display:flex;gap:8px;align-items:flex-start;font-size:14px;margin-bottom:14px}
-.check input{margin-top:3px}
 .row{display:flex;gap:10px}
 button{flex:1;padding:12px;border:0;border-radius:8px;font-size:15px;font-weight:bold;cursor:pointer}
 #startBtn{background:#2563eb;color:#fff}
@@ -38,12 +34,6 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <div class="card">
 <h1>Migrate existing users</h1>
 <p>Moves every old user into Supabase Auth with the same UUID so that sign in works from every page.</p>
-<label for="key">Migration key</label>
-<input type="password" id="key" autocomplete="off" placeholder="MIGRATION_SECRET value">
-<div class="check">
-<input type="checkbox" id="removePw">
-<span>Delete the plain text password from user_profiles after a successful migration</span>
-</div>
 <div class="row">
 <button id="startBtn" type="button">Start migration</button>
 <button id="stopBtn" type="button" disabled>Stop</button>
@@ -60,8 +50,6 @@ button:disabled{opacity:.5;cursor:not-allowed}
 </div>
 <script>
 (function () {
-  var keyInput = document.getElementById('key');
-  var removePw = document.getElementById('removePw');
   var startBtn = document.getElementById('startBtn');
   var stopBtn = document.getElementById('stopBtn');
   var statusBox = document.getElementById('status');
@@ -88,7 +76,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 
   function handle(item) {
     counts.total++;
-    var label = (item.email || item.id) + ' - ' + item.status;
+    var label = item.label + ' - ' + item.status;
     if (item.status === 'migrated') {
       counts.migrated++;
       if (item.needsReset) {
@@ -118,11 +106,6 @@ button:disabled{opacity:.5;cursor:not-allowed}
 
   async function run() {
     if (running) return;
-    var key = keyInput.value.trim();
-    if (!key) {
-      statusBox.textContent = 'Enter the migration key first.';
-      return;
-    }
     running = true;
     stopRequested = false;
     startBtn.disabled = true;
@@ -145,13 +128,9 @@ button:disabled{opacity:.5;cursor:not-allowed}
         var response = await fetch('/api/users', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ key: key, offset: offset, removePasswords: removePw.checked })
+          body: JSON.stringify({ offset: offset })
         });
         payload = await response.json();
-        if (response.status === 401) {
-          finish('Wrong migration key.');
-          return;
-        }
         if (!response.ok || !payload.success) {
           throw new Error(payload && payload.message ? payload.message : 'Server error');
         }
