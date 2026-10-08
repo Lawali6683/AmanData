@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Auth Debug</title>
+<style>
+body { font-family: monospace; font-size: 13px; padding: 16px; background: #f8fafc; color: #0f172a; }
+h1 { font-size: 16px; }
+pre { white-space: pre-wrap; word-break: break-all; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px; }
+button { padding: 10px 16px; border: 0; border-radius: 8px; background: #2563eb; color: #ffffff; font-size: 14px; }
+</style>
+</head>
+<body>
+<h1>Auth Debug</h1>
+<button id="runBtn">Run again</button>
+<pre id="out">Running...</pre>
+<script type="module">
+import { supabase } from './supabase.js';
+
+const out = document.getElementById('out');
+const lines = [];
+
+function log(label, value) {
+    lines.push(label + ': ' + (typeof value === 'string' ? value : JSON.stringify(value)));
+}
+
+async function run() {
+    lines.length = 0;
+    out.textContent = 'Running...';
+
+    log('page', window.location.href);
+    log('origin', window.location.origin);
+
+    try {
+        log('supabaseUrl', supabase.supabaseUrl);
+    } catch (e) {
+        log('supabaseUrl', 'unavailable');
+    }
+
+    try {
+        log('localStorage keys', Object.keys(localStorage));
+    } catch (e) {
+        log('localStorage', 'blocked: ' + e.message);
+    }
+
+    let localId = null;
+    try {
+        const raw = localStorage.getItem('puredata_user_session');
+        log('puredata_user_session', raw || 'MISSING');
+        if (raw) {
+            const parsed = JSON.parse(raw);
+            localId = parsed.userId || parsed.id || null;
+        }
+    } catch (e) {
+        log('puredata_user_session parse', e.message);
+    }
+
+    let sessionId = null;
+    try {
+        const { data, error } = await supabase.auth.getSession();
+        if (error) log('getSession error', error.message);
+        if (data && data.session) {
+            sessionId = data.session.user.id;
+            log('supabase session', 'FOUND');
+            log('session user id', sessionId);
+            log('session email', data.session.user.email);
+            log('session expires_at', new Date(data.session.expires_at * 1000).toISOString());
+            log('now', new Date().toISOString());
+        } else {
+            log('supabase session', 'MISSING');
+        }
+    } catch (e) {
+        log('getSession exception', e.message);
+    }
+
+    log('ids match', localId && sessionId ? localId === sessionId : 'cannot compare');
+
+    const idsToTry = [];
+    if (sessionId) idsToTry.push(sessionId);
+    if (localId && localId !== sessionId) idsToTry.push(localId);
+
+    for (const id of idsToTry) {
+        try {
+            const { data, error } = await supabase.from('user_profiles').select('id,user_data').eq('id', id);
+            if (error) {
+                log('profile query ' + id, 'ERROR ' + error.message + ' | code ' + error.code);
+            } else {
+                log('profile query ' + id, 'rows=' + (data ? data.length : 0));
+                if (data && data[0] && data[0].user_data) {
+                    log('profile has full_name', !!data[0].user_data.full_name);
+                    log('profile has virtual_accounts', Array.isArray(data[0].user_data.virtual_accounts) ? data[0].user_data.virtual_accounts.length : 'none');
+                }
+            }
+        } catch (e) {
+            log('profile query exception', e.message);
+        }
+    }
+
+    try {
+        if ('serviceWorker' in navigator) {
+            const regs = await navigator.serviceWorker.getRegistrations();
+            log('service workers', regs.length);
+        }
+    } catch (e) {}
+
+    try {
+        if ('caches' in window) {
+            log('cache names', await caches.keys());
+        }
+    } catch (e) {}
+
+    out.textContent = lines.join('\n');
+}
+
+document.getElementById('runBtn').addEventListener('click', run);
+run();
+</script>
+</body>
+</html>
