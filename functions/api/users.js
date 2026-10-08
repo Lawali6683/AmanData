@@ -6,46 +6,34 @@ const jsonResponse = (data, status) =>
     headers: { "Content-Type": "application/json" }
   });
 
-const safeEqual = (a, b) => {
-  const left = String(a);
-  const right = String(b);
-  let diff = left.length ^ right.length;
-  const length = Math.max(left.length, right.length);
-  for (let i = 0; i < length; i++) {
-    diff |= (left.charCodeAt(i) || 0) ^ (right.charCodeAt(i) || 0);
-  }
-  return diff === 0;
-};
-
 const getBaseUrl = (value) => {
   let base = (value || "https://pzyxknmysydjbszumptt.supabase.co").trim();
   base = base.replace(/\/+$/, "").replace(/\/rest\/v1$/, "").replace(/\/+$/, "");
   return base;
 };
 
+const maskEmail = (email) => {
+  const parts = String(email || "").split("@");
+  if (parts.length !== 2) return "";
+  return parts[0].slice(0, 2) + "***@" + parts[1];
+};
+
 export async function onRequestPost(context) {
   const { request, env } = context;
   try {
-    let body;
+    let body = {};
     try {
       body = await request.json();
     } catch (e) {
-      return jsonResponse({ success: false, message: "Invalid request." }, 400);
+      body = {};
     }
 
-    const secret = env.MIGRATION_SECRET;
     const supabaseKey = env.SUPABASE_SERVICE_ROLE_KEY;
-
-    if (!secret || !supabaseKey) {
+    if (!supabaseKey) {
       return jsonResponse({ success: false, message: "Server is not configured." }, 500);
     }
 
-    if (!safeEqual(body.key || "", secret)) {
-      return jsonResponse({ success: false, message: "Invalid migration key." }, 401);
-    }
-
     const offset = Math.max(0, parseInt(body.offset, 10) || 0);
-    const removePasswords = body.removePasswords === true;
     const baseUrl = getBaseUrl(env.SUPABASE_URL);
     const restUrl = `${baseUrl}/rest/v1/`;
 
@@ -109,29 +97,15 @@ export async function onRequestPost(context) {
       }
     };
 
-    const clearStoredPassword = async (row) => {
-      if (!removePasswords) return;
-      if (!row.user_data || row.user_data.password === undefined) return;
-      const cleaned = Object.assign({}, row.user_data);
-      delete cleaned.password;
-      try {
-        await fetch(`${restUrl}user_profiles?id=eq.${row.id}`, {
-          method: "PATCH",
-          headers: Object.assign({}, headers, { "Prefer": "return=minimal" }),
-          body: JSON.stringify({ user_data: cleaned })
-        });
-      } catch (e) {}
-    };
-
     const migrateOne = async (row) => {
       const data = row.user_data || {};
+      row.user_data = data;
       const email = String(data.email || "").trim().toLowerCase();
+      const label = maskEmail(email) || String(row.id).slice(0, 8);
 
       if (!email) {
-        return { id: row.id, email: "", status: "skipped", note: "No email in profile." };
+        return { label: label, status: "skipped", note: "No email in profile." };
       }
-
-      row.user_data = data;
 
       let password = data.password !== undefined && data.password !== null ? String(data.password) : "";
       let needsReset = false;
@@ -149,10 +123,8 @@ export async function onRequestPost(context) {
       }
 
       if (result.ok) {
-        await clearStoredPassword(row);
         return {
-          id: row.id,
-          email: email,
+          label: label,
           status: "migrated",
           needsReset: needsReset,
           note: needsReset ? "Password did not meet rules. User must use Forgot Password." : ""
@@ -162,20 +134,17 @@ export async function onRequestPost(context) {
       if (result.exists) {
         const sameUser = await authUserExists(row.id);
         if (sameUser) {
-          await clearStoredPassword(row);
-          return { id: row.id, email: email, status: "already_exists", note: "" };
+          return { label: label, status: "already_exists", note: "" };
         }
         return {
-          id: row.id,
-          email: email,
+          label: label,
           status: "email_conflict",
           note: "This email already belongs to a different auth account."
         };
       }
 
       return {
-        id: row.id,
-        email: email,
+        label: label,
         status: "failed",
         note: result.message || ("Auth error " + result.status)
       };
@@ -186,7 +155,7 @@ export async function onRequestPost(context) {
       try {
         results.push(await migrateOne(row));
       } catch (e) {
-        results.push({ id: row.id, email: "", status: "failed", note: "Unexpected error." });
+        results.push({ label: String(row.id).slice(0, 8), status: "failed", note: "Unexpected error." });
       }
     }
 
