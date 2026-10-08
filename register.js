@@ -4,8 +4,8 @@ import { supabase } from './supabase.js';
 
     const SESSION_KEY = 'puredata_user_session';
     const DASHBOARD_URL = 'dashboard0.html';
-    const REQUEST_TIMEOUT = 20000;
-    const LOADER_WATCHDOG = 40000;
+    const REQUEST_TIMEOUT = 25000;
+    const LOADER_WATCHDOG = 50000;
 
     const tabLoginBtn = document.getElementById('tabLoginBtn');
     const tabRegisterBtn = document.getElementById('tabRegisterBtn');
@@ -24,6 +24,18 @@ import { supabase } from './supabase.js';
     let isBusy = false;
     let loaderWatchdogTimer = null;
     let toastTimer = null;
+    let redirecting = false;
+
+    function hasPureDataSession() {
+        try {
+            const raw = localStorage.getItem(SESSION_KEY);
+            if (!raw) return false;
+            const parsed = JSON.parse(raw);
+            return !!(parsed && (parsed.id || parsed.userId));
+        } catch (e) {
+            return false;
+        }
+    }
 
     function saveSession(sessionObject) {
         try {
@@ -34,7 +46,14 @@ import { supabase } from './supabase.js';
         }
     }
 
+    function clearPureDataSession() {
+        try {
+            localStorage.removeItem(SESSION_KEY);
+        } catch (e) {}
+    }
+
     function goToDashboard() {
+        redirecting = true;
         try {
             window.location.replace(DASHBOARD_URL);
         } catch (e) {
@@ -43,30 +62,30 @@ import { supabase } from './supabase.js';
         setTimeout(() => { window.location.href = DASHBOARD_URL; }, 2500);
     }
 
-    async function checkExistingSession() {
+    async function initialSessionCheck() {
+        let authSession = null;
         try {
             const { data } = await supabase.auth.getSession();
-            const session = data && data.session ? data.session : null;
-            if (session && session.user && session.user.id) {
-                saveSession({
-                    id: session.user.id,
-                    userId: session.user.id,
-                    name: (session.user.user_metadata && session.user.user_metadata.full_name) || '',
-                    email: session.user.email || ''
-                });
+            authSession = data && data.session ? data.session : null;
+        } catch (e) {
+            authSession = null;
+        }
+
+        if (authSession && authSession.user && authSession.user.id) {
+            if (hasPureDataSession()) {
                 goToDashboard();
                 return;
             }
-        } catch (e) {}
+            try {
+                await supabase.auth.signOut({ scope: 'local' });
+            } catch (e) {}
+            return;
+        }
 
-        try {
-            if (localStorage.getItem(SESSION_KEY)) {
-                localStorage.removeItem(SESSION_KEY);
-            }
-        } catch (e) {}
+        clearPureDataSession();
     }
 
-    checkExistingSession();
+    const sessionReady = initialSessionCheck();
 
     function showToast(msg, isSuccess = false) {
         if (!toastContainer || !toastMessage) return;
@@ -79,7 +98,7 @@ import { supabase } from './supabase.js';
         }
         toastContainer.classList.add('active');
         if (toastTimer) clearTimeout(toastTimer);
-        toastTimer = setTimeout(() => { toastContainer.classList.remove('active'); }, 4000);
+        toastTimer = setTimeout(() => { toastContainer.classList.remove('active'); }, 5000);
     }
 
     function setButtonsDisabled(disabled) {
@@ -136,6 +155,42 @@ import { supabase } from './supabase.js';
 
     function openLoginTab() {
         if (tabLoginBtn) tabLoginBtn.click();
+    }
+
+    async function serverSignIn(email, pass) {
+        const response = await withTimeout(fetch('/api/login', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({ email: email, password: pass })
+        }), REQUEST_TIMEOUT);
+
+        let payload = null;
+        try {
+            payload = await response.json();
+        } catch (e) {
+            payload = null;
+        }
+
+        if (!response.ok || !payload || !payload.success) {
+            return {
+                ok: false,
+                message: payload && payload.message ? payload.message : 'Login failed (' + response.status + ')'
+            };
+        }
+
+        const { data, error } = await supabase.auth.setSession({
+            access_token: payload.accessToken,
+            refresh_token: payload.refreshToken
+        });
+
+        if (error || !data || !data.user) {
+            return { ok: false, message: 'Could not start your session. Please try again.' };
+        }
+
+        return { ok: true, user: data.user };
     }
 
     if (tabLoginBtn && tabRegisterBtn && formLogin && formRegister) {
@@ -250,23 +305,6 @@ import { supabase } from './supabase.js';
         return { ip, loc, devInfo };
     }
 
-    function loginErrorMessage(error) {
-        const text = String((error && error.message) || '').toLowerCase();
-        if (text.includes('invalid login credentials')) {
-            return "Incorrect email or password. Try again!";
-        }
-        if (text.includes('email not confirmed')) {
-            return "Please confirm your email address first.";
-        }
-        if (text.includes('rate limit') || text.includes('too many')) {
-            return "Too many attempts. Please wait a moment and try again.";
-        }
-        if (text.includes('failed to fetch') || text.includes('network')) {
-            return "Network error! Please check your internet connection.";
-        }
-        return "Login failed. Please try again.";
-    }
-
     async function handleLogin() {
         if (isBusy) return;
 
@@ -283,18 +321,18 @@ import { supabase } from './supabase.js';
         toggleLoader(true);
 
         try {
-            const { data, error } = await withTimeout(
-                supabase.auth.signInWithPassword({ email: email, password: pass }),
-                REQUEST_TIMEOUT
-            );
+            await sessionReady;
+            if (redirecting) return;
 
-            if (error || !data || !data.user) {
+            const result = await serverSignIn(email, pass);
+
+            if (!result.ok) {
                 toggleLoader(false);
-                showToast(loginErrorMessage(error));
+                showToast(result.message);
                 return;
             }
 
-            const user = data.user;
+            const user = result.user;
 
             finishWithSuccess({
                 id: user.id,
@@ -355,6 +393,9 @@ import { supabase } from './supabase.js';
         toggleLoader(true);
 
         try {
+            await sessionReady;
+            if (redirecting) return;
+
             const netMetaData = await fetchNetworkMetadata();
 
             const payload = {
@@ -393,11 +434,8 @@ import { supabase } from './supabase.js';
             let signedUser = null;
 
             try {
-                const { data, error } = await withTimeout(
-                    supabase.auth.signInWithPassword({ email: email, password: pass }),
-                    REQUEST_TIMEOUT
-                );
-                if (!error && data && data.user) signedUser = data.user;
+                const result = await serverSignIn(email, pass);
+                if (result.ok) signedUser = result.user;
             } catch (e) {}
 
             if (!signedUser) {
