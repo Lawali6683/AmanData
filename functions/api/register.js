@@ -60,8 +60,9 @@ export async function onRequestPost(context) {
     }
 
     const email = String(rawEmail).trim().toLowerCase();
+    const passwordText = String(password);
 
-    if (String(password).length < 6) {
+    if (passwordText.length < 6) {
       return jsonResponse({ success: false, message: "Password must be at least 6 characters." }, 400);
     }
 
@@ -74,25 +75,26 @@ export async function onRequestPost(context) {
 
     const restUrl = `${baseUrl}/rest/v1/`;
 
-    const checkUserRes = await fetch(`${restUrl}user_profiles?select=id,user_data`, {
-      method: "GET",
-      headers: {
-        "apikey": supabaseKey,
-        "Authorization": `Bearer ${supabaseKey}`,
-        "Content-Type": "application/json"
-      }
-    });
-
-    if (checkUserRes.ok) {
-      const allProfiles = await checkUserRes.json();
-      const emailExists = allProfiles.some(profile =>
-        profile.user_data && String(profile.user_data.email || "").trim().toLowerCase() === email
+    try {
+      const checkUserRes = await fetch(
+        `${restUrl}user_profiles?select=id&user_data->>email=eq.${encodeURIComponent(email)}&limit=1`,
+        {
+          method: "GET",
+          headers: {
+            "apikey": supabaseKey,
+            "Authorization": `Bearer ${supabaseKey}`,
+            "Content-Type": "application/json"
+          }
+        }
       );
 
-      if (emailExists) {
-        return jsonResponse({ success: false, message: "Email address already linked to another profile." }, 400);
+      if (checkUserRes.ok) {
+        const matchedProfiles = await checkUserRes.json();
+        if (Array.isArray(matchedProfiles) && matchedProfiles.length > 0) {
+          return jsonResponse({ success: false, message: "Email address already linked to another profile." }, 400);
+        }
       }
-    }
+    } catch (e) {}
 
     const uniqueId = crypto.randomUUID();
 
@@ -106,7 +108,7 @@ export async function onRequestPost(context) {
       body: JSON.stringify({
         id: uniqueId,
         email: email,
-        password: String(password),
+        password: passwordText,
         email_confirm: true,
         user_metadata: {
           full_name: fullName,
@@ -121,6 +123,9 @@ export async function onRequestPost(context) {
         authError = await authCreateRes.json();
       } catch (e) {}
       const errorText = JSON.stringify(authError || {}).toLowerCase();
+      if (errorText.includes("weak") || errorText.includes("password")) {
+        return jsonResponse({ success: false, message: "Password is too weak. Use a stronger password." }, 400);
+      }
       if (authCreateRes.status === 422 || errorText.includes("already") || errorText.includes("exists")) {
         return jsonResponse({ success: false, message: "Email address already linked to another profile." }, 400);
       }
@@ -135,14 +140,36 @@ export async function onRequestPost(context) {
       return jsonResponse({ success: false, message: "Account identifier mismatch. Registration aborted." }, 500);
     }
 
+    let verifyStatus = 0;
+    let verifyText = "";
+    try {
+      const verifyRes = await fetch(`${baseUrl}/auth/v1/token?grant_type=password`, {
+        method: "POST",
+        headers: {
+          "apikey": supabaseKey,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ email: email, password: passwordText })
+      });
+      verifyStatus = verifyRes.status;
+      if (!verifyRes.ok) {
+        verifyText = (await verifyRes.text()).toLowerCase();
+      }
+    } catch (e) {}
+
+    if (verifyStatus === 400 && verifyText.includes("invalid")) {
+      await removeAuthUser();
+      return jsonResponse({ success: false, message: "Login account could not be verified. Registration aborted." }, 500);
+    }
+
     const generatedRefCode = Math.random().toString(36).substring(2, 8).toUpperCase();
     const generatedRefLink = `https://www.amandata.com.ng/register/ref/${generatedRefCode}`;
     const registrationDate = new Date().toISOString();
 
     let monnifyAccessToken = null;
-    const monnifyAuthBase = btoa(`${env.MONNIFY_API_KEY}:${env.MONNIFY_SECRET_KEY}`);
 
     try {
+      const monnifyAuthBase = btoa(`${env.MONNIFY_API_KEY}:${env.MONNIFY_SECRET_KEY}`);
       const monnifyAuthRes = await fetch(`${env.MONNIFY_BASE_URL}/api/v1/auth/login`, {
         method: "POST",
         headers: {
@@ -236,10 +263,16 @@ export async function onRequestPost(context) {
       );
     } catch (e) {}
 
+    let authHost = "";
+    try {
+      authHost = new URL(baseUrl).host;
+    } catch (e) {}
+
     return jsonResponse({
       success: true,
       message: "Registration completed successfully.",
-      userId: uniqueId
+      userId: uniqueId,
+      authHost: authHost
     }, 201);
   } catch (globalError) {
     await removeAuthUser();
