@@ -3,7 +3,7 @@ import { supabase } from './supabase.js';
 (function () {
 
     const SESSION_KEY = 'puredata_user_session';
-    const DASHBOARD_URL = 'dashboard0.html';
+    const DASHBOARD_URL = 'dashboard.html';
     const REQUEST_TIMEOUT = 20000;
     const LOADER_WATCHDOG = 40000;
 
