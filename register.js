@@ -3,9 +3,9 @@ import { supabase } from './supabase.js';
 (function () {
 
     const SESSION_KEY = 'puredata_user_session';
-    const DASHBOARD_URL = 'dashboard.html';
-    const REQUEST_TIMEOUT = 15000;
-    const LOADER_WATCHDOG = 30000;
+    const DASHBOARD_URL = 'dashboard0.html';
+    const REQUEST_TIMEOUT = 20000;
+    const LOADER_WATCHDOG = 40000;
 
     const tabLoginBtn = document.getElementById('tabLoginBtn');
     const tabRegisterBtn = document.getElementById('tabRegisterBtn');
@@ -25,18 +25,6 @@ import { supabase } from './supabase.js';
     let loaderWatchdogTimer = null;
     let toastTimer = null;
 
-    function readSession() {
-        try {
-            const raw = localStorage.getItem(SESSION_KEY);
-            if (!raw) return null;
-            const parsed = JSON.parse(raw);
-            if (parsed && (parsed.id || parsed.userId)) return parsed;
-            return null;
-        } catch (e) {
-            return null;
-        }
-    }
-
     function saveSession(sessionObject) {
         try {
             localStorage.setItem(SESSION_KEY, JSON.stringify(sessionObject));
@@ -55,12 +43,30 @@ import { supabase } from './supabase.js';
         setTimeout(() => { window.location.href = DASHBOARD_URL; }, 2500);
     }
 
-    if (readSession()) {
-        goToDashboard();
-        return;
+    async function checkExistingSession() {
+        try {
+            const { data } = await supabase.auth.getSession();
+            const session = data && data.session ? data.session : null;
+            if (session && session.user && session.user.id) {
+                saveSession({
+                    id: session.user.id,
+                    userId: session.user.id,
+                    name: (session.user.user_metadata && session.user.user_metadata.full_name) || '',
+                    email: session.user.email || ''
+                });
+                goToDashboard();
+                return;
+            }
+        } catch (e) {}
+
+        try {
+            if (localStorage.getItem(SESSION_KEY)) {
+                localStorage.removeItem(SESSION_KEY);
+            }
+        } catch (e) {}
     }
 
-    try { localStorage.removeItem(SESSION_KEY); } catch (e) {}
+    checkExistingSession();
 
     function showToast(msg, isSuccess = false) {
         if (!toastContainer || !toastMessage) return;
@@ -74,6 +80,11 @@ import { supabase } from './supabase.js';
         toastContainer.classList.add('active');
         if (toastTimer) clearTimeout(toastTimer);
         toastTimer = setTimeout(() => { toastContainer.classList.remove('active'); }, 4000);
+    }
+
+    function setButtonsDisabled(disabled) {
+        if (loginBtn) loginBtn.disabled = disabled;
+        if (registerBtn) registerBtn.disabled = disabled;
     }
 
     function toggleLoader(show) {
@@ -97,11 +108,6 @@ import { supabase } from './supabase.js';
             liquidFill.style.height = '0%';
             setTimeout(() => { loaderOverlay.classList.remove('active'); }, 600);
         }
-    }
-
-    function setButtonsDisabled(disabled) {
-        if (loginBtn) loginBtn.disabled = disabled;
-        if (registerBtn) registerBtn.disabled = disabled;
     }
 
     function withTimeout(promise, ms) {
@@ -128,14 +134,18 @@ import { supabase } from './supabase.js';
         setTimeout(goToDashboard, 1200);
     }
 
+    function openLoginTab() {
+        if (tabLoginBtn) tabLoginBtn.click();
+    }
+
     if (tabLoginBtn && tabRegisterBtn && formLogin && formRegister) {
         tabLoginBtn.addEventListener('click', () => {
             tabLoginBtn.classList.add('active');
             tabRegisterBtn.classList.remove('active');
             formLogin.classList.add('active');
             formRegister.classList.remove('active');
-            pageTitle.textContent = "Welcome Back!";
-            pageSubtitle.textContent = "Login to your account";
+            if (pageTitle) pageTitle.textContent = "Welcome Back!";
+            if (pageSubtitle) pageSubtitle.textContent = "Login to your account";
         });
 
         tabRegisterBtn.addEventListener('click', () => {
@@ -143,8 +153,8 @@ import { supabase } from './supabase.js';
             tabLoginBtn.classList.remove('active');
             formRegister.classList.add('active');
             formLogin.classList.remove('active');
-            pageTitle.textContent = "Create Account";
-            pageSubtitle.textContent = "Sign up and get started";
+            if (pageTitle) pageTitle.textContent = "Create Account";
+            if (pageSubtitle) pageSubtitle.textContent = "Sign up and get started";
         });
     }
 
@@ -240,37 +250,27 @@ import { supabase } from './supabase.js';
         return { ip, loc, devInfo };
     }
 
-    async function findProfileByEmail(email) {
-        const lowerEmail = email.toLowerCase();
-
-        try {
-            const { data, error } = await withTimeout(
-                supabase.from('user_profiles').select('*').filter('user_data->>email', 'eq', email),
-                REQUEST_TIMEOUT
-            );
-
-            if (!error && data && data.length > 0) {
-                return data[0];
-            }
-        } catch (e) {}
-
-        const { data: allRecords, error: allError } = await withTimeout(
-            supabase.from('user_profiles').select('*'),
-            REQUEST_TIMEOUT
-        );
-
-        if (allError) throw allError;
-
-        return (allRecords || []).find((profile) => {
-            const savedEmail = profile && profile.user_data && profile.user_data.email;
-            return savedEmail && String(savedEmail).toLowerCase() === lowerEmail;
-        }) || null;
+    function loginErrorMessage(error) {
+        const text = String((error && error.message) || '').toLowerCase();
+        if (text.includes('invalid login credentials')) {
+            return "Incorrect email or password. Try again!";
+        }
+        if (text.includes('email not confirmed')) {
+            return "Please confirm your email address first.";
+        }
+        if (text.includes('rate limit') || text.includes('too many')) {
+            return "Too many attempts. Please wait a moment and try again.";
+        }
+        if (text.includes('failed to fetch') || text.includes('network')) {
+            return "Network error! Please check your internet connection.";
+        }
+        return "Login failed. Please try again.";
     }
 
     async function handleLogin() {
         if (isBusy) return;
 
-        const email = document.getElementById('loginEmail').value.trim();
+        const email = document.getElementById('loginEmail').value.trim().toLowerCase();
         const pass = document.getElementById('loginPassword').value;
 
         if (!email || !pass) {
@@ -283,27 +283,24 @@ import { supabase } from './supabase.js';
         toggleLoader(true);
 
         try {
-            const activeProfile = await findProfileByEmail(email);
+            const { data, error } = await withTimeout(
+                supabase.auth.signInWithPassword({ email: email, password: pass }),
+                REQUEST_TIMEOUT
+            );
 
-            if (!activeProfile) {
+            if (error || !data || !data.user) {
                 toggleLoader(false);
-                showToast("No account linked with this email address!");
+                showToast(loginErrorMessage(error));
                 return;
             }
 
-            const userData = activeProfile.user_data || {};
-
-            if (String(userData.password) !== pass) {
-                toggleLoader(false);
-                showToast("Incorrect account password. Try again!");
-                return;
-            }
+            const user = data.user;
 
             finishWithSuccess({
-                id: activeProfile.id,
-                userId: activeProfile.id,
-                name: userData.full_name || '',
-                email: userData.email || email
+                id: user.id,
+                userId: user.id,
+                name: (user.user_metadata && user.user_metadata.full_name) || '',
+                email: user.email || email
             }, "Login successful! Redirecting...");
 
         } catch (err) {
@@ -323,7 +320,7 @@ import { supabase } from './supabase.js';
         if (isBusy) return;
 
         const fullName = document.getElementById('regName').value.trim();
-        const email = document.getElementById('regEmail').value.trim();
+        const email = document.getElementById('regEmail').value.trim().toLowerCase();
         const phone = document.getElementById('regPhone').value.trim();
         const refCodeField = refInput ? refInput.value.trim() : '';
         const pass = document.getElementById('regPassword').value;
@@ -335,6 +332,11 @@ import { supabase } from './supabase.js';
 
         if (!fullName || !email || !phone || gatheredPin.length !== 4 || !pass || !confirmPass) {
             showToast("Please complete all registration form blocks!");
+            return;
+        }
+
+        if (pass.length < 6) {
+            showToast("Password must be at least 6 characters.");
             return;
         }
 
@@ -375,7 +377,7 @@ import { supabase } from './supabase.js';
                     'Accept': 'application/json'
                 },
                 body: JSON.stringify(payload)
-            }), 25000);
+            }), 30000);
 
             if (!apiResponse.ok) {
                 const errorData = await apiResponse.json().catch(() => ({}));
@@ -388,18 +390,28 @@ import { supabase } from './supabase.js';
                 throw new Error((backendStatus && backendStatus.message) || "Registration operation rejected.");
             }
 
-            const newUserId = backendStatus.userId || backendStatus.id || backendStatus.user_id;
+            let signedUser = null;
 
-            if (!newUserId) {
+            try {
+                const { data, error } = await withTimeout(
+                    supabase.auth.signInWithPassword({ email: email, password: pass }),
+                    REQUEST_TIMEOUT
+                );
+                if (!error && data && data.user) signedUser = data.user;
+            } catch (e) {}
+
+            if (!signedUser) {
                 toggleLoader(false);
                 showToast("Account created. Please login to continue.", true);
-                if (tabLoginBtn) tabLoginBtn.click();
+                openLoginTab();
+                const loginEmailField = document.getElementById('loginEmail');
+                if (loginEmailField) loginEmailField.value = email;
                 return;
             }
 
             finishWithSuccess({
-                id: newUserId,
-                userId: newUserId,
+                id: signedUser.id,
+                userId: signedUser.id,
                 name: fullName,
                 email: email
             }, "Account created successfully!");
