@@ -17,20 +17,60 @@ export async function accessToken() {
     return session ? session.access_token : null;
 }
 
-export async function signIn(email, password) {
-    let result;
+async function serverSignIn(email, password) {
+    let response;
     try {
-        result = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password: password });
+        response = await fetch('/api/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: email, password: password })
+        });
+    } catch (err) {
+        return { network: true };
+    }
+    let payload = null;
+    try {
+        payload = await response.json();
+    } catch (err) {
+        payload = null;
+    }
+    if (!response.ok || !payload || !payload.success) {
+        return { failed: true, message: payload && payload.message ? payload.message : '' };
+    }
+    try {
+        const { data, error } = await supabase.auth.setSession({
+            access_token: payload.accessToken,
+            refresh_token: payload.refreshToken
+        });
+        if (error || !data || !data.session) return { failed: true, message: '' };
+        return { session: data.session };
+    } catch (err) {
+        return { failed: true, message: '' };
+    }
+}
+
+export async function signIn(email, password) {
+    const cleanEmail = String(email || '').trim().toLowerCase();
+    const cleanPassword = String(password || '');
+
+    const viaServer = await serverSignIn(cleanEmail, cleanPassword);
+    if (viaServer.session) {
+        return { ok: true, session: viaServer.session };
+    }
+
+    try {
+        const result = await supabase.auth.signInWithPassword({ email: cleanEmail, password: cleanPassword });
+        if (!result.error && result.data && result.data.session) {
+            return { ok: true, session: result.data.session };
+        }
     } catch (err) {
         return { ok: false, message: 'Could not reach the server. Check your connection and try again.' };
     }
-    if (result.error || !result.data || !result.data.session) {
-        const message = result.error && result.error.message === 'Invalid login credentials'
-            ? 'The email or password is incorrect.'
-            : 'Sign in failed. Please try again.';
-        return { ok: false, message: message };
+
+    if (viaServer.network) {
+        return { ok: false, message: 'Could not reach the server. Check your connection and try again.' };
     }
-    return { ok: true, session: result.data.session };
+    return { ok: false, message: viaServer.message || 'The email or password is incorrect.' };
 }
 
 export async function signOut() {
