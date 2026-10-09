@@ -1,4 +1,4 @@
-import { mountShell, showLoader, hideLoader, reveal, toast, escapeHtml, money, confirmDialog } from './uix.js';
+import { mountShell, showLoader, hideLoader, reveal, toast, escapeHtml, money, confirmDialog, apiPost } from './uix.js';
 import { requireSession, accessToken } from './auth.js';
 
 (function () {
@@ -38,28 +38,17 @@ import { requireSession, accessToken } from './auth.js';
     async function callApi(url, payload) {
         const token = await accessToken();
         if (!token) {
-            window.location.replace('admin.html');
+            window.location.reload();
             return { success: false, expired: true, message: 'Session expired.' };
         }
-        try {
-            const res = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-                body: JSON.stringify(Object.assign({}, payload, { token: token }))
-            });
-            const data = await res.json();
-            if (res.status === 401 || res.status === 403) {
-                return { success: false, expired: true, message: (data && data.message) || 'Access denied.' };
-            }
-            return data && typeof data === 'object' ? data : { success: false, message: 'Invalid server response.' };
-        } catch (err) {
-            return { success: false, message: 'Network error. Check your connection and try again.' };
-        }
+        const r = await apiPost(url, token, Object.assign({}, payload, { token: token }));
+        if (r.status === 401) return Object.assign({}, r.data, { success: false, expired: true });
+        return r.data;
     }
 
     function expire(message) {
         toast(message || 'Session expired. Sign in again.', 'err');
-        setTimeout(() => window.location.replace('admin.html'), 1500);
+        setTimeout(() => window.location.reload(), 1800);
     }
 
     async function copyText(text) {
