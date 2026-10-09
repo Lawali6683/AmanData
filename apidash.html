@@ -6,42 +6,9 @@
 <title>API Dashboard - AmanData</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <link rel="stylesheet" href="uix.css">
-
-<style>
-    
-    .wa-btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:16px;border:none;border-radius:14px;background:linear-gradient(135deg,#25d366 0%,#128c7e 100%);color:#fff;font-size:15px;font-weight:800;text-decoration:none;box-shadow:0 10px 20px rgba(18,140,126,.28);transition:transform .2s}
-.wa-btn:active{transform:scale(.97)}
-.wa-btn i{font-size:22px}
-.code-box{background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:14px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;line-height:1.6;overflow-x:auto;white-space:pre;color:var(--text)}
-.code-head{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:12px;font-weight:800;letter-spacing:.6px;color:var(--muted)}
-.code-head .btn-small{min-height:34px;padding:0 12px}
-.token-box{background:var(--bg);border:1px dashed var(--primary);border-radius:14px;padding:16px;text-align:center;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:16px;font-weight:800;letter-spacing:1px;word-break:break-all}
-.tx-status{display:block;font-size:11px;font-weight:700;margin-top:2px}
-.tx-status.ok{color:var(--ok)}
-.tx-status.wait{color:#fbbf24}
-.tx-status.bad{color:var(--err)}
-.stats-grid.four{grid-template-columns:repeat(4,1fr)}
-.user-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
-.user-card{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--card);border:1px solid var(--border);border-radius:20px;padding:14px 16px}
-.user-main{display:flex;align-items:center;gap:12px;min-width:0}
-.avatar{width:46px;height:46px;flex-shrink:0;border-radius:14px;background:rgba(108,92,231,.18);color:#a5b4fc;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px}
-.user-meta{display:flex;flex-direction:column;gap:3px;min-width:0}
-.user-name{font-size:15px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.user-email{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.sheet-overlay{position:fixed;inset:0;z-index:9000;background:rgba(2,6,23,.78);display:flex;align-items:flex-end;justify-content:center;opacity:0;visibility:hidden;transition:opacity .2s,visibility .2s}
-.sheet-overlay.open{opacity:1;visibility:visible}
-.sheet{width:100%;max-width:720px;max-height:92vh;max-height:92dvh;overflow-y:auto;background:var(--card);border:1px solid var(--border);border-radius:24px 24px 0 0;padding:20px;display:flex;flex-direction:column;gap:16px;transform:translateY(24px);transition:transform .25s ease}
-.sheet-overlay.open .sheet{transform:none}
-.sheet-head{display:flex;justify-content:space-between;align-items:center;gap:10px}
-.close-btn{width:40px;height:40px;flex-shrink:0;border-radius:50%;border:1px solid rgba(239,68,68,.45);background:rgba(239,68,68,.15);color:#fca5a5;cursor:pointer}
-.actions-2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.reveal-btn{background:none;border:0;color:#a5b4fc;font-size:12px;font-weight:700;cursor:pointer;margin-left:8px}
-textarea.input{min-height:110px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;resize:vertical}
-.input[readonly]{opacity:.6}
-body.locked{overflow:hidden}
-@media(min-width:720px){.sheet-overlay{align-items:center}.sheet{border-radius:24px}}
-@media(max-width:720px){.stats-grid.four{grid-template-columns:1fr 1fr}}
-</style>
+<script>
+window.addEventListener('error',function(e){var t=e.target;if(t&&t!==window&&t.tagName!=='SCRIPT')return;var m=t&&t.src?'A file this page needs could not be loaded. Check the file names and that every file is uploaded.':(e.message||'Page error');var b=document.createElement('div');b.setAttribute('role','alert');b.style.cssText='position:fixed;top:12px;left:12px;right:12px;z-index:10050;background:#1e293b;border:1px solid #ef4444;color:#f8fafc;padding:14px 16px;border-radius:14px;font:14px -apple-system,sans-serif';b.textContent=m;document.body.appendChild(b);},true);
+</script>
 </head>
 <body>
 <div class="app-container" id="appContainer">
