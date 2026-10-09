@@ -1,5 +1,5 @@
-import { supabase } from './supabase.js';
-import { toast } from './uix.js';
+import { supabase } from './client.js';
+import { LOGO, showLoader, hideLoader, toast } from './uix.js';
 
 export const LOGIN_PAGE = 'admin.html';
 
@@ -17,71 +17,48 @@ export async function accessToken() {
     return session ? session.access_token : null;
 }
 
-async function serverSignIn(email, password) {
-    let response;
-    try {
-        response = await fetch('/api/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: email, password: password })
-        });
-    } catch (err) {
-        return { network: true };
-    }
-    let payload = null;
-    try {
-        payload = await response.json();
-    } catch (err) {
-        payload = null;
-    }
-    if (!response.ok || !payload || !payload.success) {
-        return { failed: true, message: payload && payload.message ? payload.message : '' };
-    }
-    try {
-        const { data, error } = await supabase.auth.setSession({
-            access_token: payload.accessToken,
-            refresh_token: payload.refreshToken
-        });
-        if (error || !data || !data.session) return { failed: true, message: '' };
-        return { session: data.session };
-    } catch (err) {
-        return { failed: true, message: '' };
-    }
-}
-
 export async function signIn(email, password) {
-    const cleanEmail = String(email || '').trim().toLowerCase();
-    const cleanPassword = String(password || '');
-
-    const viaServer = await serverSignIn(cleanEmail, cleanPassword);
-    if (viaServer.session) {
-        return { ok: true, session: viaServer.session };
-    }
-
+    let result;
     try {
-        const result = await supabase.auth.signInWithPassword({ email: cleanEmail, password: cleanPassword });
-        if (!result.error && result.data && result.data.session) {
-            return { ok: true, session: result.data.session };
-        }
+        result = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password: password });
     } catch (err) {
         return { ok: false, message: 'Could not reach the server. Check your connection and try again.' };
     }
-
-    if (viaServer.network) {
-        return { ok: false, message: 'Could not reach the server. Check your connection and try again.' };
+    if (result.error || !result.data || !result.data.session) {
+        const message = result.error && result.error.message === 'Invalid login credentials'
+            ? 'The email or password is incorrect.'
+            : 'Sign in failed. Please try again.';
+        return { ok: false, message: message };
     }
-    return { ok: false, message: viaServer.message || 'The email or password is incorrect.' };
+    return { ok: true, session: result.data.session };
 }
 
 export async function signOut() {
     try { await supabase.auth.signOut(); } catch (err) {}
 }
 
-export async function requireSession() {
-    const session = await getSession();
-    if (session) return session;
-    window.location.replace(LOGIN_PAGE);
-    return null;
+export function requireSession() {
+    return new Promise(async (resolve) => {
+        const existing = await getSession();
+        if (existing) {
+            resolve(existing);
+            return;
+        }
+        hideLoader();
+        const overlay = document.createElement('div');
+        overlay.className = 'login-overlay';
+        overlay.innerHTML =
+            '<div class="login-box"><img src="' + LOGO + '" class="page-logo" alt="Logo">' +
+            '<section class="form-card" id="authCard"></section>' +
+            '<button type="button" class="link-btn" id="authBack">Back to menu</button></div>';
+        document.body.appendChild(overlay);
+        overlay.querySelector('#authBack').addEventListener('click', () => { window.location.replace(LOGIN_PAGE); });
+        mountLogin(overlay.querySelector('#authCard'), (session) => {
+            overlay.remove();
+            showLoader();
+            resolve(session);
+        });
+    });
 }
 
 export function mountLogin(root, onSuccess) {
