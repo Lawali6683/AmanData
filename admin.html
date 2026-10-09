@@ -10,11 +10,9 @@
 <body>
 <div class="app-container" id="appContainer">
 <header><button type="button" class="btn-back" id="btnBack" aria-label="Back"><i class="fa-solid fa-arrow-left"></i></button><img src="https://i.imgur.com/bNK9ccG.png" class="page-logo" alt="AmanData"><span class="header-spacer"></span></header>
-<section class="form-card" id="loginCard"></section>
-<section class="form-card hidden" id="menu">
-<p class="hello">Signed in as <strong id="adminEmail">-</strong></p>
+<section class="form-card" id="menu">
 <div class="menu-grid">
-<a class="menu-btn" href="ceo.html"><div class="tx-icon-frame"><i class="fa-solid fa-users-gear"></i></div><div>Manage users<small>Search, view, edit or delete any user</small></div></a>
+
 <a class="menu-btn" href="apidash.html"><div class="tx-icon-frame"><i class="fa-solid fa-code"></i></div><div>API dashboard<small>Reseller API keys, wallet and orders</small></div></a>
 <a class="menu-btn" href="check.html"><div class="tx-icon-frame"><i class="fa-solid fa-user-magnifying-glass"></i></div><div>Check user<small>Find a user and see their details</small></div></a>
 <a class="menu-btn" href="all.html"><div class="tx-icon-frame"><i class="fa-solid fa-users"></i></div><div>All users<small>Analysis of every registered user</small></div></a>
@@ -22,12 +20,12 @@
 <a class="menu-btn" href="dataprice.html"><div class="tx-icon-frame"><i class="fa-solid fa-tags"></i></div><div>Data price<small>View and edit data prices</small></div></a>
 <a class="menu-btn" href="apidata.html"><div class="tx-icon-frame"><i class="fa-solid fa-database"></i></div><div>API data<small>View provider plans and set your prices</small></div></a>
 <a class="menu-btn" href="profit.html"><div class="tx-icon-frame"><i class="fa-solid fa-chart-line"></i></div><div>Profit<small>Daily, weekly and monthly report</small></div></a>
-<a class="menu-btn" href="apiWallet.html"><div class="tx-icon-frame"><i class="fa-solid fa-wallet"></i></div><div>API wallet<small>Provider wallet and balance</small></div></a>
 <a class="menu-btn" href="payment.html"><div class="tx-icon-frame"><i class="fa-solid fa-money-bill-transfer"></i></div><div>Withdrawals<small>Pay or delete pending withdrawal requests</small></div></a>
 <a class="menu-btn" href="partnerbutton.html"><div class="tx-icon-frame"><i class="fa-solid fa-image"></i></div><div>Partner button<small>Set the image and link on the user dashboard</small></div></a>
-<a class="menu-btn" href="apiblance.html"><div class="tx-icon-frame"><i class="fa-solid fa-scale-balanced"></i></div><div>API balance<small>Open the provider dashboard inside the app</small></div></a>
+<a class="menu-btn" href="apiblance.html"><div class="tx-icon-frame"><i class="fa-solid fa-scale-balanced"></i></div><div>API wallet<small>Provider wallet and balance, opened inside the app</small></div></a>
+
+<a class="menu-btn" href="ceo.html"><div class="tx-icon-frame"><i class="fa-solid fa-users-gear"></i></div><div>Manage users<small>Search, view, edit or delete any user</small></div></a>
 </div>
-<button type="button" class="link-btn" id="btnLogout">Sign out</button>
 </section>
 </div>
 <script type="module" src="admin.js"></script>
