@@ -1,4 +1,4 @@
-import { supabase } from './supabase.js';
+import { supabase } from './client.js';
 import { mountShell, showLoader, hideLoader, reveal, toast, escapeHtml, money } from './uix.js';
 import { requireSession } from './auth.js';
 
