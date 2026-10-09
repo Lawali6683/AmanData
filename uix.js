@@ -16,6 +16,7 @@ export function money(value) {
 }
 
 export function mountShell() {
+    window.addEventListener('pageshow', (e) => { if (e.persisted) window.location.reload(); });
     document.body.insertAdjacentHTML('afterbegin',
         '<div class="scene" id="scene"><div class="bg" id="bg"></div>' +
         '<img src="' + LOGO + '" class="loader-logo" id="loaderLogo" alt="Logo">' +
