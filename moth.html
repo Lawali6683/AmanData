@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Monthly analysis - AmanData</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link rel="stylesheet" href="uix.css">
+</head>
+<body>
+<div class="app-container" id="appContainer">
+<header><button type="button" class="btn-back" id="btnBack" aria-label="Back"><i class="fa-solid fa-arrow-left"></i></button><img src="https://i.imgur.com/bNK9ccG.png" class="page-logo" alt="AmanData"><button type="button" class="btn-back" id="btnRefresh" aria-label="Refresh"><i class="fa-solid fa-rotate"></i></button></header>
+<div class="month-bar">
+<button type="button" class="btn-back" id="btnPrev" aria-label="Previous month"><i class="fa-solid fa-chevron-left"></i></button>
+<span class="month-label" id="monthLabel">-</span>
+<button type="button" class="btn-back" id="btnNext" aria-label="Next month"><i class="fa-solid fa-chevron-right"></i></button>
+</div>
+<section class="summary-card">
+<div class="summary-label">New users this month</div>
+<div class="summary-balance" id="sumUsers">0</div>
+<div class="summary-split">
+<div class="summary-box"><span>Transactions</span><strong id="sumTx">0</strong></div>
+<div class="summary-box"><span>Volume</span><strong>₦<span id="sumVolume">0.00</span></strong></div>
+</div>
+</section>
+<main class="history-list" id="dayList"></main>
+</div>
+<script type="module" src="moth.js"></script>
+</body>
+</html>

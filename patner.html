@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Partner - AmanData</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link rel="stylesheet" href="uix.css">
+</head>
+<body>
+<div class="frame-page" id="appContainer">
+<header class="frame-head">
+<button type="button" class="btn-back" id="btnBack" aria-label="Back"><i class="fa-solid fa-arrow-left"></i></button>
+<img src="https://i.imgur.com/bNK9ccG.png" class="page-logo" alt="AmanData">
+<button type="button" class="btn-back" id="btnRefresh" aria-label="Reload"><i class="fa-solid fa-rotate"></i></button>
+</header>
+<iframe class="frame hidden" id="frame" title="Partner" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads" referrerpolicy="no-referrer-when-downgrade" allow="clipboard-write"></iframe>
+<div class="empty-state frame-empty hidden" id="emptyState">
+<i class="fa-solid fa-link-slash empty-icon"></i>
+<h3 class="empty-title">Not available</h3>
+<p class="empty-desc">There is no partner page to show right now. Please check again later.</p>
+<button type="button" class="btn-small" id="btnHome">Go back</button>
+</div>
+</div>
+<script type="module" src="patner.js"></script>
+</body>
+</html>

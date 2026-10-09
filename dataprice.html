@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Data price - AmanData</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link rel="stylesheet" href="uix.css">
+</head>
+<body>
+<div class="app-container wide" id="appContainer">
+<header><button type="button" class="btn-back" id="btnBack" aria-label="Back"><i class="fa-solid fa-arrow-left"></i></button><img src="https://i.imgur.com/bNK9ccG.png" class="page-logo" alt="AmanData"><button type="button" class="btn-back" id="btnRefresh" aria-label="Refresh"><i class="fa-solid fa-rotate"></i></button></header>
+<section class="filter-tabs two">
+<button type="button" class="tab-btn active" id="tabPlan"><i class="fa-solid fa-tags"></i> Plan</button>
+<button type="button" class="tab-btn" id="tabPlan2"><i class="fa-solid fa-tags"></i> Plan 2</button>
+</section>
+<section class="form-card">
+<h3 class="form-title">Find a plan</h3>
+<input class="input" id="searchInput" type="search" autocomplete="off" placeholder="Search by id or any value">
+<p class="form-desc" id="searchInfo"></p>
+</section>
+<main class="user-list" id="rowList"></main>
+</div>
+<div class="sheet-overlay" id="sheetOverlay">
+<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+<div class="sheet-head"><h3 class="form-title" id="sheetTitle">Plan</h3><button type="button" class="close-btn" id="btnClose" aria-label="Close"><i class="fa-solid fa-xmark"></i></button></div>
+<input class="input" id="leafFilter" type="search" autocomplete="off" placeholder="Filter fields">
+<div class="detail-rows" id="leafList"></div>
+<div class="actions-2"><button type="button" class="btn-small alt" id="btnCancel">Cancel</button><button type="button" class="btn-primary" id="btnSave">Save changes</button></div>
+</div>
+</div>
+<script type="module" src="dataprice.js"></script>
+</body>
+</html>

@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>All users - AmanData</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link rel="stylesheet" href="uix.css">
+</head>
+<body>
+<div class="app-container" id="appContainer">
+<header><button type="button" class="btn-back" id="btnBack" aria-label="Back"><i class="fa-solid fa-arrow-left"></i></button><img src="https://i.imgur.com/bNK9ccG.png" class="page-logo" alt="AmanData"><button type="button" class="btn-back" id="btnRefresh" aria-label="Refresh"><i class="fa-solid fa-rotate"></i></button></header>
+<section class="summary-card">
+<div class="summary-label">Total wallet money</div>
+<div class="summary-balance">₦<span id="sumMoney">0.00</span></div>
+<div class="summary-split">
+<div class="summary-box"><span>Average balance</span><strong>₦<span id="sumAvg">0.00</span></strong></div>
+<div class="summary-box"><span>Referred users</span><strong id="sumReferred">0</strong></div>
+</div>
+</section>
+<section class="stats-grid">
+<div class="stat-card"><div class="stat-label">Total users</div><div class="stat-value" id="stTotal">0</div></div>
+<div class="stat-card"><div class="stat-label">With money</div><div class="stat-value good" id="stFunded">0</div></div>
+<div class="stat-card"><div class="stat-label">Without money</div><div class="stat-value muted" id="stEmpty">0</div></div>
+<div class="stat-card"><div class="stat-label">New today</div><div class="stat-value" id="stToday">0</div></div>
+<div class="stat-card"><div class="stat-label">Last 7 days</div><div class="stat-value" id="stWeek">0</div></div>
+<div class="stat-card"><div class="stat-label">This month</div><div class="stat-value" id="stMonth">0</div></div>
+</section>
+<section class="form-card"><h3 class="form-title">New users, last 7 days</h3><div class="detail-rows" id="weekBars"></div></section>
+<section class="form-card"><h3 class="form-title">Top 10 balances</h3><div class="history-list" id="topBalances"></div></section>
+<section class="form-card"><h3 class="form-title">Top referrers</h3><div class="history-list" id="topReferrers"></div></section>
+</div>
+<script type="module" src="all.js"></script>
+</body>
+</html>
