@@ -1,4 +1,4 @@
-import { supabase } from './supabase.js';
+import { supabase } from './client.js';
 import { mountShell, showLoader, hideLoader, reveal, toast, escapeHtml, money, confirmDialog } from './uix.js';
 import { requireSession } from './auth.js';
 
@@ -203,6 +203,18 @@ import { requireSession } from './auth.js';
         return { data: out, error: failed };
     }
 
+    function isMissingFunction(error) {
+        return error && (error.code === 'PGRST202' || /does not exist|schema cache/i.test(error.message || ''));
+    }
+
+    async function updateDirect(id, data) {
+        const r = await supabase.from('user_profiles').update({ user_data: data }).eq('id', id).select('id');
+        if (!r.error && (!r.data || !r.data.length)) {
+            return { error: { message: 'Not saved. This account has no access to change this user.' } };
+        }
+        return r;
+    }
+
     async function save() {
         if (busy || !current) return;
         const result = collect();
@@ -215,18 +227,28 @@ import { requireSession } from './auth.js';
             toast('Enter a valid email address.', 'err');
             return;
         }
+        const emailChanged = email.toLowerCase() !== String(current.data.email || '').trim().toLowerCase();
+        let note = '';
         busy = true;
         showLoader();
         let response;
         try {
-            response = await supabase.rpc('admin_update_user', { p_id: current.id, p_data: result.data });
+            if (emailChanged) {
+                response = await supabase.rpc('admin_update_user', { p_id: current.id, p_data: result.data });
+                if (isMissingFunction(response.error)) {
+                    response = await updateDirect(current.id, result.data);
+                    note = ' The login email was not changed. Run ceo.sql to change it too.';
+                }
+            } else {
+                response = await updateDirect(current.id, result.data);
+            }
         } catch (err) {
             response = { error: err };
         }
         hideLoader();
         busy = false;
         if (response.error) {
-            toast(rpcMessage(response.error), 'err');
+            toast(response.error.message || 'Could not save the changes.', 'err');
             return;
         }
         current.data = result.data;
@@ -234,7 +256,7 @@ import { requireSession } from './auth.js';
         renderSheet();
         renderStats();
         renderList();
-        toast('Changes saved.', 'ok');
+        toast('Changes saved.' + note, 'ok');
     }
 
     async function removeUser() {
