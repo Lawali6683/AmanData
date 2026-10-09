@@ -1,4 +1,4 @@
-import { mountShell, showLoader, hideLoader, reveal, toast, escapeHtml, money } from './ui.js';
+import { mountShell, showLoader, hideLoader, reveal, toast, escapeHtml, money } from './uix.js';
 import { requireSession, accessToken } from './auth.js';
 
 (function () {
