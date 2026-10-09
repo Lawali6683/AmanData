@@ -1,5 +1,5 @@
-import { mountShell, showLoader, hideLoader, reveal, toast, escapeHtml, money } from './uix.js';
-import { requireAdmin, accessToken } from './auth.js';
+import { mountShell, showLoader, hideLoader, reveal, toast, escapeHtml, money, apiPost } from './uix.js';
+import { requireSession, accessToken } from './auth.js';
 
 (function () {
     const API_ENDPOINT = '/api/apidata';
@@ -52,26 +52,14 @@ import { requireAdmin, accessToken } from './auth.js';
     }
 
     async function call(payload) {
-        try {
-            const token = await accessToken();
-            if (!token) {
-                window.location.replace('admin.html');
-                return { success: false, message: 'Please sign in again.' };
-            }
-            const res = await fetch(API_ENDPOINT, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-                body: JSON.stringify(Object.assign({ service: service }, payload))
-            });
-            const data = await res.json();
-            if (res.status === 401 || res.status === 403) {
-                toast(data.message || 'Access denied.', 'err');
-                setTimeout(() => window.location.replace('admin.html'), 1800);
-            }
-            return data;
-        } catch (err) {
-            return { success: false, message: 'Network error. Check your connection and try again.' };
+        const token = await accessToken();
+        if (!token) {
+            window.location.reload();
+            return { success: false, message: 'Please sign in again.' };
         }
+        const r = await apiPost(API_ENDPOINT, token, Object.assign({ service: service }, payload));
+        if (r.status === 401) setTimeout(() => window.location.reload(), 2200);
+        return r.data;
     }
 
     function buildDrafts() {
@@ -199,7 +187,7 @@ import { requireAdmin, accessToken } from './auth.js';
 
     async function initialize() {
         try {
-            const session = await requireAdmin();
+            const session = await requireSession();
             if (!session) return;
             await load();
         } catch (err) {
@@ -228,3 +216,4 @@ import { requireAdmin, accessToken } from './auth.js';
 
     initialize();
 })();
+
