@@ -206,3 +206,14 @@ textarea.input{min-height:110px;font-family:ui-monospace,Menlo,Consolas,monospac
 body.locked{overflow:hidden}
 @media(min-width:720px){.sheet-overlay{align-items:center}.sheet{border-radius:24px}}
 @media(max-width:720px){.stats-grid.four{grid-template-columns:1fr 1fr}}
+.filter-tabs.two{grid-template-columns:repeat(2,1fr)}
+.bar-row{display:grid;grid-template-columns:78px 1fr 40px;align-items:center;gap:10px;font-size:13px}
+.bar-row .bar-label{color:var(--muted)}
+.bar-track{height:10px;background:var(--bg);border-radius:999px;overflow:hidden}
+.bar-fill{height:100%;background:linear-gradient(90deg,var(--primary),var(--primary-dark));border-radius:999px;min-width:2px}
+.bar-row strong{text-align:right}
+.rank{width:28px;height:28px;border-radius:9px;background:rgba(108,92,231,.18);color:#a5b4fc;font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.login-overlay{position:fixed;inset:0;z-index:9500;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:20px;overflow-y:auto}
+.login-box{width:100%;max-width:420px;display:flex;flex-direction:column;align-items:center;gap:18px}
+.login-box .form-card{width:100%}
+.frame-empty{flex:1;justify-content:center}
