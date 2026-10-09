@@ -1,4 +1,4 @@
-import { mountShell, showLoader, hideLoader, reveal, toast, escapeHtml, money } from './uix.js';
+import { mountShell, showLoader, hideLoader, reveal, toast, escapeHtml, money, apiPost } from './uix.js';
 import { requireSession, accessToken } from './auth.js';
 
 (function () {
@@ -78,32 +78,18 @@ import { requireSession, accessToken } from './auth.js';
     }
 
     async function load() {
-        let data = null;
-        try {
-            const token = await accessToken();
-            if (!token) {
-                window.location.replace('admin.html');
-                return;
-            }
-            const res = await fetch(API_ENDPOINT, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-                body: JSON.stringify({ action: 'report', month: month })
-            });
-            data = await res.json();
-            if (res.status === 401 || res.status === 403) {
-                toast(data.message || 'Access denied.', 'err');
-                setTimeout(() => window.location.replace('admin.html'), 1800);
-                return;
-            }
-        } catch (err) {
-            data = null;
-        }
-        if (!data || !data.success) {
-            toast((data && data.message) || 'Could not load the report. Try again.', 'err');
+        const token = await accessToken();
+        if (!token) {
+            window.location.reload();
             return;
         }
-        report = data;
+        const r = await apiPost(API_ENDPOINT, token, { action: 'report', month: month });
+        if (r.status === 401) setTimeout(() => window.location.reload(), 2200);
+        if (!r.data.success) {
+            toast(r.data.message || 'Could not load the report. Try again.', 'err');
+            return;
+        }
+        report = r.data;
         render();
     }
 
