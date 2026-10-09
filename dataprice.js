@@ -1,5 +1,5 @@
 import { supabase } from './supabase.js';
-import { mountShell, showLoader, hideLoader, reveal, toast, escapeHtml, money } from './ui.js';
+import { mountShell, showLoader, hideLoader, reveal, toast, escapeHtml, money } from './uix.js';
 import { requireSession } from './auth.js';
 
 (function () {
