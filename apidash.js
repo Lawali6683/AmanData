@@ -1,9 +1,9 @@
-import { mountShell, showLoader, hideLoader, reveal, toast, escapeHtml, money, confirmDialog } from './uix.js';
-import { getSession, accessToken, signOut } from './auth.js';
+import { mountShell, showLoader, hideLoader, reveal, toast, escapeHtml, money, confirmDialog, apiPost } from './uix.js';
+import { requireSession, accessToken, signOut } from './auth.js';
 
 (function () {
     const API_ENDPOINT = '/api/reseller';
-    const LOGIN_PAGE = 'apilogin.html';
+    const HOME_PAGE = 'admin.html';
 
     mountShell();
     showLoader();
@@ -17,26 +17,14 @@ import { getSession, accessToken, signOut } from './auth.js';
     let currentKey = '';
 
     async function call(payload) {
-        try {
-            const token = await accessToken();
-            if (!token) {
-                window.location.replace(LOGIN_PAGE);
-                return { success: false, message: 'Please sign in again.' };
-            }
-            const res = await fetch(API_ENDPOINT, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-                body: JSON.stringify(payload)
-            });
-            const data = await res.json();
-            if (res.status === 401) {
-                toast(data.message || 'Please sign in again.', 'err');
-                setTimeout(() => window.location.replace(LOGIN_PAGE), 1600);
-            }
-            return data;
-        } catch (err) {
-            return { success: false, message: 'Network error. Check your connection and try again.' };
+        const token = await accessToken();
+        if (!token) {
+            window.location.reload();
+            return { success: false, message: 'Please sign in again.' };
         }
+        const r = await apiPost(API_ENDPOINT, token, payload);
+        if (r.status === 401) setTimeout(() => window.location.reload(), 2200);
+        return r.data;
     }
 
     async function copyText(text) {
@@ -192,11 +180,8 @@ import { getSession, accessToken, signOut } from './auth.js';
 
     async function initialize() {
         try {
-            const session = await getSession();
-            if (!session) {
-                window.location.replace(LOGIN_PAGE);
-                return;
-            }
+            const session = await requireSession();
+            if (!session) return;
             await load();
         } finally {
             reveal(container, 1200);
@@ -205,12 +190,12 @@ import { getSession, accessToken, signOut } from './auth.js';
 
     $('btnBack').addEventListener('click', () => {
         if (window.history.length > 1) window.history.back();
-        else window.location.href = LOGIN_PAGE;
+        else window.location.href = HOME_PAGE;
     });
     $('btnLogout').addEventListener('click', async () => {
         showLoader();
         await signOut();
-        window.location.replace(LOGIN_PAGE);
+        window.location.reload();
     });
     $('btnRefresh').addEventListener('click', async () => {
         if (busy) return;
