@@ -108,3 +108,31 @@ export function confirmDialog(options) {
         overlay.addEventListener('click', (e) => { if (e.target === overlay) finish(false); });
     });
 }
+
+export async function apiPost(url, token, payload) {
+    let res;
+    try {
+        res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+            body: JSON.stringify(payload)
+        });
+    } catch (err) {
+        return { ok: false, status: 0, data: { success: false, message: 'Network error. Check your connection and try again.' } };
+    }
+    let data = null;
+    try { data = await res.json(); } catch (err) { data = null; }
+    if (!data || typeof data !== 'object') {
+        data = {
+            success: false,
+            message: res.status === 404
+                ? 'This service was not found (404). Check that the API function is deployed.'
+                : 'The server sent an unexpected response (' + res.status + ').'
+        };
+    }
+    if (!res.ok && data.success !== false) {
+        data.success = false;
+        data.message = data.message || 'Request failed (' + res.status + ').';
+    }
+    return { ok: res.ok, status: res.status, data: data };
+}
