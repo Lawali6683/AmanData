@@ -106,6 +106,7 @@ import { requireSession, accessToken, signOut } from './auth.js';
             toast((result && result.message) || 'Could not load your dashboard.', 'err');
             return;
         }
+        if (result.warning) toast(result.warning, 'err');
         const a = result.account;
         $('regCard').classList.add('hidden');
         $('mainArea').classList.remove('hidden');
