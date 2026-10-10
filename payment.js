@@ -1,8 +1,8 @@
 import { mountShell, showLoader, hideLoader, reveal, toast, escapeHtml, money, confirmDialog, apiPost } from './uix.js';
 import { requireSession, accessToken } from './auth.js';
+import { supabase } from './client.js';
 
 (function () {
-    const API_ENDPOINT = '/api/withdraw';
     const PAY_ENDPOINT = '/pay';
     const OVERDUE_MS = 24 * 60 * 60 * 1000;
 
@@ -35,20 +35,23 @@ import { requireSession, accessToken } from './auth.js';
         return Math.floor(hours / 24) + 'd ' + (hours % 24) + 'h ago';
     }
 
-    async function callApi(url, payload) {
-        const token = await accessToken();
-        if (!token) {
-            window.location.reload();
-            return { success: false, expired: true, message: 'Session expired.' };
+    function friendly(error) {
+        const text = (error && error.message) || 'Something went wrong. Try again.';
+        if (error && (error.code === 'PGRST202' || /Could not find the function|schema cache/i.test(text))) {
+            return 'The withdrawal functions are not installed. Run withdraw.sql in the Supabase SQL editor.';
         }
-        const r = await apiPost(url, token, Object.assign({}, payload, { token: token }));
-        if (r.status === 401) return Object.assign({}, r.data, { success: false, expired: true });
-        return r.data;
+        if (/Not allowed/i.test(text)) return 'You do not have access to this page.';
+        return text;
     }
 
-    function expire(message) {
-        toast(message || 'Session expired. Sign in again.', 'err');
-        setTimeout(() => window.location.reload(), 1800);
+    async function rpc(name, args) {
+        try {
+            const r = await supabase.rpc(name, args || {});
+            if (r.error) return { ok: false, message: friendly(r.error) };
+            return { ok: true, data: r.data };
+        } catch (err) {
+            return { ok: false, message: 'Network error. Check your connection and try again.' };
+        }
     }
 
     async function copyText(text) {
@@ -114,28 +117,42 @@ import { requireSession, accessToken } from './auth.js';
         list.innerHTML = items.map(card).join('');
     }
 
-    async function loadDashboard(silent) {
+    function showError(message) {
+        list.innerHTML = '';
+        $('emptyState').classList.add('hidden');
+        $('pendingCount').textContent = '-';
+        $('errorText').textContent = message || 'Could not load withdrawals.';
+        $('errorState').classList.remove('hidden');
+    }
+
+    function hideError() {
+        $('errorState').classList.add('hidden');
+    }
+
+    async function loadDashboard(options) {
+        const o = options || {};
         if (loading) return;
         loading = true;
-        if (!silent) showLoader();
-        const data = await callApi(API_ENDPOINT, { action: 'admin_dashboard' });
-        if (!silent) hideLoader();
+        if (o.loader) showLoader();
+        const r = await rpc('admin_withdraw_dashboard');
+        if (o.loader) hideLoader();
         loading = false;
-        if (data.expired) {
-            expire(data.message);
+        if (!r.ok) {
+            if (!o.quiet) showError(r.message);
             return;
         }
-        if (!data.success) {
-            if (!silent) toast(data.message || 'Could not load withdrawals.', 'err');
-            return;
-        }
-        items = Array.isArray(data.pending) ? data.pending : [];
-        renderStats(data.stats || {});
+        hideError();
+        const d = r.data || {};
+        items = Array.isArray(d.pending) ? d.pending : [];
+        renderStats(d.stats || {});
         renderPending();
     }
 
     async function sendEmail(withdrawal, balance) {
-        const data = await callApi(PAY_ENDPOINT, {
+        const token = await accessToken();
+        if (!token) return;
+        const r = await apiPost(PAY_ENDPOINT, token, {
+            token: token,
             email: withdrawal.email,
             full_name: withdrawal.full_name,
             time: withdrawal.completed_at || new Date().toISOString(),
@@ -148,32 +165,31 @@ import { requireSession, accessToken } from './auth.js';
             reference: withdrawal.reference,
             balance: balance
         });
-        if (data && data.success) toast('Confirmation email sent to ' + withdrawal.email, 'ok');
-        else toast('Payment saved, but the email could not be sent.', 'err');
+        if (r.data && r.data.success) {
+            toast('Confirmation email sent to ' + withdrawal.email, 'ok');
+        } else {
+            toast('Payment saved, but the email could not be sent. ' + ((r.data && r.data.message) || ''), 'err');
+        }
     }
 
-    async function runAction(action, id, busyMessage) {
+    async function runAction(name, id, fallback) {
         running = true;
         showLoader();
-        const data = await callApi(API_ENDPOINT, { action: action, id: id });
+        const r = await rpc(name, { p_id: String(id) });
         hideLoader();
         running = false;
-        if (data.expired) {
-            expire(data.message);
+        if (!r.ok) {
+            toast(r.message || fallback, 'err');
+            loadDashboard({ quiet: true });
             return null;
         }
-        if (!data.success) {
-            toast(data.message || busyMessage, 'err');
-            loadDashboard(true);
-            return null;
-        }
-        items = items.filter((x) => x.id !== id);
+        items = items.filter((x) => String(x.id) !== String(id));
         renderPending();
-        return data;
+        return r.data || {};
     }
 
     async function complete(id) {
-        const item = items.find((x) => x.id === id);
+        const item = items.find((x) => String(x.id) === String(id));
         if (!item) return;
         const ok = await confirmDialog({
             title: 'Confirm payment',
@@ -182,15 +198,15 @@ import { requireSession, accessToken } from './auth.js';
             noLabel: 'Not yet'
         });
         if (!ok) return;
-        const data = await runAction('admin_complete', id, 'Payment could not be completed.');
+        const data = await runAction('admin_complete_withdrawal', id, 'Payment could not be completed.');
         if (!data) return;
         toast('Payment completed for ' + item.full_name, 'ok');
         sendEmail(data.withdrawal || item, data.new_balance);
-        loadDashboard(true);
+        loadDashboard({ quiet: true });
     }
 
     async function remove(id) {
-        const item = items.find((x) => x.id === id);
+        const item = items.find((x) => String(x.id) === String(id));
         if (!item) return;
         const ok = await confirmDialog({
             title: 'Delete request',
@@ -200,10 +216,10 @@ import { requireSession, accessToken } from './auth.js';
             danger: true
         });
         if (!ok) return;
-        const data = await runAction('admin_delete', id, 'Could not delete the request.');
+        const data = await runAction('admin_cancel_withdrawal', id, 'Could not delete the request.');
         if (!data) return;
         toast('Withdrawal request deleted.', 'ok');
-        loadDashboard(true);
+        loadDashboard({ quiet: true });
     }
 
     list.addEventListener('click', async (event) => {
@@ -229,18 +245,19 @@ import { requireSession, accessToken } from './auth.js';
         else remove(id);
     });
 
+    $('btnRetry').addEventListener('click', () => { if (!running) loadDashboard({ loader: true }); });
     $('btnBack').addEventListener('click', () => { window.location.href = 'admin.html'; });
-    $('btnRefresh').addEventListener('click', () => { if (!running) loadDashboard(false); });
+    $('btnRefresh').addEventListener('click', () => { if (!running) loadDashboard({ loader: true }); });
     document.addEventListener('visibilitychange', () => {
-        if (!document.hidden && !running) loadDashboard(true);
+        if (!document.hidden && !running) loadDashboard({ quiet: true });
     });
 
     async function initialize() {
         try {
             const session = await requireSession();
             if (!session) return;
-            await loadDashboard(true);
-            timer = setInterval(() => { if (!document.hidden && !running) loadDashboard(true); }, 60000);
+            await loadDashboard({});
+            timer = setInterval(() => { if (!document.hidden && !running) loadDashboard({ quiet: true }); }, 60000);
         } finally {
             reveal(container, 1200);
         }
