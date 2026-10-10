@@ -1,550 +1,238 @@
-import { supabase } from './supabase.js';
+const HEADERS = { "Content-Type": "application/json", "Cache-Control": "no-store" };
+const FEE_RATE = 0.01;
+const MAX_PIN_ATTEMPTS = 5;
+const PIN_LOCK_SECONDS = 600;
 
-(function () {
-    const API_ENDPOINT = "/api/withdraw";
-    const REQ_PASS = "@haruna66";
-    const FEE_RATE = 0.01;
-    const SESSION_KEY = 'puredata_user_session';
+function reply(body, status = 200) {
+  return new Response(JSON.stringify(body), { status, headers: HEADERS });
+}
 
-    function redirectToRegister() {
-        localStorage.removeItem(SESSION_KEY);
-        window.location.replace('register.html');
-    }
+function round2(value) {
+  return Math.round((Number(value) + Number.EPSILON) * 100) / 100;
+}
 
-    let activeSession = null;
+function isSafeId(value) {
+  return typeof value === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(value);
+}
+
+function restBase(env) {
+  let url = String(env.SUPABASE_URL || "").trim().replace(/\/+$/, "");
+  if (!/\/rest\/v1$/.test(url)) url += "/rest/v1";
+  return url + "/";
+}
+
+async function db(env, path, options = {}) {
+  const key = env.SUPABASE_SERVICE_ROLE_KEY;
+  const headers = { apikey: key, Authorization: `Bearer ${key}` };
+  if (options.body !== undefined) headers["Content-Type"] = "application/json";
+  if (options.prefer) headers.Prefer = options.prefer;
+  const res = await fetch(restBase(env) + path, {
+    method: options.method || "GET",
+    headers,
+    body: options.body !== undefined ? JSON.stringify(options.body) : undefined
+  });
+  const text = await res.text();
+  let data = null;
+  if (text) {
     try {
-        const raw = localStorage.getItem(SESSION_KEY);
-        activeSession = raw ? JSON.parse(raw) : null;
-    } catch (err) {
-        activeSession = null;
+      data = JSON.parse(text);
+    } catch {
+      data = text;
     }
+  }
+  return { ok: res.ok, status: res.status, data };
+}
 
-    const currentUserId = activeSession ? (activeSession.userId || activeSession.id) : null;
-    if (!currentUserId) {
-        redirectToRegister();
-        return;
+async function monnifyToken(env) {
+  const secret = btoa(`${env.MONNIFY_API_KEY}:${env.MONNIFY_SECRET_KEY}`);
+  const res = await fetch(`${env.MONNIFY_BASE_URL}/api/v1/auth/login`, {
+    method: "POST",
+    headers: { Authorization: `Basic ${secret}` }
+  });
+  const data = await res.json();
+  return data && data.responseBody ? data.responseBody.accessToken : null;
+}
+
+async function resolveAccount(env, bankCode, accountNumber) {
+  try {
+    const token = await monnifyToken(env);
+    if (!token) return null;
+    const url = `${env.MONNIFY_BASE_URL}/api/v1/disbursements/account/validate?accountNumber=${encodeURIComponent(accountNumber)}&bankCode=${encodeURIComponent(bankCode)}`;
+    const res = await fetch(url, { method: "GET", headers: { Authorization: `Bearer ${token}` } });
+    const data = await res.json();
+    if (data && data.requestSuccessful && data.responseBody && data.responseBody.accountName) {
+      return data.responseBody.accountName;
     }
+    return null;
+  } catch {
+    return null;
+  }
+}
 
-    const loadingScene = document.getElementById('loadingScene');
-    const liquidFill = document.getElementById('liquid');
-    const brandText = document.getElementById('brand');
-    const loaderLogo = document.getElementById('loaderLogo');
-    const backgroundView = document.getElementById('bg');
-    const walletBalanceDisplay = document.getElementById('user_balance');
-    const amountInput = document.getElementById('amount');
-    const bankCodeSelect = document.getElementById('bank_code');
-    const accountNumberInput = document.getElementById('account_number');
-    const accountNameInput = document.getElementById('account_name');
-    const nameGroupField = document.getElementById('nameGroup');
-    const verificationLoader = document.getElementById('verificationLoader');
-    const feeCalculationDisplay = document.getElementById('fee_calc');
-    const submitBtn = document.getElementById('submitBtn');
-    const toastBox = document.getElementById('toastContainer');
-    const formArea = document.getElementById('formArea');
-    const noFundsBox = document.getElementById('noFundsBox');
-    const pendingBox = document.getElementById('pendingBox');
-    const pendingTitle = document.getElementById('pendingTitle');
-    const pendingMessage = document.getElementById('pendingMessage');
-    const pendingDetails = document.getElementById('pendingDetails');
-    const historyBtn = document.getElementById('historyBtn');
-    const historyOverlay = document.getElementById('historyOverlay');
-    const historyBody = document.getElementById('historyBody');
-    const historyClose = document.getElementById('historyClose');
+async function getProfile(env, uuid) {
+  const res = await db(env, `user_profiles?id=eq.${encodeURIComponent(uuid)}&select=id,user_data&limit=1`);
+  if (!res.ok || !Array.isArray(res.data) || res.data.length === 0) return null;
+  return res.data[0];
+}
 
-    const pinIds = ['p1', 'p2', 'p3', 'p4'];
+async function findOpenWithdrawal(env, uuid) {
+  const res = await db(
+    env,
+    `withdrawals?user_id=eq.${encodeURIComponent(uuid)}&status=in.(pending,processing)&order=created_at.desc&limit=1`
+  );
+  if (!res.ok || !Array.isArray(res.data) || res.data.length === 0) return null;
+  return res.data[0];
+}
 
-    let cachedRealBalance = 0;
-    let userSecurePin = "";
-    let pendingWithdrawal = null;
-    let historyList = [];
-    let historyLoaded = false;
-    let verifiedKey = "";
-    let verifyCounter = 0;
-    let isSubmitting = false;
-    let loaderShownAt = 0;
+async function handleVerifyAccount(env, body) {
+  const accountNumber = String(body.account_number || "");
+  const bankCode = String(body.bank_code || "");
+  if (!/^\d{10}$/.test(accountNumber) || !bankCode) {
+    return reply({ success: false, message: "Invalid Account Details" });
+  }
+  const name = await resolveAccount(env, bankCode, accountNumber);
+  if (!name) return reply({ success: false, message: "Invalid Account Details" });
+  return reply({ success: true, account_name: name });
+}
 
-    function escapeHtml(value) {
-        return String(value === undefined || value === null ? "" : value)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#39;');
+async function handleOverview(env, body) {
+  const uuid = body.uuid;
+  if (!isSafeId(uuid)) return reply({ success: false, message: "Bad Parameters" }, 400);
+  const res = await db(env, `withdrawals?user_id=eq.${encodeURIComponent(uuid)}&order=created_at.desc&limit=100`);
+  if (!res.ok || !Array.isArray(res.data)) {
+    return reply({ success: false, message: "Unable to load withdrawal history" });
+  }
+  const pending = res.data.find((item) => item.status === "pending" || item.status === "processing") || null;
+  return reply({ success: true, pending, history: res.data });
+}
+
+async function readAttempts(env, key) {
+  if (!env.LOCK_KV) return 0;
+  return parseInt((await env.LOCK_KV.get(key)) || "0", 10) || 0;
+}
+
+async function handleRequestWithdraw(env, body) {
+  const { uuid, pin, bank_code, bank_name, account_number } = body;
+  if (!isSafeId(uuid)) return reply({ success: false, message: "Bad Parameters" }, 400);
+
+  const attemptsKey = `pin-attempts:${uuid}`;
+  if ((await readAttempts(env, attemptsKey)) >= MAX_PIN_ATTEMPTS) {
+    return reply({ success: false, message: "Too many wrong PIN attempts. Try again in 10 minutes" }, 429);
+  }
+
+  const amount = round2(parseFloat(body.amount));
+  if (!isFinite(amount) || amount <= 0) {
+    return reply({ success: false, message: "Enter a valid amount" });
+  }
+  if (!/^\d{10}$/.test(String(account_number || ""))) {
+    return reply({ success: false, message: "Enter a valid 10 digit account number" });
+  }
+  if (!bank_code || !bank_name) {
+    return reply({ success: false, message: "Select a destination bank" });
+  }
+
+  const profile = await getProfile(env, uuid);
+  if (!profile) return reply({ success: false, message: "User profile not found" });
+
+  const userData = profile.user_data || {};
+  if (String(userData.pin || "") === "" || String(userData.pin) !== String(pin || "")) {
+    if (env.LOCK_KV) {
+      const attempts = await readAttempts(env, attemptsKey);
+      await env.LOCK_KV.put(attemptsKey, String(attempts + 1), { expirationTtl: PIN_LOCK_SECONDS });
     }
+    return reply({ success: false, message: "Incorrect transaction PIN" });
+  }
+  if (env.LOCK_KV) await env.LOCK_KV.delete(attemptsKey);
 
-    function money(value) {
-        const number = Number(value) || 0;
-        return number.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const balance = parseFloat(userData.user_balance || 0) || 0;
+  if (balance <= 0) {
+    return reply({ success: false, message: "You do not have any funds in your wallet" });
+  }
+  if (balance < amount) {
+    return reply({ success: false, message: "Insufficient wallet balance" });
+  }
+
+  const open = await findOpenWithdrawal(env, uuid);
+  if (open) {
+    return reply({ success: false, message: "You already have a pending withdrawal", pending: open });
+  }
+
+  const accountName = await resolveAccount(env, String(bank_code), String(account_number));
+  if (!accountName) {
+    return reply({ success: false, message: "Unable to verify account details" });
+  }
+
+  const fee = round2(amount * FEE_RATE);
+  const net = round2(amount - fee);
+  const reference = `WD-${Date.now()}-${Math.floor(Math.random() * 9000 + 1000)}`;
+
+  const insert = await db(env, "withdrawals", {
+    method: "POST",
+    prefer: "return=representation",
+    body: {
+      reference,
+      user_id: uuid,
+      full_name: String(userData.full_name || "").slice(0, 120),
+      email: String(userData.email || "").slice(0, 160),
+      amount,
+      fee,
+      net_amount: net,
+      bank_name: String(bank_name).slice(0, 80),
+      bank_code: String(bank_code).slice(0, 12),
+      account_number: String(account_number),
+      account_name: String(accountName).slice(0, 160),
+      status: "pending"
     }
+  });
 
-    function formatDate(value) {
-        if (!value) return "-";
-        const date = new Date(value);
-        if (isNaN(date.getTime())) return "-";
-        return date.toLocaleString('en-NG', {
-            day: '2-digit',
-            month: 'short',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
+  if (insert.status === 409) {
+    return reply({ success: false, message: "You already have a pending withdrawal" });
+  }
+  if (!insert.ok || !Array.isArray(insert.data) || insert.data.length === 0) {
+    return reply({ success: false, message: "Unable to save withdrawal request" });
+  }
+
+  return reply({ success: true, message: "Withdrawal request submitted", withdrawal: insert.data[0] });
+}
+
+async function handle(request, env) {
+  if (request.method !== "POST") {
+    return reply({ success: false, message: "Method Not Allowed" }, 405);
+  }
+
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return reply({ success: false, message: "Bad Request" }, 400);
+  }
+
+  const requiredPass = env.REQ_PASS || "@haruna66";
+  if (!body || body.req_pass !== requiredPass) {
+    return reply({ success: false, message: "Unauthorized Access" }, 401);
+  }
+
+  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
+    return reply({ success: false, message: "Server is not configured" }, 500);
+  }
+
+  try {
+    switch (body.action) {
+      case "verify_account":
+        return await handleVerifyAccount(env, body);
+      case "overview":
+        return await handleOverview(env, body);
+      case "request_withdraw":
+        return await handleRequestWithdraw(env, body);
+      default:
+        return reply({ success: false, message: "Unknown action" }, 400);
     }
+  } catch (err) {
+    console.error(err);
+    return reply({ success: false, message: "Internal server error" }, 500);
+  }
+}
 
-    function wait(ms) {
-        return new Promise((resolve) => setTimeout(resolve, ms));
-    }
-
-    function showToast(text, type = 'error') {
-        if (!toastBox) return;
-        const toast = document.createElement('div');
-        toast.className = 'toast';
-        const icon = document.createElement('i');
-        icon.className = 'fa-solid ' + (type === 'error' ? 'fa-circle-xmark' : 'fa-circle-check');
-        icon.style.color = type === 'error' ? '#ef4444' : '#22c55e';
-        const message = document.createElement('span');
-        message.textContent = text;
-        toast.appendChild(icon);
-        toast.appendChild(message);
-        toastBox.appendChild(toast);
-        setTimeout(() => toast.classList.add('show'), 50);
-        setTimeout(() => {
-            toast.classList.remove('show');
-            setTimeout(() => toast.remove(), 300);
-        }, 4000);
-    }
-
-    function showLoader(label) {
-        loaderShownAt = Date.now();
-        if (brandText) {
-            brandText.innerHTML = escapeHtml(label) + '<span class="bdot">.</span><span class="bdot">.</span><span class="bdot">.</span>';
-            brandText.classList.remove('hide');
-        }
-        if (loaderLogo) loaderLogo.classList.remove('hide');
-        if (backgroundView) backgroundView.classList.remove('show');
-        if (loadingScene) loadingScene.classList.remove('hide');
-        requestAnimationFrame(() => {
-            if (liquidFill) liquidFill.classList.add('fill');
-        });
-    }
-
-    async function hideLoader() {
-        const elapsed = Date.now() - loaderShownAt;
-        if (elapsed < 1400) await wait(1400 - elapsed);
-        if (liquidFill) liquidFill.classList.remove('fill');
-        if (backgroundView) backgroundView.classList.add('show');
-        if (brandText) brandText.classList.add('hide');
-        if (loaderLogo) loaderLogo.classList.add('hide');
-        setTimeout(() => {
-            if (loadingScene) loadingScene.classList.add('hide');
-        }, 900);
-    }
-
-    async function callApi(payload) {
-        try {
-            const res = await fetch(API_ENDPOINT, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ...payload, req_pass: REQ_PASS })
-            });
-            const data = await res.json();
-            return data && typeof data === 'object' ? data : { success: false, message: "Invalid server response" };
-        } catch (err) {
-            return { success: false, message: "Network error. Please check your connection and try again." };
-        }
-    }
-
-    function statusLabel(status) {
-        if (status === 'completed') return 'Completed';
-        if (status === 'cancelled') return 'Declined';
-        return 'Pending';
-    }
-
-    function statusClass(status) {
-        if (status === 'completed') return 'completed';
-        if (status === 'cancelled') return 'cancelled';
-        return 'pending';
-    }
-
-    function renderPending(successMode) {
-        if (!pendingWithdrawal) return;
-        if (pendingTitle) {
-            pendingTitle.textContent = successMode ? 'Withdrawal request successful' : 'Withdrawal request pending';
-        }
-        if (pendingMessage) {
-            pendingMessage.textContent = successMode
-                ? 'Your request has been received. Payment may take a few minutes. You can make a new withdrawal once this one is paid.'
-                : 'Your withdrawal is waiting to be paid. You can make a new withdrawal once this one is completed.';
-        }
-        const w = pendingWithdrawal;
-        const rows = [
-            ['Amount', '₦' + money(w.amount)],
-            ['Fee (1%)', '₦' + money(w.fee)],
-            ['You will receive', '₦' + money(w.net_amount)],
-            ['Bank', w.bank_name],
-            ['Account Number', w.account_number],
-            ['Account Name', w.account_name],
-            ['Requested', formatDate(w.created_at)]
-        ];
-        pendingDetails.innerHTML = rows
-            .map((row) => '<div class="detail-row"><span>' + escapeHtml(row[0]) + '</span><span>' + escapeHtml(row[1]) + '</span></div>')
-            .join('');
-    }
-
-    function applyViewState(successMode) {
-        if (walletBalanceDisplay) walletBalanceDisplay.textContent = cachedRealBalance.toFixed(2);
-
-        if (pendingWithdrawal) {
-            renderPending(Boolean(successMode));
-            pendingBox.classList.add('visible');
-            noFundsBox.classList.remove('visible');
-            formArea.style.display = 'none';
-            return;
-        }
-
-        pendingBox.classList.remove('visible');
-
-        if (cachedRealBalance <= 0) {
-            noFundsBox.classList.add('visible');
-            formArea.style.display = 'none';
-            return;
-        }
-
-        noFundsBox.classList.remove('visible');
-        formArea.style.display = 'block';
-    }
-
-    async function fetchUserProfile() {
-        try {
-            const { data: profiles, error } = await supabase
-                .from('user_profiles')
-                .select('*')
-                .eq('id', currentUserId);
-
-            if (error) {
-                showToast('Database Error: ' + error.message);
-                return false;
-            }
-
-            if (!profiles || profiles.length === 0) {
-                redirectToRegister();
-                return false;
-            }
-
-            const payload = profiles[0].user_data;
-            if (!payload) {
-                showToast('Data Error: User profile configuration is empty.');
-                return false;
-            }
-
-            cachedRealBalance = parseFloat(payload.user_balance || 0) || 0;
-            userSecurePin = String(payload.pin || "");
-            return true;
-        } catch (err) {
-            showToast('System Error: ' + (err.message || err));
-            return false;
-        }
-    }
-
-    async function fetchOverview() {
-        const data = await callApi({ action: 'overview', uuid: currentUserId });
-        if (data.success) {
-            pendingWithdrawal = data.pending || null;
-            historyList = Array.isArray(data.history) ? data.history : [];
-            historyLoaded = true;
-            return true;
-        }
-        return false;
-    }
-
-    function renderHistory() {
-        if (!historyLoaded) {
-            historyBody.innerHTML = '<div class="history-empty"><i class="fa-solid fa-spinner fa-spin"></i>Loading history...</div>';
-            return;
-        }
-
-        if (historyList.length === 0) {
-            historyBody.innerHTML = '<div class="history-empty"><i class="fa-solid fa-receipt"></i>You have not made any withdrawal yet.</div>';
-            return;
-        }
-
-        const pendingItems = historyList.filter((item) => item.status === 'pending' || item.status === 'processing');
-        const otherItems = historyList.filter((item) => item.status !== 'pending' && item.status !== 'processing');
-
-        function card(item) {
-            const isPending = item.status === 'pending' || item.status === 'processing';
-            const cls = statusClass(item.status);
-            const dateLabel = item.status === 'completed' && item.completed_at ? 'Paid on' : 'Requested';
-            const dateValue = item.status === 'completed' && item.completed_at ? item.completed_at : item.created_at;
-            return '<div class="history-item' + (isPending ? ' is-pending' : '') + '">' +
-                '<div class="history-top"><span class="history-amount">₦' + escapeHtml(money(item.amount)) + '</span>' +
-                '<span class="badge ' + cls + '">' + escapeHtml(statusLabel(item.status)) + '</span></div>' +
-                '<div class="history-line"><span>Received</span><strong>₦' + escapeHtml(money(item.net_amount)) + '</strong></div>' +
-                '<div class="history-line"><span>Fee (1%)</span><strong>₦' + escapeHtml(money(item.fee)) + '</strong></div>' +
-                '<div class="history-line"><span>Bank</span><strong>' + escapeHtml(item.bank_name) + '</strong></div>' +
-                '<div class="history-line"><span>Account</span><strong>' + escapeHtml(item.account_number) + '</strong></div>' +
-                '<div class="history-line"><span>' + dateLabel + '</span><strong>' + escapeHtml(formatDate(dateValue)) + '</strong></div>' +
-                '</div>';
-        }
-
-        let html = "";
-        if (pendingItems.length > 0) {
-            html += '<div class="history-section-title">Pending</div>' + pendingItems.map(card).join('');
-        }
-        if (otherItems.length > 0) {
-            html += '<div class="history-section-title">Previous Withdrawals</div>' + otherItems.map(card).join('');
-        }
-        historyBody.innerHTML = html;
-    }
-
-    async function openHistory() {
-        renderHistory();
-        historyOverlay.classList.add('open');
-        document.body.style.overflow = 'hidden';
-        const ok = await fetchOverview();
-        if (!ok && !historyLoaded) {
-            historyBody.innerHTML = '<div class="history-empty"><i class="fa-solid fa-triangle-exclamation"></i>Unable to load history. Please try again.</div>';
-            return;
-        }
-        renderHistory();
-        applyViewState(false);
-    }
-
-    function closeHistory() {
-        historyOverlay.classList.remove('open');
-        document.body.style.overflow = '';
-    }
-
-    function getCompiledPin() {
-        let pin = "";
-        for (let i = 1; i <= 4; i++) {
-            const box = document.getElementById('p' + i);
-            if (box) pin += box.value;
-        }
-        return pin;
-    }
-
-    function resetPinBoxes() {
-        for (let i = 1; i <= 4; i++) {
-            const box = document.getElementById('p' + i);
-            const status = document.getElementById('s' + i);
-            if (box) box.value = "";
-            if (status) {
-                status.className = 'status-icon';
-                status.innerHTML = "";
-            }
-        }
-    }
-
-    function updateFeeDisplay() {
-        const amt = parseFloat(amountInput.value) || 0;
-        if (amt > cachedRealBalance) {
-            feeCalculationDisplay.className = 'fee-display error';
-            feeCalculationDisplay.textContent = 'Amount is higher than your wallet balance of ₦' + money(cachedRealBalance);
-            return;
-        }
-        const fee = Math.round(amt * FEE_RATE * 100) / 100;
-        const net = Math.round((amt - fee) * 100) / 100;
-        feeCalculationDisplay.className = 'fee-display';
-        feeCalculationDisplay.textContent = 'You will receive: ₦' + money(net) + ' (Withdrawal Fee 1%: ₦' + money(fee) + ')';
-    }
-
-    function checkFormValidity() {
-        const amt = parseFloat(amountInput.value) || 0;
-        const currentKey = bankCodeSelect.value + ':' + accountNumberInput.value;
-        const nameReady = accountNameInput.value !== "" && verifiedKey === currentKey;
-        const pinReady = userSecurePin.length === 4 && getCompiledPin() === userSecurePin;
-
-        if (!isSubmitting && amt > 0 && amt <= cachedRealBalance && nameReady && pinReady) {
-            submitBtn.style.display = 'block';
-        } else {
-            submitBtn.style.display = 'none';
-        }
-    }
-
-    function clearVerifiedAccount() {
-        verifiedKey = "";
-        accountNameInput.value = "";
-        nameGroupField.style.display = 'none';
-    }
-
-    async function triggerAccountVerification() {
-        const bankCode = bankCodeSelect.value;
-        const accountNumber = accountNumberInput.value;
-        const currentKey = bankCode + ':' + accountNumber;
-
-        if (verifiedKey && verifiedKey !== currentKey) {
-            clearVerifiedAccount();
-        }
-        checkFormValidity();
-
-        if (!bankCode || accountNumber.length !== 10) {
-            verificationLoader.style.display = 'none';
-            return;
-        }
-
-        const ticket = ++verifyCounter;
-        verificationLoader.style.display = 'block';
-        clearVerifiedAccount();
-
-        const data = await callApi({ action: 'verify_account', bank_code: bankCode, account_number: accountNumber });
-
-        if (ticket !== verifyCounter) return;
-        verificationLoader.style.display = 'none';
-
-        if (data.success && data.account_name) {
-            verifiedKey = currentKey;
-            nameGroupField.style.display = 'block';
-            accountNameInput.value = data.account_name;
-            checkFormValidity();
-        } else {
-            showToast(data.message || 'Unable to resolve account identity.');
-        }
-    }
-
-    function verifyPinPattern() {
-        for (let i = 1; i <= 4; i++) {
-            const box = document.getElementById('p' + i);
-            const status = document.getElementById('s' + i);
-            if (!box || !status) continue;
-            if (box.value !== "") {
-                if (box.value === userSecurePin[i - 1]) {
-                    status.className = 'status-icon valid';
-                    status.innerHTML = '✔';
-                } else {
-                    status.className = 'status-icon invalid';
-                    status.innerHTML = '✖';
-                }
-            } else {
-                status.className = 'status-icon';
-                status.innerHTML = "";
-            }
-        }
-        checkFormValidity();
-    }
-
-    function resetForm() {
-        amountInput.value = "";
-        accountNumberInput.value = "";
-        bankCodeSelect.value = "";
-        clearVerifiedAccount();
-        resetPinBoxes();
-        submitBtn.style.display = 'none';
-        feeCalculationDisplay.className = 'fee-display';
-        feeCalculationDisplay.textContent = 'You will receive: ₦0.00 (Withdrawal Fee 1%: ₦0.00)';
-    }
-
-    async function submitWithdrawal() {
-        if (isSubmitting) return;
-
-        const amt = parseFloat(amountInput.value) || 0;
-        if (amt <= 0 || amt > cachedRealBalance) {
-            showToast('Enter a valid amount within your wallet balance.');
-            return;
-        }
-
-        isSubmitting = true;
-        submitBtn.disabled = true;
-        showLoader('Processing');
-
-        const payload = {
-            action: 'request_withdraw',
-            uuid: currentUserId,
-            pin: getCompiledPin(),
-            amount: amt,
-            bank_code: bankCodeSelect.value,
-            bank_name: bankCodeSelect.options[bankCodeSelect.selectedIndex].text,
-            account_number: accountNumberInput.value
-        };
-
-        const data = await callApi(payload);
-        await hideLoader();
-
-        isSubmitting = false;
-        submitBtn.disabled = false;
-
-        if (data.success && data.withdrawal) {
-            pendingWithdrawal = data.withdrawal;
-            historyList = [data.withdrawal].concat(historyList.filter((item) => item.id !== data.withdrawal.id));
-            historyLoaded = true;
-            resetForm();
-            applyViewState(true);
-            showToast('Withdrawal request successful. Payment may take a few minutes.', 'success');
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-            return;
-        }
-
-        if (data.pending) {
-            pendingWithdrawal = data.pending;
-            resetForm();
-            applyViewState(false);
-        }
-
-        showToast(data.message || 'Unable to submit your request. Please try again later.');
-        checkFormValidity();
-    }
-
-    amountInput.addEventListener('input', () => {
-        updateFeeDisplay();
-        checkFormValidity();
-    });
-
-    bankCodeSelect.addEventListener('change', triggerAccountVerification);
-
-    accountNumberInput.addEventListener('input', () => {
-        accountNumberInput.value = accountNumberInput.value.replace(/\D/g, '').slice(0, 10);
-        triggerAccountVerification();
-    });
-
-    pinIds.forEach((id, index) => {
-        const el = document.getElementById(id);
-        if (!el) return;
-
-        el.addEventListener('input', () => {
-            el.value = el.value.replace(/\D/g, '').slice(0, 1);
-            if (el.value.length === 1 && index < 3) {
-                const next = document.getElementById(pinIds[index + 1]);
-                if (next) next.focus();
-            }
-            verifyPinPattern();
-        });
-
-        el.addEventListener('keydown', (event) => {
-            if (event.key === 'Backspace' && el.value === "" && index > 0) {
-                const prev = document.getElementById(pinIds[index - 1]);
-                if (prev) prev.focus();
-            }
-        });
-    });
-
-    submitBtn.addEventListener('click', submitWithdrawal);
-    historyBtn.addEventListener('click', openHistory);
-    historyClose.addEventListener('click', closeHistory);
-    historyOverlay.addEventListener('click', (event) => {
-        if (event.target === historyOverlay) closeHistory();
-    });
-    document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape') closeHistory();
-    });
-
-    async function initializeWithdrawalPage() {
-        showLoader('Loading');
-        const safety = setTimeout(() => {
-            if (loadingScene && !loadingScene.classList.contains('hide')) hideLoader();
-        }, 12000);
-
-        const profileOk = await fetchUserProfile();
-        if (profileOk) {
-            await fetchOverview();
-            applyViewState(false);
-        }
-
-        clearTimeout(safety);
-        await hideLoader();
-    }
-
-    if (document.readyState === 'loading') {
-        window.addEventListener('DOMContentLoaded', initializeWithdrawalPage);
-    } else {
-        initializeWithdrawalPage();
-    }
-})();
+export async function onRequest(context) {
+  return handle(context.request, context.env);
+}
