@@ -1,9 +1,16 @@
 const HEADERS = { "Content-Type": "application/json", "Cache-Control": "no-store" };
-const textEncoder = new TextEncoder();
 const LOGO_URL = "https://i.imgur.com/vQBFHZI.png";
 
 function reply(body, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: HEADERS });
+}
+
+function snippet(text) {
+  return String(text === undefined || text === null ? "" : text).replace(/\s+/g, " ").slice(0, 200);
+}
+
+function cleanRoot(url) {
+  return String(url || "").trim().replace(/\/rest\/v1\/?$/, "").replace(/\/+$/, "");
 }
 
 function escapeHtml(value) {
@@ -40,43 +47,62 @@ function maskAccount(value) {
   return "******" + digits.slice(-4);
 }
 
-function toBase64Url(bytes) {
-  let binary = "";
-  bytes.forEach((b) => {
-    binary += String.fromCharCode(b);
-  });
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+async function requireAdmin(request, env) {
+  const root = cleanRoot(env.AUTH_SUPABASE_URL || env.SUPABASE_URL);
+  const key = env.AUTH_SUPABASE_KEY || env.SUPABASE_SERVICE_ROLE_KEY;
+  const token = (request.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
+  if (!token) return reply({ success: false, message: "Please sign in first." }, 401);
+  if (!root || !key) return reply({ success: false, message: "Server is not configured" }, 500);
+
+  let res;
+  try {
+    res = await fetch(root + "/rest/v1/rpc/is_admin_user", {
+      method: "POST",
+      headers: { apikey: key, Authorization: "Bearer " + token, "Content-Type": "application/json" },
+      body: "{}"
+    });
+  } catch {
+    return reply({ success: false, message: "Could not reach Supabase to verify your access." }, 502);
+  }
+  if (res.status === 401) return reply({ success: false, message: "Your session was rejected. Sign in again." }, 401);
+  if (!res.ok) return reply({ success: false, message: "Access check failed (" + res.status + ")." }, 500);
+
+  let allowed = false;
+  try {
+    allowed = (await res.json()) === true;
+  } catch {
+    allowed = false;
+  }
+  if (!allowed) return reply({ success: false, message: "You do not have access to this page." }, 403);
+  return null;
 }
 
-async function hmac(secret, data) {
-  const key = await crypto.subtle.importKey(
-    "raw",
-    textEncoder.encode(secret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"]
-  );
-  const signature = await crypto.subtle.sign("HMAC", key, textEncoder.encode(data));
-  return toBase64Url(new Uint8Array(signature));
-}
-
-function safeEqual(a, b) {
-  const x = String(a);
-  const y = String(b);
-  if (x.length !== y.length) return false;
-  let diff = 0;
-  for (let i = 0; i < x.length; i++) diff |= x.charCodeAt(i) ^ y.charCodeAt(i);
-  return diff === 0;
-}
-
-async function verifyToken(env, token) {
-  if (!token || !env.ADMIN_SECRET) return false;
-  const parts = String(token).split(".");
-  if (parts.length !== 3) return false;
-  const [userId, expiry, signature] = parts;
-  if (!Number(expiry) || Number(expiry) < Date.now()) return false;
-  const expected = await hmac(env.ADMIN_SECRET, `${userId}.${expiry}`);
-  return safeEqual(signature, expected);
+async function loadCompletedWithdrawal(env, reference) {
+  const root = cleanRoot(env.SUPABASE_URL);
+  const key = env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!root || !key) return { error: "Server is not configured" };
+  const fields = "email,full_name,amount,fee,net_amount,bank_name,account_number,account_name,reference,completed_at";
+  let res;
+  try {
+    res = await fetch(
+      `${root}/rest/v1/withdrawals?reference=eq.${encodeURIComponent(reference)}&status=eq.completed&select=${fields}&limit=1`,
+      { headers: { apikey: key, Authorization: "Bearer " + key } }
+    );
+  } catch {
+    return { error: "Could not reach the database" };
+  }
+  const text = await res.text();
+  if (!res.ok) return { error: "Database " + res.status + ": " + snippet(text) };
+  let rows = [];
+  try {
+    rows = JSON.parse(text);
+  } catch {
+    rows = [];
+  }
+  if (!Array.isArray(rows) || rows.length === 0) {
+    return { error: "No completed withdrawal was found for this reference" };
+  }
+  return { row: rows[0] };
 }
 
 function detailRow(label, value, highlight) {
@@ -169,6 +195,9 @@ async function handle(request, env) {
     return reply({ success: false, message: "Method Not Allowed" }, 405);
   }
 
+  const denied = await requireAdmin(request, env);
+  if (denied) return denied;
+
   let body;
   try {
     body = await request.json();
@@ -176,12 +205,16 @@ async function handle(request, env) {
     return reply({ success: false, message: "Bad Request" }, 400);
   }
 
-  const authorized = await verifyToken(env, body && body.token);
-  if (!authorized) {
-    return reply({ success: false, message: "Unauthorized" }, 401);
+  const reference = String((body && body.reference) || "").trim();
+  if (!/^[A-Za-z0-9_-]{1,64}$/.test(reference)) {
+    return reply({ success: false, message: "A valid withdrawal reference is required" }, 400);
   }
 
-  const email = String(body.email || "").trim();
+  const found = await loadCompletedWithdrawal(env, reference);
+  if (found.error) return reply({ success: false, message: found.error });
+  const data = Object.assign({}, found.row, { time: found.row.completed_at || body.time });
+
+  const email = String(data.email || body.email || "").trim();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return reply({ success: false, message: "Invalid email address" });
   }
@@ -192,7 +225,7 @@ async function handle(request, env) {
 
   const brand = env.FROM_NAME || "AmanData";
   const fromEmail = env.FROM_EMAIL || "no-reply@amandata.com.ng";
-  const amountPaid = money(body.net_amount);
+  const amountPaid = money(data.net_amount);
 
   const payload = {
     service_id: env.EMAILJS_SERVICE_ID,
@@ -202,10 +235,10 @@ async function handle(request, env) {
     template_params: {
       subject: `Your withdrawal of ${amountPaid} has been paid`,
       to_email: email,
-      to_name: String(body.full_name || "Customer"),
+      to_name: String(data.full_name || "Customer"),
       from_email: fromEmail,
       from_name: brand,
-      html_content: buildEmail(body, brand)
+      html_content: buildEmail(data, brand)
     }
   };
 
@@ -216,7 +249,8 @@ async function handle(request, env) {
       body: JSON.stringify(payload)
     });
     if (!res.ok) {
-      return reply({ success: false, message: "Email provider rejected the request" });
+      const text = await res.text();
+      return reply({ success: false, message: "Email provider rejected the request (" + res.status + "): " + snippet(text) });
     }
     return reply({ success: true, message: "Email sent" });
   } catch {
@@ -227,9 +261,3 @@ async function handle(request, env) {
 export async function onRequest(context) {
   return handle(context.request, context.env);
 }
-
-export default {
-  async fetch(request, env) {
-    return handle(request, env);
-  }
-};
