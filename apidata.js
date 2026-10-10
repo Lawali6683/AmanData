@@ -157,6 +157,7 @@ import { requireSession, accessToken } from './auth.js';
             toast((result && result.message) || 'Could not load provider data.', 'err');
             return false;
         }
+        if (result.warning) toast('Warning: ' + result.warning, 'err');
         groups = result.groups || [];
         live = result.live || {};
         saved = result.saved || {};
@@ -202,6 +203,18 @@ import { requireSession, accessToken } from './auth.js';
     $('tabCable').addEventListener('click', () => setService('cable'));
     $('tabExam').addEventListener('click', () => setService('exam'));
     $('btnRefresh').addEventListener('click', reload);
+    $('btnDiagnose').addEventListener('click', async () => {
+        if (busy) return;
+        busy = true;
+        showLoader();
+        const result = await call({ action: 'diagnose' });
+        hideLoader();
+        busy = false;
+        const box = $('diagBox');
+        box.textContent = JSON.stringify(result, null, 2);
+        box.classList.remove('hidden');
+        box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
     $('btnApply').addEventListener('click', () => {
         const m = num($('bulkInput').value);
         if (m === null || m < 0) {
@@ -216,4 +229,3 @@ import { requireSession, accessToken } from './auth.js';
 
     initialize();
 })();
-
