@@ -79,6 +79,25 @@ const parseList = (v) => {
     return Array.isArray(v) ? v : [];
 };
 
+async function checkAdmin(root, key, token) {
+    let res;
+    try {
+        res = await fetch(root + '/rest/v1/rpc/is_admin_user', {
+            method: 'POST',
+            headers: { apikey: key, Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+            body: '{}'
+        });
+    } catch (err) {
+        return { status: 500, message: 'Could not verify your access. Please try again.' };
+    }
+    if (res.status === 401) return { status: 401, message: 'Your session has expired. Please sign in again.' };
+    if (!res.ok) return { status: 500, message: 'Could not verify your access. Check that is_admin_user() exists in Supabase.' };
+    let allowed = false;
+    try { allowed = (await res.json()) === true; } catch (err) { allowed = false; }
+    if (!allowed) return { status: 403, message: 'You do not have access to this page.' };
+    return null;
+}
+
 export async function onRequestPost({ request, env }) {
     const root = String(env.SUPABASE_URL).replace(/\/rest\/v1\/?$/, '').replace(/\/$/, '');
     const key = env.SUPABASE_SERVICE_ROLE_KEY;
@@ -86,17 +105,8 @@ export async function onRequestPost({ request, env }) {
     const token = (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
     if (!token) return json({ success: false, message: 'Please sign in first.' }, 401);
 
-    let email = '';
-    try {
-        const who = await fetch(root + '/auth/v1/user', { headers: { apikey: key, Authorization: 'Bearer ' + token } });
-        if (who.ok) email = String((await who.json()).email || '').toLowerCase();
-    } catch (err) {
-        email = '';
-    }
-    if (!email) return json({ success: false, message: 'Your session has expired. Please sign in again.' }, 401);
-
-    const admins = String(env.ADMIN_EMAILS || '').split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
-    if (!admins.includes(email)) return json({ success: false, message: 'You do not have access to this page.' }, 403);
+    const denied = await checkAdmin(root, key, token);
+    if (denied) return json({ success: false, message: denied.message }, denied.status);
 
     let body;
     try {
