@@ -1,22 +1,10 @@
 import { supabase } from './supabase.js';
 import { SESSION_KEY, sessionId, mountShell, showLoader, hideLoader, toast, pinBoxes, escapeHtml, money } from './ui.js';
 
-const LOGOS = {
-   dstv: 'https://i.imgur.com/XBe4eRi.png',
-    gotv: 'https://i.imgur.com/eaTdFAU.png',
-    startimes: 'https://i.imgur.com/3DbujW2.png',
-    glo: 'https://i.imgur.com/JlSw9vx.png',
-    '9mobile': 'https://i.imgur.com/EM2g22Z.png',
-    airtel: 'https://i.imgur.com/aMgSbKX.png',
-    mtn: 'https://i.imgur.com/U82jQBd.png',
-    waec: 'https://i.imgur.com/jZXQymK.png',
-    jamb: 'https://i.imgur.com/sVgzPfV.png',
-    neco: 'https://i.imgur.com/YHwxsGM.png',
-    nabteb: 'https://i.imgur.com/MU3qSXl.png'
-};
-
 (function () {
     const API_ENDPOINT = '/api/electricitypay';
+    const CATALOG_ENDPOINT = '/api/catalog?type=electricity';
+    const REQUEST_TIMEOUT_MS = 60000;
 
     mountShell();
     showLoader();
@@ -34,14 +22,71 @@ const LOGOS = {
     let uuid = null;
     let balance = 0;
     let discos = [];
+    let discosError = '';
     let disco = null;
     let meterType = 'prepaid';
+    let attemptId = null;
     let busy = false;
     let lastToken = '';
 
-    async function post(payload) {
-        const res = await fetch(API_ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-        return res.json();
+    function newToken() {
+        const bytes = new Uint8Array(16);
+        crypto.getRandomValues(bytes);
+        return Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    async function postJson(url, payload, timeoutMs) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+                signal: controller.signal
+            });
+            let data = null;
+            try { data = await res.json(); } catch (err) { data = null; }
+            if (!data || typeof data !== 'object') {
+                return { success: false, unsure: true, message: 'The server did not answer properly (' + res.status + '). Please check your history before trying again.' };
+            }
+            return data;
+        } catch (err) {
+            return { success: false, unsure: true, message: 'Network problem. Please check your history before trying again.' };
+        } finally {
+            clearTimeout(timer);
+        }
+    }
+
+    function ensureRow(id, label) {
+        let el = $(id);
+        if (el) return el;
+        const row = document.createElement('div');
+        row.className = 'detail-row';
+        row.innerHTML = '<span class="detail-row-label">' + escapeHtml(label) + '</span><span class="detail-row-val" id="' + id + '">-</span>';
+        buyBtn.parentNode.insertBefore(row, buyBtn);
+        return $(id);
+    }
+
+    function chargeFor(amount) {
+        if (!disco || !(disco.value > 0)) return 0;
+        return disco.mode === 'fixed' ? Math.round(disco.value * 100) / 100 : Math.round(amount * disco.value) / 100;
+    }
+
+    function logoFrame(d) {
+        const frame = document.createElement('div');
+        frame.className = 'tx-icon-frame';
+        const icon = '<i class="fa-solid fa-bolt"></i>';
+        if (!d.logo) {
+            frame.innerHTML = icon;
+            return frame;
+        }
+        const img = document.createElement('img');
+        img.alt = d.disco_name;
+        img.addEventListener('error', () => { frame.innerHTML = icon; });
+        img.src = d.logo;
+        frame.appendChild(img);
+        return frame;
     }
 
     async function loadProfile() {
@@ -59,9 +104,16 @@ const LOGOS = {
 
     async function loadDiscos() {
         try {
-            const data = await post({ action: 'discos' });
-            discos = data && data.success && Array.isArray(data.discos) ? data.discos : [];
+            const res = await fetch(CATALOG_ENDPOINT, { cache: 'no-store' });
+            const data = await res.json();
+            if (!data || !data.success || !Array.isArray(data.discos)) {
+                discosError = (data && data.message) || 'Electricity companies could not be loaded. Please try again later.';
+                discos = [];
+                return;
+            }
+            discos = data.discos.filter((d) => d.enabled !== false);
         } catch (err) {
+            discosError = 'Network problem. Electricity companies could not be loaded.';
             discos = [];
         }
     }
@@ -69,18 +121,24 @@ const LOGOS = {
     function renderDiscos() {
         discoList.innerHTML = '';
         if (!discos.length) {
-            discoList.innerHTML = '<div class="empty-state"><i class="fa-solid fa-circle-xmark empty-icon"></i><h3 class="empty-title">Not Available</h3><p class="empty-desc">Electricity companies could not be loaded. Please try again later.</p></div>';
+            discoList.innerHTML = '<div class="empty-state"><i class="fa-solid fa-circle-xmark empty-icon"></i><h3 class="empty-title">Not Available</h3><p class="empty-desc">' + escapeHtml(discosError || 'No electricity company is available right now. Please try again later.') + '</p></div>';
             return;
         }
         discos.forEach((d) => {
             const card = document.createElement('div');
             card.className = 'transaction-card' + (disco && disco.plan_id === d.plan_id ? ' selected' : '');
-            card.innerHTML =
-                '<div class="tx-left"><div class="tx-icon-frame"><img src="' + LOGOS.nepa + '" alt="Electricity"></div>' +
-                '<div class="tx-meta"><span class="tx-title">' + escapeHtml(d.disco_name) + '</span><span class="tx-date">Prepaid & Postpaid</span></div></div>' +
-                '<i class="fa-solid fa-chevron-right" style="color:var(--text-muted)"></i>';
+            const left = document.createElement('div');
+            left.className = 'tx-left';
+            left.appendChild(logoFrame(d));
+            const meta = document.createElement('div');
+            meta.className = 'tx-meta';
+            meta.innerHTML = '<span class="tx-title">' + escapeHtml(d.disco_name) + '</span><span class="tx-date">Prepaid & Postpaid</span>';
+            left.appendChild(meta);
+            card.appendChild(left);
+            card.insertAdjacentHTML('beforeend', '<i class="fa-solid fa-chevron-right" style="color:var(--text-muted)"></i>');
             card.addEventListener('click', () => {
                 disco = d;
+                attemptId = null;
                 $('fDisco').textContent = d.disco_name;
                 buyForm.classList.remove('hidden');
                 renderDiscos();
@@ -105,11 +163,17 @@ const LOGOS = {
         amountInput.classList.toggle('bad', amountInput.value.length >= 3 && a === null);
         phoneInput.classList.toggle('ok', phoneInput.value !== '' && phoneValid());
         phoneInput.classList.toggle('bad', phoneInput.value.length >= 11 && !phoneValid());
+        if (disco) {
+            const fee = a !== null ? chargeFor(a) : 0;
+            ensureRow('fFee', 'Service charge').textContent = a !== null ? '₦' + money(fee) : '-';
+            ensureRow('fTotal', 'You will pay').textContent = a !== null ? '₦' + money(a + fee) : '-';
+        }
         buyBtn.hidden = !(disco && meterValid() && a !== null && phoneValid() && pin.valid());
     }
 
     function setType(t) {
         meterType = t;
+        attemptId = null;
         $('tabPre').classList.toggle('active', t === 'prepaid');
         $('tabPost').classList.toggle('active', t === 'postpaid');
     }
@@ -130,55 +194,85 @@ const LOGOS = {
     }
 
     async function copyToken() {
+        let ok = false;
         try {
             await navigator.clipboard.writeText(lastToken);
+            ok = true;
         } catch (err) {
-            const t = document.createElement('textarea');
-            t.value = lastToken;
-            document.body.appendChild(t);
-            t.select();
-            document.execCommand('copy');
-            document.body.removeChild(t);
+            try {
+                const t = document.createElement('textarea');
+                t.value = lastToken;
+                t.setAttribute('readonly', '');
+                t.style.position = 'fixed';
+                t.style.opacity = '0';
+                document.body.appendChild(t);
+                t.select();
+                ok = document.execCommand('copy');
+                document.body.removeChild(t);
+            } catch (e) {
+                ok = false;
+            }
         }
-        toast('Token copied.', 'ok');
+        toast(ok ? 'Token copied.' : 'Could not copy. Copy it by hand.', ok ? 'ok' : 'err');
     }
 
     async function submit() {
         if (busy || !disco) return;
         const amount = amountValue();
-        if (amount > balance) {
+        if (amount === null) {
+            toast('Enter an amount from ₦500 to ₦500,000.', 'err');
+            return;
+        }
+        if (amount + chargeFor(amount) > balance) {
             toast('Your wallet balance is not enough. Please fund your wallet.', 'err');
             return;
         }
         busy = true;
+        buyBtn.disabled = true;
         showLoader();
-        let result = null;
-        try {
-            result = await post({ uuid: uuid, disco: disco.plan_id, meter_type: meterType, meter: meterInput.value, amount: amount, phone: phoneInput.value, pin: pin.value() });
-        } catch (err) {
-            result = { success: false, message: 'Network error. Please check your connection and your history before trying again.' };
-        }
-        hideLoader();
-        busy = false;
+        if (!attemptId) attemptId = newToken();
 
-        if (result && result.success) {
-            if (result.balance !== undefined) {
-                balance = Number(result.balance) || 0;
-                $('sumBalance').textContent = money(balance);
-            }
+        let result;
+        try {
+            result = await postJson(API_ENDPOINT, {
+                uuid: uuid,
+                disco: disco.plan_id,
+                meter_type: meterType,
+                meter: meterInput.value,
+                amount: amount,
+                phone: phoneInput.value,
+                pin: pin.value(),
+                request_id: attemptId
+            }, REQUEST_TIMEOUT_MS);
+        } finally {
+            hideLoader();
+            busy = false;
+            buyBtn.disabled = false;
+        }
+
+        if (!result.unsure && !result.pending) attemptId = null;
+
+        if (result.balance !== undefined && result.balance !== null) {
+            balance = Number(result.balance) || 0;
+            $('sumBalance').textContent = money(balance);
+        }
+
+        if (result.success) {
             toast('Electricity payment successful.', 'ok');
             meterInput.value = '';
             amountInput.value = '';
             phoneInput.value = '';
             pin.clear();
             disco = null;
+            attemptId = null;
             buyForm.classList.add('hidden');
             renderDiscos();
             checkForm();
             showResult(result);
-        } else {
-            toast((result && result.message) || 'Something went wrong. Please try again.', 'err');
+            return;
         }
+
+        toast(result.message || 'Something went wrong. Please try again.', 'err');
     }
 
     async function initialize() {
@@ -201,9 +295,9 @@ const LOGOS = {
     $('tabPost').addEventListener('click', () => setType('postpaid'));
     $('btnCopy').addEventListener('click', copyToken);
     $('btnCloseResult').addEventListener('click', () => $('resultCard').classList.add('hidden'));
-    meterInput.addEventListener('input', () => { meterInput.value = meterInput.value.replace(/\D/g, ''); checkForm(); });
-    amountInput.addEventListener('input', () => { amountInput.value = amountInput.value.replace(/\D/g, ''); checkForm(); });
-    phoneInput.addEventListener('input', () => { phoneInput.value = phoneInput.value.replace(/\D/g, ''); checkForm(); });
+    meterInput.addEventListener('input', () => { meterInput.value = meterInput.value.replace(/\D/g, ''); attemptId = null; checkForm(); });
+    amountInput.addEventListener('input', () => { amountInput.value = amountInput.value.replace(/\D/g, ''); attemptId = null; checkForm(); });
+    phoneInput.addEventListener('input', () => { phoneInput.value = phoneInput.value.replace(/\D/g, ''); attemptId = null; checkForm(); });
     $('pinRow').addEventListener('input', checkForm);
     buyBtn.addEventListener('click', submit);
 
