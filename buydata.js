@@ -19,6 +19,7 @@ const LOGOS = {
 (function () {
     const API_ENDPOINT = '/api/buydata';
     const EASY_ENDPOINT = '/api/simbuy';
+    const REQUEST_TIMEOUT_MS = 60000;
     const SIM_NETWORKS = { mtn_plan: 'mtn', itel_data: 'airtel', glo_data: 'glo', '9mobile_data': '9mobile' };
     const NETWORKS = [
         { key: 'mtn_plan', name: 'MTN', logo: LOGOS.mtn },
@@ -45,7 +46,37 @@ const LOGOS = {
     let activeTab = 'easy';
     let activeNet = null;
     let selectedPlan = null;
+    let attemptId = null;
     let busy = false;
+
+    function newToken() {
+        const bytes = new Uint8Array(16);
+        crypto.getRandomValues(bytes);
+        return Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    async function postJson(url, payload, timeoutMs) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+                signal: controller.signal
+            });
+            let data = null;
+            try { data = await res.json(); } catch (err) { data = null; }
+            if (!data || typeof data !== 'object') {
+                return { success: false, unsure: true, message: 'The server did not answer properly (' + res.status + '). Please check your history before trying again.' };
+            }
+            return data;
+        } catch (err) {
+            return { success: false, unsure: true, message: 'Network problem. Please check your history before trying again.' };
+        } finally {
+            clearTimeout(timer);
+        }
+    }
 
     function normalize(row) {
         const out = {};
@@ -108,7 +139,14 @@ const LOGOS = {
             chip.type = 'button';
             chip.className = 'net-chip' + (n.key === activeNet ? ' active' : '');
             chip.innerHTML = '<img src="' + n.logo + '" alt="' + n.name + '">' + n.name;
-            chip.addEventListener('click', () => { activeNet = n.key; selectedPlan = null; buyForm.classList.add('hidden'); renderNets(); renderPlans(); });
+            chip.addEventListener('click', () => {
+                activeNet = n.key;
+                selectedPlan = null;
+                attemptId = null;
+                buyForm.classList.add('hidden');
+                renderNets();
+                renderPlans();
+            });
             netRow.appendChild(chip);
         });
     }
@@ -136,6 +174,7 @@ const LOGOS = {
 
     function selectPlan(p) {
         selectedPlan = p;
+        attemptId = null;
         const net = NETWORKS.find((n) => n.key === activeNet);
         $('fNetwork').textContent = net.name;
         $('fPlan').textContent = p.plan_name;
@@ -154,6 +193,7 @@ const LOGOS = {
         const first = NETWORKS.find((n) => sources[tab][n.key]);
         activeNet = first ? first.key : null;
         selectedPlan = null;
+        attemptId = null;
         buyForm.classList.add('hidden');
         renderNets();
         renderPlans();
@@ -176,43 +216,47 @@ const LOGOS = {
             return;
         }
         busy = true;
+        buyBtn.disabled = true;
         showLoader();
-        let result = null;
-        try {
-            const res = await fetch(activeTab === 'easy' ? EASY_ENDPOINT : API_ENDPOINT, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    uuid: uuid,
-                    source: activeTab,
-                    network_key: activeNet,
-                    plan_id: String(selectedPlan.plan_id),
-                    phone: phoneInput.value,
-                    pin: pin.value()
-                })
-            });
-            result = await res.json();
-        } catch (err) {
-            result = { success: false, message: 'Network error. Please check your connection and your history before trying again.' };
-        }
-        hideLoader();
-        busy = false;
+        if (!attemptId) attemptId = newToken();
 
-        if (result && result.success) {
-            if (result.balance !== undefined) {
-                balance = Number(result.balance) || 0;
-                $('sumBalance').textContent = money(balance);
-            }
+        let result;
+        try {
+            result = await postJson(activeTab === 'easy' ? EASY_ENDPOINT : API_ENDPOINT, {
+                uuid: uuid,
+                source: activeTab,
+                network_key: activeNet,
+                plan_id: String(selectedPlan.plan_id),
+                phone: phoneInput.value,
+                pin: pin.value(),
+                request_id: attemptId
+            }, REQUEST_TIMEOUT_MS);
+        } finally {
+            hideLoader();
+            busy = false;
+            buyBtn.disabled = false;
+        }
+
+        if (!result.unsure && !result.pending) attemptId = null;
+
+        if (result.balance !== undefined && result.balance !== null) {
+            balance = Number(result.balance) || 0;
+            $('sumBalance').textContent = money(balance);
+        }
+
+        if (result.success) {
             toast(result.message || 'Purchase successful.', 'ok');
             phoneInput.value = '';
             pin.clear();
             selectedPlan = null;
+            attemptId = null;
             buyForm.classList.add('hidden');
             renderPlans();
             checkForm();
-        } else {
-            toast((result && result.message) || 'Something went wrong. Please try again.', 'err');
+            return;
         }
+
+        toast(result.message || 'Something went wrong. Please try again.', 'err');
     }
 
     async function initialize() {
@@ -239,7 +283,7 @@ const LOGOS = {
     $('btnBack').addEventListener('click', () => { if (window.history.length > 1) window.history.back(); else window.location.href = 'dashboard.html'; });
     $('tabEasy').addEventListener('click', () => setTab('easy'));
     $('tabSimple').addEventListener('click', () => setTab('simple'));
-    phoneInput.addEventListener('input', () => { phoneInput.value = phoneInput.value.replace(/\D/g, ''); checkForm(); });
+    phoneInput.addEventListener('input', () => { phoneInput.value = phoneInput.value.replace(/\D/g, ''); attemptId = null; checkForm(); });
     $('pinRow').addEventListener('input', checkForm);
     buyBtn.addEventListener('click', submit);
 
