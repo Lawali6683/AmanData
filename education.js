@@ -2,7 +2,7 @@ import { supabase } from './supabase.js';
 import { SESSION_KEY, sessionId, mountShell, showLoader, hideLoader, toast, pinBoxes, escapeHtml, money } from './ui.js';
 
 const LOGOS = {
-   dstv: 'https://i.imgur.com/XBe4eRi.png',
+    dstv: 'https://i.imgur.com/XBe4eRi.png',
     gotv: 'https://i.imgur.com/eaTdFAU.png',
     startimes: 'https://i.imgur.com/3DbujW2.png',
     glo: 'https://i.imgur.com/JlSw9vx.png',
@@ -17,6 +17,7 @@ const LOGOS = {
 
 (function () {
     const API_ENDPOINT = '/api/edu';
+    const REQUEST_TIMEOUT_MS = 60000;
     const EXAMS = [
         { key: 'wec_data', name: 'WAEC', logo: LOGOS.waec },
         { key: 'neco_data', name: 'NECO', logo: LOGOS.neco },
@@ -44,12 +45,37 @@ const LOGOS = {
     let exam = null;
     let item = null;
     let verifiedProfile = '';
+    let attemptId = null;
     let busy = false;
     let lastPins = [];
 
-    async function post(payload) {
-        const res = await fetch(API_ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-        return res.json();
+    function newToken() {
+        const bytes = new Uint8Array(16);
+        crypto.getRandomValues(bytes);
+        return Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    async function post(payload, timeoutMs) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeoutMs || 30000);
+        try {
+            const res = await fetch(API_ENDPOINT, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+                signal: controller.signal
+            });
+            let data = null;
+            try { data = await res.json(); } catch (err) { data = null; }
+            if (!data || typeof data !== 'object') {
+                return { success: false, unsure: true, message: 'The server did not answer properly (' + res.status + '). Please check your history before trying again.' };
+            }
+            return data;
+        } catch (err) {
+            return { success: false, unsure: true, message: 'Network problem. Please check your history before trying again.' };
+        } finally {
+            clearTimeout(timer);
+        }
     }
 
     async function loadProfile() {
@@ -92,6 +118,7 @@ const LOGOS = {
             tile.addEventListener('click', () => {
                 exam = e;
                 item = null;
+                attemptId = null;
                 buyForm.classList.add('hidden');
                 renderExams();
                 renderItems();
@@ -130,6 +157,7 @@ const LOGOS = {
 
     function selectItem(x) {
         item = x;
+        attemptId = null;
         verifiedProfile = '';
         profileInput.value = '';
         qtyInput.value = '1';
@@ -165,14 +193,13 @@ const LOGOS = {
         }
         busy = true;
         showLoader();
-        let result = null;
+        let result;
         try {
-            result = await post({ action: 'verify', uuid: uuid, profile_id: profileInput.value });
-        } catch (err) {
-            result = { success: false, message: 'Network error. Please try again.' };
+            result = await post({ action: 'verify', uuid: uuid, profile_id: profileInput.value }, 30000);
+        } finally {
+            hideLoader();
+            busy = false;
         }
-        hideLoader();
-        busy = false;
         if (result && result.success && result.name) {
             verifiedProfile = profileInput.value;
             $('candName').textContent = result.name;
@@ -187,17 +214,26 @@ const LOGOS = {
     }
 
     async function copyText(text) {
+        let ok = false;
         try {
             await navigator.clipboard.writeText(text);
+            ok = true;
         } catch (err) {
-            const t = document.createElement('textarea');
-            t.value = text;
-            document.body.appendChild(t);
-            t.select();
-            document.execCommand('copy');
-            document.body.removeChild(t);
+            try {
+                const t = document.createElement('textarea');
+                t.value = text;
+                t.setAttribute('readonly', '');
+                t.style.position = 'fixed';
+                t.style.opacity = '0';
+                document.body.appendChild(t);
+                t.select();
+                ok = document.execCommand('copy');
+                document.body.removeChild(t);
+            } catch (e) {
+                ok = false;
+            }
         }
-        toast('Copied.', 'ok');
+        toast(ok ? 'Copied.' : 'Could not copy. Copy it by hand.', ok ? 'ok' : 'err');
     }
 
     function pinText(p) { return 'PIN: ' + p.pin + (p.serial ? '\nSERIAL: ' + p.serial : ''); }
@@ -230,13 +266,20 @@ const LOGOS = {
     async function submit() {
         if (busy || !item) return;
         const q = qtyValue();
+        if (q === null) {
+            toast('Quantity must be between 1 and 10.', 'err');
+            return;
+        }
         if (Number(item.price) * q > balance) {
             toast('Your wallet balance is not enough. Please fund your wallet.', 'err');
             return;
         }
         busy = true;
+        buyBtn.disabled = true;
         showLoader();
-        let result = null;
+        if (!attemptId) attemptId = newToken();
+
+        let result;
         try {
             result = await post({
                 uuid: uuid,
@@ -245,31 +288,37 @@ const LOGOS = {
                 quantity: q,
                 profile_code: isProfile() ? profileInput.value : '',
                 phone: phoneInput.value,
-                pin: pin.value()
-            });
-        } catch (err) {
-            result = { success: false, message: 'Network error. Please check your connection and your history before trying again.' };
+                pin: pin.value(),
+                request_id: attemptId
+            }, REQUEST_TIMEOUT_MS);
+        } finally {
+            hideLoader();
+            busy = false;
+            buyBtn.disabled = false;
         }
-        hideLoader();
-        busy = false;
 
-        if (result && result.success) {
-            if (result.balance !== undefined) {
-                balance = Number(result.balance) || 0;
-                $('sumBalance').textContent = money(balance);
-            }
+        if (!result.unsure && !result.pending) attemptId = null;
+
+        if (result.balance !== undefined && result.balance !== null) {
+            balance = Number(result.balance) || 0;
+            $('sumBalance').textContent = money(balance);
+        }
+
+        if (result.success) {
             toast('Purchase successful.', 'ok');
             phoneInput.value = '';
             profileInput.value = '';
             verifiedProfile = '';
             pin.clear();
             item = null;
+            attemptId = null;
             buyForm.classList.add('hidden');
             renderItems();
             showResult(result);
-        } else {
-            toast((result && result.message) || 'Something went wrong. Please try again.', 'err');
+            return;
         }
+
+        toast(result.message || 'Something went wrong. Please try again.', 'err');
     }
 
     async function initialize() {
@@ -291,9 +340,14 @@ const LOGOS = {
     $('btnVerify').addEventListener('click', verify);
     $('btnCopyAll').addEventListener('click', () => copyText(lastPins.map(pinText).join('\n\n')));
     $('btnCloseResult').addEventListener('click', () => $('resultCard').classList.add('hidden'));
-    qtyInput.addEventListener('input', () => { qtyInput.value = qtyInput.value.replace(/\D/g, ''); checkForm(); });
-    profileInput.addEventListener('input', () => { profileInput.value = profileInput.value.replace(/\D/g, ''); if (verifiedProfile !== profileInput.value) $('candRow').classList.add('hidden'); checkForm(); });
-    phoneInput.addEventListener('input', () => { phoneInput.value = phoneInput.value.replace(/\D/g, ''); checkForm(); });
+    qtyInput.addEventListener('input', () => { qtyInput.value = qtyInput.value.replace(/\D/g, ''); attemptId = null; checkForm(); });
+    profileInput.addEventListener('input', () => {
+        profileInput.value = profileInput.value.replace(/\D/g, '');
+        attemptId = null;
+        if (verifiedProfile !== profileInput.value) $('candRow').classList.add('hidden');
+        checkForm();
+    });
+    phoneInput.addEventListener('input', () => { phoneInput.value = phoneInput.value.replace(/\D/g, ''); attemptId = null; checkForm(); });
     $('pinRow').addEventListener('input', checkForm);
     buyBtn.addEventListener('click', submit);
 
