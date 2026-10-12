@@ -47,6 +47,7 @@ const LOGOS = {
     let activeNet = null;
     let selectedPlan = null;
     let attemptId = null;
+    let loadFailed = false;
     let busy = false;
 
     function newToken() {
@@ -78,36 +79,12 @@ const LOGOS = {
         }
     }
 
-    function normalize(row) {
-        const out = {};
-        NETWORKS.forEach((n) => {
-            let v = row ? row[n.key] : null;
-            if (typeof v === 'string') {
-                try { v = JSON.parse(v); } catch (err) { v = null; }
-            }
-            const list = Array.isArray(v) ? v.filter((p) => p && Number(p.price) > 0) : [];
-            if (list.length) out[n.key] = list;
-        });
-        return out;
-    }
-
-    async function loadTable(name) {
+    async function loadCatalog() {
         try {
-            const { data, error } = await supabase.from(name).select('*').limit(1);
-            if (error) throw error;
-            return data && data.length ? data[0] : null;
-        } catch (err) {
-            return null;
-        }
-    }
-
-    async function loadOnline() {
-        try {
-            const { data, error } = await supabase.from('sim_status').select('network,online');
-            if (error) throw error;
-            const map = {};
-            (data || []).forEach((r) => { map[r.network] = !!r.online; });
-            return map;
+            const res = await fetch('/api/catalog?type=data', { cache: 'no-store' });
+            const data = await res.json();
+            if (!data || !data.success) throw new Error('catalog');
+            return data;
         } catch (err) {
             return null;
         }
@@ -154,7 +131,13 @@ const LOGOS = {
     function renderPlans() {
         planList.innerHTML = '';
         if (!activeNet) {
-            renderEmpty('fa-circle-xmark', 'Not Available', 'This plan type is not available right now. Please try the other plan.');
+            if (loadFailed) {
+                renderEmpty('fa-triangle-exclamation', 'Plans not loaded', 'We could not load the data plans. Please check your connection and refresh the page.');
+            } else if (!Object.keys(sources.easy).length && !Object.keys(sources.simple).length) {
+                renderEmpty('fa-box-open', 'No plans yet', 'No data plan is on sale right now. Please check again later.');
+            } else {
+                renderEmpty('fa-circle-xmark', 'Not Available', 'This plan type is not available right now. Please try the other plan.');
+            }
             return;
         }
         const net = NETWORKS.find((n) => n.key === activeNet);
@@ -267,14 +250,18 @@ const LOGOS = {
             return;
         }
         try {
-            const [, easyRow, simpleRow, online] = await Promise.all([loadProfile(), loadTable('myapi'), loadTable('buydata'), loadOnline()]);
-            sources = { easy: normalize(easyRow), simple: normalize(simpleRow) };
-            if (online) {
-                Object.keys(sources.easy).forEach((k) => { if (!online[SIM_NETWORKS[k]]) delete sources.easy[k]; });
+            const [, catalog] = await Promise.all([loadProfile(), loadCatalog()]);
+            if (!catalog) {
+                loadFailed = true;
+                toast('Data plans could not be loaded. Please check your connection.', 'err');
+                sources = { easy: {}, simple: {} };
+            } else {
+                sources = { easy: catalog.easy || {}, simple: catalog.simple || {} };
+                if (catalog.online) {
+                    Object.keys(sources.easy).forEach((k) => { if (!catalog.online[SIM_NETWORKS[k]]) delete sources.easy[k]; });
+                }
             }
             setTab(Object.keys(sources.easy).length ? 'easy' : 'simple');
-        } catch (err) {
-            renderEmpty('fa-circle-xmark', 'Not Available', 'Data plans could not be loaded. Please try again later.');
         } finally {
             setTimeout(() => hideLoader(() => appContainer.classList.add('ready')), 1600);
         }
