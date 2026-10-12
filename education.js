@@ -94,17 +94,13 @@ const LOGOS = {
     async function loadCatalog() {
         catalog = {};
         try {
-            const { data, error } = await supabase.from('exampins').select('*').limit(1);
-            if (error) throw error;
-            const row = data && data[0] ? data[0] : {};
-            EXAMS.forEach((e) => {
-                let v = row[e.key];
-                if (typeof v === 'string') { try { v = JSON.parse(v); } catch (err) { v = null; } }
-                const list = Array.isArray(v) ? v.filter((x) => x && Number(x.price) > 0) : [];
-                if (list.length) catalog[e.key] = list;
-            });
+            const res = await fetch('/api/catalog?type=exam', { cache: 'no-store' });
+            const data = await res.json();
+            if (!data || !data.success || !data.exams) throw new Error('catalog');
+            catalog = data.exams;
         } catch (err) {
             catalog = {};
+            toast('Exam prices could not be loaded. Please check your connection.', 'err');
         }
     }
 
