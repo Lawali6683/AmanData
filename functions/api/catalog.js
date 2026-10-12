@@ -118,7 +118,15 @@ export async function onRequest({ request, env }) {
             } catch (err) {
                 online = null;
             }
-            return json({ success: true, simple: simple, easy: easy, online: online });
+            const columnCounts = {};
+            DATA_COLUMNS.forEach((col) => { columnCounts[col] = simple[col] ? simple[col].length : 0; });
+            return json({
+                success: true,
+                simple: simple,
+                easy: easy,
+                online: online,
+                meta: { table: 'buydata', row_found: Object.keys(row).length > 0, columns: Object.keys(row), priced_plans: columnCounts }
+            });
         }
 
         if (type === 'exam') {
@@ -128,7 +136,13 @@ export async function onRequest({ request, env }) {
                 const list = priced(asList(row[c])).map((x) => ({ exam_id: String(x.exam_id), exam_name: x.exam_name, mode: x.mode || '', price: Number(x.price) }));
                 if (list.length) exams[c] = list;
             });
-            return json({ success: true, exams: exams });
+            const examCounts = {};
+            EXAM_COLUMNS.forEach((col) => { examCounts[col] = exams[col] ? exams[col].length : 0; });
+            return json({
+                success: true,
+                exams: exams,
+                meta: { table: 'exampins', row_found: Object.keys(row).length > 0, columns: Object.keys(row), priced_items: examCounts }
+            });
         }
 
         if (type === 'cable') {
