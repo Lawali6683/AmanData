@@ -217,3 +217,7 @@ body.locked{overflow:hidden}
 .login-box{width:100%;max-width:420px;display:flex;flex-direction:column;align-items:center;gap:18px}
 .login-box .form-card{width:100%}
 .frame-empty{flex:1;justify-content:center}
+.tx-icon-frame{overflow:hidden}
+.tx-icon-frame img{width:100%;height:100%;object-fit:contain;display:block;padding:5px;background:#fff;border-radius:14px}
+.tx-icon-frame i{line-height:1}
+select.input option{background:#1e293b;color:#f8fafc}
