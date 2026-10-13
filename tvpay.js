@@ -2,25 +2,19 @@ import { supabase } from './supabase.js';
 import { SESSION_KEY, sessionId, mountShell, showLoader, hideLoader, toast, pinBoxes, escapeHtml, money } from './ui.js';
 
 const LOGOS = {
-   dstv: 'https://i.imgur.com/YZoTk8t.png',
-    gotv: 'https://i.imgur.com/eaTdFAU.png',
-    startimes: 'https://i.imgur.com/3DbujW2.png',
-    glo: 'https://i.imgur.com/JlSw9vx.png',
-    '9mobile': 'https://i.imgur.com/EM2g22Z.png',
-    airtel: 'https://i.imgur.com/aMgSbKX.png',
-    mtn: 'https://i.imgur.com/U82jQBd.png',
-    waec: 'https://i.imgur.com/jZXQymK.png',
-    jamb: 'https://i.imgur.com/sVgzPfV.png',
-    neco: 'https://i.imgur.com/YHwxsGM.png',
-    nabteb: 'https://i.imgur.com/MU3qSXl.png'
+    DSTV: 'https://i.imgur.com/XBe4eRi.png',
+    GOTV: 'https://i.imgur.com/eaTdFAU.png',
+    STARTIME: 'https://i.imgur.com/3DbujW2.png'
 };
 
 (function () {
-    const API_ENDPOINT = '/api/tv';
-    const PROVIDERS = [
-        { key: 'DSTV', name: 'DSTV', match: 'DSTV', logo: LOGOS.dstv },
-        { key: 'GOTV', name: 'GOTV', match: 'GOTV', logo: LOGOS.gotv },
-        { key: 'STARTIMES', name: 'STARTIMES', match: 'STARTIME', logo: LOGOS.startimes }
+    const API_ENDPOINT = '/api/tvpay';
+    const CATALOG_ENDPOINT = '/api/catalog?type=cable';
+    const REQUEST_TIMEOUT_MS = 60000;
+    const CABLES = [
+        { key: 'DSTV', name: 'DSTV', logo: LOGOS.DSTV },
+        { key: 'GOTV', name: 'GOTV', logo: LOGOS.GOTV },
+        { key: 'STARTIME', name: 'STARTIMES', logo: LOGOS.STARTIME }
     ];
 
     mountShell();
@@ -28,7 +22,7 @@ const LOGOS = {
 
     const $ = (id) => document.getElementById(id);
     const appContainer = $('appContainer');
-    const provGrid = $('provGrid');
+    const cableGrid = $('cableGrid');
     const planList = $('planList');
     const buyForm = $('buyForm');
     const iucInput = $('iuc');
@@ -38,14 +32,40 @@ const LOGOS = {
 
     let uuid = null;
     let balance = 0;
-    let plans = [];
-    let provider = null;
-    let selected = null;
+    let catalog = {};
+    let loadFailed = false;
+    let cable = null;
+    let plan = null;
+    let attemptId = null;
     let busy = false;
 
-    function plansFor(p) {
-        return plans.filter((x) => String(x.cable_name || '').toUpperCase().indexOf(p.match) === 0 && Number(x.price) > 0)
-            .sort((a, b) => Number(a.price) - Number(b.price));
+    function newToken() {
+        const bytes = new Uint8Array(16);
+        crypto.getRandomValues(bytes);
+        return Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    async function postJson(url, payload, timeoutMs) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+                signal: controller.signal
+            });
+            let data = null;
+            try { data = await res.json(); } catch (err) { data = null; }
+            if (!data || typeof data !== 'object') {
+                return { success: false, unsure: true, message: 'The server did not answer properly (' + res.status + '). Please check your history before trying again.' };
+            }
+            return data;
+        } catch (err) {
+            return { success: false, unsure: true, message: 'Network problem. Please check your history before trying again.' };
+        } finally {
+            clearTimeout(timer);
+        }
     }
 
     async function loadProfile() {
@@ -61,121 +81,139 @@ const LOGOS = {
         $('sumBalance').textContent = money(balance);
     }
 
-    async function loadPlans() {
+    async function loadCatalog() {
         try {
-            const { data, error } = await supabase.from('cabletv').select('*').limit(1);
-            if (error) throw error;
-            let list = data && data[0] ? data[0].alltv_plan : [];
-            if (typeof list === 'string') list = JSON.parse(list);
-            plans = Array.isArray(list) ? list : [];
+            const res = await fetch(CATALOG_ENDPOINT, { cache: 'no-store' });
+            const data = await res.json();
+            if (!data || !data.success || !data.cable) throw new Error('catalog');
+            catalog = data.cable;
         } catch (err) {
-            plans = [];
+            catalog = {};
+            loadFailed = true;
+            toast('TV packages could not be loaded. Please check your connection.', 'err');
         }
     }
 
-    function renderProviders() {
-        provGrid.innerHTML = '';
-        PROVIDERS.forEach((p) => {
+    function renderEmpty(icon, title, desc) {
+        planList.innerHTML = '<div class="empty-state"><i class="fa-solid ' + icon + ' empty-icon"></i>' +
+            '<h3 class="empty-title">' + escapeHtml(title) + '</h3><p class="empty-desc">' + escapeHtml(desc) + '</p></div>';
+    }
+
+    function renderCables() {
+        cableGrid.innerHTML = '';
+        CABLES.forEach((c) => {
             const tile = document.createElement('button');
             tile.type = 'button';
-            tile.className = 'net-tile' + (provider && provider.key === p.key ? ' active' : '');
-            tile.innerHTML = '<img src="' + p.logo + '" alt="' + p.name + '">' + p.name;
+            tile.className = 'net-tile' + (cable && cable.key === c.key ? ' active' : '');
+            tile.innerHTML = '<img src="' + c.logo + '" alt="' + c.name + '">' + c.name;
             tile.addEventListener('click', () => {
-                provider = p;
-                selected = null;
+                cable = c;
+                plan = null;
+                attemptId = null;
                 buyForm.classList.add('hidden');
-                renderProviders();
+                renderCables();
                 renderPlans();
+                planList.scrollIntoView({ behavior: 'smooth', block: 'start' });
             });
-            provGrid.appendChild(tile);
+            cableGrid.appendChild(tile);
         });
     }
 
     function renderPlans() {
         planList.innerHTML = '';
-        if (!provider) return;
-        const list = plansFor(provider);
+        if (!cable) {
+            if (loadFailed) renderEmpty('fa-triangle-exclamation', 'Packages not loaded', 'We could not load the TV packages. Please check your connection and refresh the page.');
+            return;
+        }
+        const list = (catalog[cable.key] || []).slice().sort((a, b) => Number(a.price) - Number(b.price));
         if (!list.length) {
-            planList.innerHTML = '<div class="empty-state"><i class="fa-solid fa-circle-xmark empty-icon"></i><h3 class="empty-title">Not Available</h3><p class="empty-desc">Packages for this provider are not available right now. Please try again later.</p></div>';
+            renderEmpty('fa-box-open', 'No packages yet', 'No ' + cable.name + ' package is on sale right now. Please check again later.');
             return;
         }
         list.forEach((p) => {
             const card = document.createElement('div');
-            card.className = 'transaction-card' + (selected && String(selected.plan_id) === String(p.plan_id) && selected.cable_name === p.cable_name ? ' selected' : '');
+            card.className = 'transaction-card' + (plan && String(plan.plan_id) === String(p.plan_id) ? ' selected' : '');
             card.innerHTML =
-                '<div class="tx-left"><div class="tx-icon-frame"><img src="' + provider.logo + '" alt="' + provider.name + '"></div>' +
+                '<div class="tx-left"><div class="tx-icon-frame"><img src="' + cable.logo + '" alt="' + cable.name + '"></div>' +
                 '<div class="tx-meta"><span class="tx-title">' + escapeHtml(p.plan_name) + '</span>' +
-                '<span class="tx-date">' + escapeHtml(provider.name) + '</span></div></div>' +
+                '<span class="tx-date">' + escapeHtml(cable.name) + '</span></div></div>' +
                 '<div class="tx-right"><span class="tx-amount">₦' + escapeHtml(money(p.price)) + '</span></div>';
-            card.addEventListener('click', () => {
-                selected = p;
-                $('fProvider').textContent = provider.name;
-                $('fPlan').textContent = p.plan_name;
-                $('fPrice').textContent = '₦' + money(p.price);
-                buyForm.classList.remove('hidden');
-                renderPlans();
-                buyForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                checkForm();
-            });
+            card.addEventListener('click', () => selectPlan(p));
             planList.appendChild(card);
         });
     }
 
-    function iucValid() { return /^\d{10}$/.test(iucInput.value); }
+    function selectPlan(p) {
+        plan = p;
+        attemptId = null;
+        $('fCable').textContent = cable.name;
+        $('fPlan').textContent = p.plan_name;
+        $('fPrice').textContent = '₦' + money(p.price);
+        buyForm.classList.remove('hidden');
+        renderPlans();
+        checkForm();
+    }
+
+    function iucValid() { return /^\d{10,11}$/.test(iucInput.value); }
     function phoneValid() { return phoneInput.value === '' || /^(0\d{10}|234\d{10})$/.test(phoneInput.value); }
 
     function checkForm() {
         iucInput.classList.toggle('ok', iucValid());
+        iucInput.classList.toggle('bad', iucInput.value.length >= 11 && !iucValid());
         phoneInput.classList.toggle('ok', phoneInput.value !== '' && phoneValid());
         phoneInput.classList.toggle('bad', phoneInput.value.length >= 11 && !phoneValid());
-        buyBtn.hidden = !(selected && iucValid() && phoneValid() && pin.valid());
+        buyBtn.hidden = !(plan && iucValid() && phoneValid() && pin.valid());
     }
 
     async function submit() {
-        if (busy || !selected) return;
-        if (Number(selected.price) > balance) {
+        if (busy || !plan || !cable) return;
+        if (Number(plan.price) > balance) {
             toast('Your wallet balance is not enough. Please fund your wallet.', 'err');
             return;
         }
         busy = true;
+        buyBtn.disabled = true;
         showLoader();
-        let result = null;
-        try {
-            const res = await fetch(API_ENDPOINT, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    uuid: uuid,
-                    provider: provider.key,
-                    plan_id: String(selected.plan_id),
-                    iuc: iucInput.value,
-                    phone: phoneInput.value,
-                    pin: pin.value()
-                })
-            });
-            result = await res.json();
-        } catch (err) {
-            result = { success: false, message: 'Network error. Please check your connection and your history before trying again.' };
-        }
-        hideLoader();
-        busy = false;
+        if (!attemptId) attemptId = newToken();
 
-        if (result && result.success) {
-            if (result.balance !== undefined) {
-                balance = Number(result.balance) || 0;
-                $('sumBalance').textContent = money(balance);
-            }
-            toast(result.message || 'Subscription renewed successfully.', 'ok');
+        let result;
+        try {
+            result = await postJson(API_ENDPOINT, {
+                uuid: uuid,
+                cable: cable.key,
+                plan_id: String(plan.plan_id),
+                iuc: iucInput.value,
+                phone: phoneInput.value,
+                pin: pin.value(),
+                request_id: attemptId
+            }, REQUEST_TIMEOUT_MS);
+        } finally {
+            hideLoader();
+            busy = false;
+            buyBtn.disabled = false;
+        }
+
+        if (!result.unsure && !result.pending) attemptId = null;
+
+        if (result.balance !== undefined && result.balance !== null) {
+            balance = Number(result.balance) || 0;
+            $('sumBalance').textContent = money(balance);
+        }
+
+        if (result.success) {
+            toast(result.message || 'TV subscription successful.', 'ok');
             iucInput.value = '';
             phoneInput.value = '';
             pin.clear();
-            selected = null;
+            plan = null;
+            attemptId = null;
             buyForm.classList.add('hidden');
             renderPlans();
             checkForm();
-        } else {
-            toast((result && result.message) || 'Something went wrong. Please try again.', 'err');
+            return;
         }
+
+        toast(result.message || 'Something went wrong. Please try again.', 'err');
     }
 
     async function initialize() {
@@ -185,17 +223,18 @@ const LOGOS = {
             window.location.replace('register.html');
             return;
         }
-        renderProviders();
+        renderCables();
         try {
-            await Promise.all([loadProfile(), loadPlans()]);
+            await Promise.all([loadProfile(), loadCatalog()]);
+            renderPlans();
         } finally {
             setTimeout(() => hideLoader(() => appContainer.classList.add('ready')), 1600);
         }
     }
 
     $('btnBack').addEventListener('click', () => { if (window.history.length > 1) window.history.back(); else window.location.href = 'dashboard.html'; });
-    iucInput.addEventListener('input', () => { iucInput.value = iucInput.value.replace(/\D/g, ''); checkForm(); });
-    phoneInput.addEventListener('input', () => { phoneInput.value = phoneInput.value.replace(/\D/g, ''); checkForm(); });
+    iucInput.addEventListener('input', () => { iucInput.value = iucInput.value.replace(/\D/g, ''); attemptId = null; checkForm(); });
+    phoneInput.addEventListener('input', () => { phoneInput.value = phoneInput.value.replace(/\D/g, ''); attemptId = null; checkForm(); });
     $('pinRow').addEventListener('input', checkForm);
     buyBtn.addEventListener('click', submit);
 
