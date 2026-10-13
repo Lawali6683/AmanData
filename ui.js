@@ -132,7 +132,8 @@ export function pinBoxes(root) {
 export const LOGOS = {
     dstv: 'https://i.imgur.com/YZoTk8t.png',
     gotv: 'https://i.imgur.com/eaTdFAU.png',
-    startimes: 'https://i.imgur.com/3DbujW2.png',
+    startimes:        
+     'https://i.imgur.com/3DbujW2.png',
     glo: 'https://i.imgur.com/JlSw9vx.png',
     '9mobile': 'https://i.imgur.com/EM2g22Z.png',
     airtel: 'https://i.imgur.com/aMgSbKX.png',
@@ -142,3 +143,41 @@ export const LOGOS = {
     neco: 'https://i.imgur.com/YHwxsGM.png',
     nabteb: 'https://i.imgur.com/MU3qSXl.png'
 };
+
+
+(function () {
+    const form = document.getElementById('buyForm');
+    if (!form || form.dataset.popupReady) return;
+    form.dataset.popupReady = '1';
+    document.body.classList.add('fp-on');
+
+    const backdrop = document.createElement('div');
+    backdrop.className = 'form-backdrop';
+    form.parentNode.insertBefore(backdrop, form);
+
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'form-close';
+    close.setAttribute('aria-label', 'Close');
+    close.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+    form.insertBefore(close, form.firstChild);
+
+    const isOpen = () => !form.classList.contains('hidden') && !form.hasAttribute('hidden');
+
+    function sync() {
+        const open = isOpen();
+        backdrop.classList.toggle('open', open);
+        document.body.classList.toggle('fp-lock', open);
+    }
+
+    function hide() {
+        form.classList.add('hidden');
+        sync();
+    }
+
+    new MutationObserver(sync).observe(form, { attributes: true, attributeFilter: ['class', 'hidden'] });
+    close.addEventListener('click', hide);
+    backdrop.addEventListener('click', hide);
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && isOpen()) hide(); });
+    sync();
+})();
