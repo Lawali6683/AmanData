@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>AmanData - Clean Data. Pure Insight.</title>
     <meta name="title" content="AmanData - Fast, Reliable Data & Utility Services" />
     <meta name="description" content="Empower your digital world with AmanData. Enjoy lightning-fast data bundles, instant airtime recharges, utility bill payments, and secure transactions designed for your modern lifestyle." />
@@ -21,38 +21,47 @@
     <meta name="twitter:description" content="Affordable data, instant airtime, and secure bill payments. Stay connected to what matters most with AmanData." />
     <meta name="twitter:image" content="https://i.imgur.com/PGTFHYt.jpeg" />
     <link rel="icon" type="image/png" href="https://i.imgur.com/SBHTDNn.png" />
-    <link rel="apple-touch-icon" href="https://i.imgur.com/SBHTDNn.png" />
+    <link rel="apple-touch-icon" href="./icons/icon-192.png" />
     <link rel="manifest" href="./manifest.json" />
+    <meta name="theme-color" content="#0066ff">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="AmanData">
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
-    <link rel="preconnect" href="https://i.imgur.com">
+    <link rel="preconnect" href="https://i.imgur.com" crossorigin>
+    <link rel="preload" as="image" href="https://i.imgur.com/0COsVQ7.png" fetchpriority="high">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    
-    <link rel="manifest" href="./manifest.json">
-<meta name="theme-color" content="#0066ff">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="apple-touch-icon" href="./icons/icon-192.png">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-
-
-<link rel="manifest" href="./manifest.json">
-<meta name="theme-color" content="#0066ff">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="AmanData">
-<link rel="apple-touch-icon" href="./icons/icon-192.png">
-   
+    <script>
+        (function () {
+            var p = new URLSearchParams(window.location.search);
+            var ua = navigator.userAgent || '';
+            var standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true || window.matchMedia('(display-mode: window-controls-overlay)').matches;
+            var ref = '';
+            if (window.location.pathname.indexOf('/ref/') !== -1) {
+                var parts = window.location.pathname.split('/ref/');
+                if (parts[1]) ref = parts[1].replace('/', '');
+            } else if (p.has('ref')) {
+                ref = p.get('ref');
+            }
+            var target = ref ? 'register.html?ref=' + encodeURIComponent(ref) : 'register.html';
+            var app = p.get('mode') === 'app' || ua.indexOf('AmanDataAppInside') !== -1 || standalone;
+            window.__amd = { target: target, standalone: standalone, app: app };
+            if (app) {
+                window.location.replace(target);
+                return;
+            }
+        })();
+    </script>
     <style>
-        .scene { position: fixed; inset: 0; z-index: 99999; background: #001233; transition: opacity 0.6s ease, visibility 0.6s ease; }
+        .scene { position: fixed; inset: 0; z-index: 99999; background: #001233; transition: opacity 0.4s ease, visibility 0.4s ease; }
         .scene.hide { opacity: 0; visibility: hidden; pointer-events: none; }
         .liquid {
             position: absolute;
             left: 0; right: 0; bottom: 0;
             height: 0%;
             background: linear-gradient(180deg, #6c5ce7 0%, #4834d4 100%);
-            transition: height 1.6s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: height 0.8s cubic-bezier(0.4, 0, 0.2, 1);
         }
         .liquid.fill { height: 100%; }
         .wave {
@@ -79,9 +88,10 @@
             letter-spacing: 6px;
             font-weight: 200;
             text-transform: uppercase;
-            transition: opacity 0.6s ease;
+            transition: opacity 0.4s ease;
+            pointer-events: none;
         }
-        .brand.hide { opacity: 0; }
+        .brand.hide { opacity: 0; visibility: hidden; }
         .brand .bdot {
             display: inline-block;
             animation: blink 1.4s infinite;
@@ -101,9 +111,10 @@
             left: 50%;
             transform: translate(-50%, -50%);
             z-index: 100000;
-            transition: opacity 0.6s ease;
+            transition: opacity 0.4s ease;
+            pointer-events: none;
         }
-        .loader-logo.hide { opacity: 0; }
+        .loader-logo.hide { opacity: 0; visibility: hidden; }
         * {
             margin: 0;
             padding: 0;
@@ -119,6 +130,8 @@
             flex-direction: column;
             overflow-x: hidden;
         }
+        body.menu-open { overflow: hidden; }
+        .icon-grid, .aman-section, .page-section { scroll-margin-top: 16px; }
         .hero-section {
             background: radial-gradient(circle at top, #002b75 0%, #001233 100%);
             padding: 30px 20px;
@@ -133,21 +146,38 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            gap: 12px;
+            margin-bottom: 18px;
+            position: relative;
+            z-index: 10;
+        }
+        .brand-link {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
             margin-bottom: 25px;
             position: relative;
             z-index: 10;
         }
         .hero-section .logo {
-            margin-bottom: 0;
-            max-width: 320px;
+            --logo-width: 320px;
+            width: min(var(--logo-width), 100%);
             height: auto;
+            max-width: 100%;
             object-fit: contain;
+            display: block;
+            margin: 0 auto;
         }
         .pwa-header-install {
             background: #0066ff;
             border-radius: 50%;
             width: 45px;
             height: 45px;
+            min-width: 45px;
+            min-height: 45px;
+            flex: 0 0 45px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -163,6 +193,124 @@
         .pwa-header-install:active {
             transform: scale(0.95);
             background: #0052cc;
+        }
+        .menu-toggle {
+            width: 45px;
+            height: 45px;
+            min-width: 45px;
+            min-height: 45px;
+            flex: 0 0 45px;
+            padding: 0;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            color: #ffffff;
+            font-size: 18px;
+            cursor: pointer;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
+            transition: background 0.3s, transform 0.2s, border-color 0.3s;
+        }
+        .menu-toggle:hover {
+            border-color: rgba(56, 189, 248, 0.6);
+            background: rgba(56, 189, 248, 0.15);
+        }
+        .menu-toggle:active {
+            transform: scale(0.95);
+        }
+        .welcome-chip {
+            flex: 1 1 0;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 7px;
+            pointer-events: none;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .wc-text {
+            display: flex;
+            justify-content: center;
+            font-size: clamp(15px, 5.2vw, 22px);
+            font-weight: 800;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            line-height: 1;
+            perspective: 400px;
+            filter: drop-shadow(0 0 10px rgba(56, 189, 248, 0.55));
+        }
+        .wc-text span {
+            display: inline-block;
+            opacity: 0;
+            transform: translateY(14px) scale(0.6) rotateX(70deg);
+            background: linear-gradient(110deg, #7dd3fc 0%, #ffffff 30%, #38bdf8 50%, #ffffff 70%, #7dd3fc 100%);
+            background-size: 250% 100%;
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            -webkit-text-fill-color: transparent;
+        }
+        .welcome-chip.play .wc-text span {
+            animation: wcIn 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards, wcShine 3.2s linear infinite, wcFloat 3s ease-in-out infinite;
+            animation-delay: calc(var(--d) * 80ms + 100ms), calc(var(--d) * -150ms), calc(var(--d) * 140ms + 1100ms);
+        }
+        .wc-line {
+            position: relative;
+            width: 62%;
+            max-width: 120px;
+            height: 2px;
+            border-radius: 2px;
+            background: linear-gradient(90deg, transparent, #38bdf8, transparent);
+            transform: scaleX(0);
+            opacity: 0;
+        }
+        .wc-line::after {
+            content: "";
+            position: absolute;
+            top: -2px;
+            left: 0;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #ffffff;
+            box-shadow: 0 0 8px #38bdf8, 0 0 14px #0066ff;
+            opacity: 0;
+        }
+        .welcome-chip.play .wc-line {
+            animation: wcLine 0.8s cubic-bezier(0.22, 1, 0.36, 1) 0.9s forwards;
+        }
+        .welcome-chip.play .wc-line::after {
+            animation: wcDot 2.4s ease-in-out 1.8s infinite;
+        }
+        @keyframes wcIn {
+            to { opacity: 1; transform: translateY(0) scale(1) rotateX(0deg); }
+        }
+        @keyframes wcShine {
+            0% { background-position: 200% 0; }
+            100% { background-position: -100% 0; }
+        }
+        @keyframes wcFloat {
+            0%, 100% { transform: translateY(0) scale(1); }
+            50% { transform: translateY(-4px) scale(1.06); }
+        }
+        @keyframes wcLine {
+            to { transform: scaleX(1); opacity: 1; }
+        }
+        @keyframes wcDot {
+            0% { left: 0; opacity: 0; }
+            15% { opacity: 1; }
+            85% { opacity: 1; }
+            100% { left: calc(100% - 6px); opacity: 0; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .wc-text span { opacity: 1; transform: none; animation: none !important; }
+            .wc-line { opacity: 1; transform: none; animation: none !important; }
+            .wc-line::after { animation: none !important; }
         }
         .girl-img {
             width: 100%;
@@ -460,107 +608,88 @@
                 transform: translateY(-5px);
             }
         }
-      
-      
         .aman-section{
-    width:100%;
-    display:flex;
-    justify-content:center;
-    align-items:center;
-    padding:25px 15px;
-    box-sizing:border-box;
-}
-
-.aman-card{
-    width:100%;
-    max-width:900px;
-    background:rgba(255,255,255,.05);
-    backdrop-filter:blur(12px);
-    border:1px solid rgba(255,255,255,.08);
-    border-radius:28px;
-    overflow:hidden;
-    box-shadow:0 15px 40px rgba(0,0,0,.18);
-    transition:.35s;
-}
-
-.aman-card:hover{
-    transform:translateY(-6px);
-    box-shadow:0 20px 50px rgba(0,102,255,.25);
-}
-
-.aman-image{
-    width:100%;
-    display:block;
-    object-fit:cover;
-    transition:.5s;
-}
-
-.aman-card:hover .aman-image{
-    transform:scale(1.02);
-}
-
-.aman-content{
-    padding:25px;
-    text-align:center;
-}
-
-.aman-title{
-    margin:0;
-    font-size:30px;
-    font-weight:700;
-    color:#0066ff;
-}
-
-.aman-desc{
-    margin-top:12px;
-    color:#666;
-    font-size:17px;
-    line-height:1.8;
-}
-
-.aman-btn{
-    display:inline-block;
-    margin-top:20px;
-    background:linear-gradient(135deg,#007bff,#0050ff);
-    color:#fff;
-    padding:14px 35px;
-    border-radius:50px;
-    text-decoration:none;
-    font-size:16px;
-    font-weight:600;
-    transition:.3s;
-}
-
-.aman-btn:hover{
-    background:linear-gradient(135deg,#0050ff,#0037cc);
-    transform:scale(1.04);
-}
-
-@media(max-width:768px){
-
-.aman-section{
-    padding:15px;
-}
-
-.aman-content{
-    padding:18px;
-}
-
-.aman-title{
-    font-size:24px;
-}
-
-.aman-desc{
-    font-size:15px;
-}
-
-.aman-btn{
-    width:100%;
-    box-sizing:border-box;
-}
-
-}
-      
+            width:100%;
+            display:flex;
+            justify-content:center;
+            align-items:center;
+            padding:25px 15px;
+            box-sizing:border-box;
+        }
+        .aman-card{
+            width:100%;
+            max-width:900px;
+            background:rgba(255,255,255,.05);
+            backdrop-filter:blur(12px);
+            border:1px solid rgba(255,255,255,.08);
+            border-radius:28px;
+            overflow:hidden;
+            box-shadow:0 15px 40px rgba(0,0,0,.18);
+            transition:.35s;
+        }
+        .aman-card:hover{
+            transform:translateY(-6px);
+            box-shadow:0 20px 50px rgba(0,102,255,.25);
+        }
+        .aman-image{
+            width:100%;
+            display:block;
+            object-fit:cover;
+            transition:.5s;
+        }
+        .aman-card:hover .aman-image{
+            transform:scale(1.02);
+        }
+        .aman-content{
+            padding:25px;
+            text-align:center;
+        }
+        .aman-title{
+            margin:0;
+            font-size:30px;
+            font-weight:700;
+            color:#0066ff;
+        }
+        .aman-desc{
+            margin-top:12px;
+            color:#666;
+            font-size:17px;
+            line-height:1.8;
+        }
+        .aman-btn{
+            display:inline-block;
+            margin-top:20px;
+            background:linear-gradient(135deg,#007bff,#0050ff);
+            color:#fff;
+            padding:14px 35px;
+            border-radius:50px;
+            text-decoration:none;
+            font-size:16px;
+            font-weight:600;
+            transition:.3s;
+        }
+        .aman-btn:hover{
+            background:linear-gradient(135deg,#0050ff,#0037cc);
+            transform:scale(1.04);
+        }
+        @media(max-width:768px){
+            .aman-section{
+                padding:15px;
+            }
+            .aman-content{
+                padding:18px;
+            }
+            .aman-title{
+                font-size:24px;
+            }
+            .aman-desc{
+                font-size:15px;
+            }
+            .aman-btn{
+                width:100%;
+                box-sizing:border-box;
+            }
+        }
         .page-section{width:100%;max-width:480px;margin:0 auto;padding:48px 20px 20px;text-align:center; background:linear-gradient(180deg,#001233 0%,#001945 100%); }
         .section-head{margin-bottom:28px;}
         .section-head .eyebrow{display:inline-block;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#38bdf8;font-weight:700;background:rgba(56,189,248,.1);border:1px solid rgba(56,189,248,.25);padding:6px 14px;border-radius:50px;}
@@ -603,11 +732,57 @@
         .open-dot{width:9px;height:9px;border-radius:50%;background:#10b981;animation:blinkDot 1.4s infinite;}
         .open-pill.closed .open-dot{background:#f43f5e;animation:none;}
         @keyframes blinkDot{0%,100%{opacity:1;}50%{opacity:.25;}}
-        .map-frame{width:100%;max-width:420px;margin:22px auto 0;border-radius:16px;overflow:hidden;border:1px solid rgba(255,255,255,.10);box-shadow:0 12px 30px rgba(0,0,0,.45);}
+        .map-frame{width:100%;max-width:420px;margin:22px auto 0;border-radius:16px;overflow:hidden;border:1px solid rgba(255,255,255,.10);box-shadow:0 12px 30px rgba(0,0,0,.45);background:rgba(255,255,255,.04);}
         .map-frame iframe{width:100%;height:260px;border:0;display:block;}
         .dir-btn{display:inline-flex;align-items:center;gap:8px;margin-top:18px;background:linear-gradient(135deg,#0066ff,#0050ff);color:#ffffff;padding:13px 26px;border-radius:50px;font-size:14px;font-weight:700;text-decoration:none;box-shadow:0 8px 20px rgba(0,102,255,.35);transition:transform .2s ease,box-shadow .2s ease;}
         .dir-btn:hover{transform:translateY(-3px);box-shadow:0 12px 26px rgba(0,102,255,.5);}
         .dir-btn:active{transform:scale(.96);}
+        .menu-overlay{position:fixed;inset:0;z-index:1000000;visibility:hidden;pointer-events:none;transition:visibility 0s linear .35s;}
+        .menu-overlay.open{visibility:visible;pointer-events:auto;transition-delay:0s;}
+        .menu-backdrop{position:absolute;inset:0;background:rgba(0,9,26,.65);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);opacity:0;transition:opacity .3s ease;}
+        .menu-overlay.open .menu-backdrop{opacity:1;}
+        .menu-panel{position:absolute;top:0;right:0;bottom:0;width:min(88vw,380px);background:radial-gradient(circle at top right,#002b75 0%,#001233 65%);border-left:1px solid rgba(56,189,248,.25);box-shadow:-20px 0 60px rgba(0,0,0,.5);transform:translateX(100%);transition:transform .35s cubic-bezier(.22,1,.36,1);display:flex;flex-direction:column;padding:max(18px,env(safe-area-inset-top)) 18px max(18px,env(safe-area-inset-bottom));overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;}
+        .menu-overlay.open .menu-panel{transform:translateX(0);}
+        .menu-top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:22px;}
+        .menu-logo{height:36px;width:auto;max-width:65%;object-fit:contain;object-position:left center;display:block;}
+        .menu-close{width:42px;height:42px;min-width:42px;flex:0 0 42px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(244,63,94,.12);border:1px solid rgba(244,63,94,.4);font-size:15px;line-height:1;cursor:pointer;padding:0;transition:transform .25s ease,background .25s ease;}
+        .menu-close:hover{transform:rotate(90deg);background:rgba(244,63,94,.22);}
+        .menu-close:active{transform:scale(.92);}
+        .menu-auth{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+        .menu-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:13px 10px;border-radius:50px;font-size:14px;font-weight:700;text-decoration:none;text-align:center;color:#ffffff;transition:transform .2s ease,box-shadow .2s ease;}
+        .menu-btn.primary{background:linear-gradient(135deg,#0066ff,#0050ff);box-shadow:0 8px 20px rgba(0,102,255,.4);}
+        .menu-btn.ghost{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.25);}
+        .menu-btn:active{transform:scale(.96);}
+        .menu-label{margin:26px 0 12px;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#38bdf8;font-weight:700;}
+        .menu-list{display:grid;gap:10px;}
+        .menu-item{display:flex;align-items:center;gap:14px;width:100%;text-align:left;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.10);border-radius:16px;padding:12px 14px;color:#ffffff;cursor:pointer;opacity:0;transform:translateX(18px);transition:border-color .25s ease,background .25s ease;}
+        .menu-overlay.open .menu-item{animation:menuIn .45s cubic-bezier(.22,1,.36,1) forwards;animation-delay:calc(var(--i) * 55ms + 120ms);}
+        @keyframes menuIn{to{opacity:1;transform:translateX(0);}}
+        .menu-item:hover,.menu-item:focus-visible{border-color:rgba(56,189,248,.5);background:rgba(56,189,248,.08);outline:none;}
+        .menu-item:active{background:rgba(56,189,248,.16);}
+        .menu-ico{width:42px;height:42px;min-width:42px;border-radius:12px;background:linear-gradient(135deg,#0066ff,#38bdf8);display:flex;align-items:center;justify-content:center;font-size:17px;color:#ffffff;box-shadow:0 6px 14px rgba(0,102,255,.4);}
+        .menu-text{min-width:0;}
+        .menu-text b{display:block;font-size:14.5px;font-weight:700;}
+        .menu-text small{display:block;margin-top:2px;font-size:12px;color:#94a3b8;}
+        .menu-arrow{margin-left:auto;color:#38bdf8;font-size:12px;}
+        .menu-foot{margin-top:auto;padding-top:26px;text-align:center;font-size:12px;color:#94a3b8;letter-spacing:1px;}
+        .guide-overlay{position:fixed;inset:0;background:rgba(0,9,26,.75);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);z-index:1000001;display:flex;align-items:center;justify-content:center;padding:20px;animation:guideFade .25s ease;}
+        .guide-box{background:linear-gradient(180deg,#001945 0%,#001233 100%);color:#ffffff;max-width:400px;width:100%;max-height:90vh;overflow-y:auto;border-radius:22px;padding:26px 22px 22px;box-shadow:0 20px 60px rgba(0,0,0,.6);border:1px solid rgba(56,189,248,.35);text-align:center;animation:guidePop .3s cubic-bezier(.22,1,.36,1);}
+        .guide-ico{width:56px;height:56px;margin:0 auto 14px;border-radius:16px;background:linear-gradient(135deg,#0066ff,#38bdf8);display:flex;align-items:center;justify-content:center;font-size:24px;color:#ffffff;box-shadow:0 8px 20px rgba(0,102,255,.4);}
+        .guide-box h3{font-size:19px;font-weight:700;margin-bottom:16px;}
+        .guide-steps{list-style:none;counter-reset:gs;text-align:left;display:grid;gap:12px;}
+        .guide-steps li{counter-increment:gs;position:relative;padding-left:40px;font-size:14px;line-height:1.6;color:#cbd5e1;}
+        .guide-steps li::before{content:counter(gs);position:absolute;left:0;top:0;width:28px;height:28px;border-radius:50%;background:rgba(56,189,248,.12);border:1px solid rgba(56,189,248,.4);color:#38bdf8;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;}
+        .guide-steps b{color:#ffffff;}
+        .guide-note{margin-top:16px;padding:12px 14px;border-radius:12px;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);color:#fcd34d;font-size:12.5px;line-height:1.6;text-align:left;}
+        .guide-close{margin-top:18px;width:100%;padding:13px;border:none;border-radius:50px;background:linear-gradient(135deg,#0066ff,#0050ff);color:#ffffff;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 8px 20px rgba(0,102,255,.35);}
+        .guide-close:active{transform:scale(.97);}
+        @keyframes guideFade{from{opacity:0;}to{opacity:1;}}
+        @keyframes guidePop{from{opacity:0;transform:translateY(16px) scale(.97);}to{opacity:1;transform:translateY(0) scale(1);}}
+        @media (prefers-reduced-motion: reduce){
+            .menu-panel,.menu-backdrop,.menu-item,.guide-box,.guide-overlay{transition:none;animation:none;}
+            .menu-overlay.open .menu-item{opacity:1;transform:none;animation:none;}
+        }
     </style>
 </head>
 <body>
@@ -625,29 +800,90 @@
             </div>
         </div>
     </div>
-    
-    <img src="https://i.imgur.com/vQBFHZI.png" alt="Loading Logo" class="loader-logo" id="loaderLogo">
+
+    <img src="https://i.imgur.com/bNK9ccG.png" alt="Loading Logo" class="loader-logo" id="loaderLogo">
     <div class="brand" id="brand">
         Loading<span class="bdot">.</span><span class="bdot">.</span><span class="bdot">.</span>
     </div>
-    
-    <section class="hero-section">
+
+    <div class="menu-overlay" id="menuOverlay" aria-hidden="true">
+        <div class="menu-backdrop" data-close="1"></div>
+        <nav class="menu-panel" role="dialog" aria-modal="true" aria-label="Main menu">
+            <div class="menu-top">
+                <img src="https://i.imgur.com/bNK9ccG.png" alt="AmanData" class="menu-logo">
+                <button type="button" class="menu-close" id="menuClose" aria-label="Close menu">❌</button>
+            </div>
+            <div class="menu-auth">
+                <a href="register.html" class="menu-btn primary" data-auth="1"><i class="fa-solid fa-right-to-bracket"></i> Login</a>
+                <a href="register.html" class="menu-btn ghost" data-auth="1"><i class="fa-solid fa-user-plus"></i> Register</a>
+            </div>
+            <div class="menu-label">Explore</div>
+            <div class="menu-list">
+                <button type="button" class="menu-item" data-target="home" style="--i:0">
+                    <span class="menu-ico"><i class="fa-solid fa-house"></i></span>
+                    <span class="menu-text"><b>Home</b><small>Back to the top</small></span>
+                    <i class="fa-solid fa-chevron-right menu-arrow"></i>
+                </button>
+                <button type="button" class="menu-item" data-target="services" style="--i:1">
+                    <span class="menu-ico"><i class="fa-solid fa-layer-group"></i></span>
+                    <span class="menu-text"><b>Quick Services</b><small>Data, Airtime, Electricity, TV</small></span>
+                    <i class="fa-solid fa-chevron-right menu-arrow"></i>
+                </button>
+                <button type="button" class="menu-item" data-target="electricity" style="--i:2">
+                    <span class="menu-ico"><i class="fa-solid fa-bolt"></i></span>
+                    <span class="menu-text"><b>Electricity Token</b><small>Buy prepaid tokens instantly</small></span>
+                    <i class="fa-solid fa-chevron-right menu-arrow"></i>
+                </button>
+                <button type="button" class="menu-item" data-target="vtu" style="--i:3">
+                    <span class="menu-ico"><i class="fa-solid fa-mobile-screen-button"></i></span>
+                    <span class="menu-text"><b>VTU Services</b><small>Top up in seconds</small></span>
+                    <i class="fa-solid fa-chevron-right menu-arrow"></i>
+                </button>
+                <button type="button" class="menu-item" data-target="offer" style="--i:4">
+                    <span class="menu-ico"><i class="fa-solid fa-wifi"></i></span>
+                    <span class="menu-text"><b>What We Offer</b><small>Services that work for you</small></span>
+                    <i class="fa-solid fa-chevron-right menu-arrow"></i>
+                </button>
+                <button type="button" class="menu-item" data-target="developers" style="--i:5">
+                    <span class="menu-ico"><i class="fa-solid fa-code"></i></span>
+                    <span class="menu-text"><b>For Developers</b><small>Robust API integration</small></span>
+                    <i class="fa-solid fa-chevron-right menu-arrow"></i>
+                </button>
+                <button type="button" class="menu-item" data-target="contact" style="--i:6">
+                    <span class="menu-ico"><i class="fa-solid fa-headset"></i></span>
+                    <span class="menu-text"><b>Contact Us</b><small>We are here to help</small></span>
+                    <i class="fa-solid fa-chevron-right menu-arrow"></i>
+                </button>
+            </div>
+            <div class="menu-foot">Secure • Fast • Reliable</div>
+        </nav>
+    </div>
+
+    <section class="hero-section" id="home">
         <div class="header-container">
-            <img src="image/logo.png" alt="AmanData" class="logo" loading="eager">
-                                              
-            <div id="pwaInstallContainer" class="pwa-header-install" style="display: flex;" title="Download App">
-    <i class="fa-solid fa-download"></i>
-</div>
+            <div id="pwaInstallContainer" class="pwa-header-install" style="display: flex;" title="Download App" role="button" tabindex="0" aria-label="Download App">
+                <i class="fa-solid fa-download"></i>
+            </div>
+            <div class="welcome-chip" id="welcomeChip" role="img" aria-label="Welcome">
+                <span class="wc-text" aria-hidden="true"><span style="--d:0">W</span><span style="--d:1">e</span><span style="--d:2">l</span><span style="--d:3">c</span><span style="--d:4">o</span><span style="--d:5">m</span><span style="--d:6">e</span></span>
+                <span class="wc-line"></span>
+            </div>
+            <button type="button" class="menu-toggle" id="menuToggle" aria-label="Open menu" aria-expanded="false">
+                <i class="fa-solid fa-bars"></i>
+            </button>
         </div>
+        <a href="./" class="brand-link" aria-label="AmanData home">
+            <img src="image/logo.png" alt="AmanData" class="logo" loading="eager" decoding="async" fetchpriority="high">
+        </a>
         <div class="girl-container">
-            <img src="https://i.imgur.com/0COsVQ7.png" alt="" class="girl-img" loading="eager">
+            <img src="https://i.imgur.com/0COsVQ7.png" alt="" class="girl-img" loading="eager" decoding="async" fetchpriority="high">
         </div>
     </section>
     <div class="white-card">
         <h1 class="welcome-title">Welcome to <span>AmanData</span></h1>
         <p class="welcome-subtitle">Buy Data, Airtime, Pay Bills & Enjoy More with AmanData.</p>
-        
-        <div class="icon-grid">
+
+        <div class="icon-grid" id="services">
             <div class="icon-item">
                 <div class="icon-box data"><i class="fa-solid fa-database"></i></div>
                 <span class="icon-label">Data</span>
@@ -665,75 +901,75 @@
                 <span class="icon-label">TV Sub</span>
             </div>
         </div>
-        
+
         <a href="register.html" class="btn-get-started" id="btnGetStarted">
             Get Started <i class="fa-solid fa-arrow-right"></i>
         </a>
         <div class="store-row">
             <a href="#" class="store-link" data-url="" onclick="handleStore(this);return false;">
-                <img src="https://i.imgur.com/QKoyLU8.jpeg" alt="Download on Google Play" class="store-btn" loading="lazy">
+                <img src="https://i.imgur.com/QKoyLU8.jpeg" alt="Download on Google Play" class="store-btn" loading="lazy" decoding="async">
             </a>
             <a href="#" class="store-link" data-url="" onclick="handleStore(this);return false;">
-                <img src="https://i.imgur.com/c1HN6u7.jpeg" alt="Download on the App Store" class="store-btn" loading="lazy">
+                <img src="https://i.imgur.com/c1HN6u7.jpeg" alt="Download on the App Store" class="store-btn" loading="lazy" decoding="async">
             </a>
         </div>
         <div class="tagline">Secure • Fast • Reliable</div>
         <div class="net-img-container">
-            <img src="https://i.imgur.com/zb9gSgx.png" alt="Network Grid" class="net-img" loading="lazy">
+            <img src="https://i.imgur.com/zb9gSgx.png" alt="Network Grid" class="net-img" loading="lazy" decoding="async">
         </div>
-        
-        <section class="aman-section">
+
+        <section class="aman-section" id="electricity">
             <div class="aman-card">
-                <img class="aman-image" src="https://i.imgur.com/BXY2PXJ.jpeg" alt="AmanData Electricity Token">
+                <img class="aman-image" src="https://i.imgur.com/BXY2PXJ.jpeg" alt="AmanData Electricity Token" loading="lazy" decoding="async">
                 <div class="aman-content">
                     <h2 class="aman-title">Buy Electricity Token Instantly</h2>
                     <p class="aman-desc">
                         Purchase your prepaid electricity token quickly and securely with AmanData.
                         Enter your meter number, make payment, and receive your token instantly anytime, anywhere.
                     </p>
-                    <a href="register.html" class="aman-btn">
+                    <a href="register.html" class="aman-btn" data-auth="1">
                         Buy Electricity Token
                     </a>
                 </div>
             </div>
         </section>
-        
+
         <div class="business-section">
             <div class="wazobia-board" id="wazobiaBoard">
-                <div class="wazobia-text" id="wazobiaText">Fund your wallet instantly with zero fees. Save, deposit and withdraw money automatically. Convert your excess airtime to instant cash. Get cheap, high-speed and quality data bundles anytime.</div>
+                <div class="wazobia-text" id="wazobiaText">Fund your wallet instantly and securely, with a small 1% processing charge on deposits that keeps every payment fast and reliable. Save, deposit and withdraw money with ease. Convert your excess airtime to instant cash. Get cheap, high-speed and quality data bundles anytime.</div>
             </div>
         </div>
-        
+
         <div class="tech-img-container">
-            <img src="https://i.imgur.com/TYSsWTB.jpeg" alt="AmanData Technology" class="tech-img" loading="lazy">
+            <img src="https://i.imgur.com/TYSsWTB.jpeg" alt="AmanData Technology" class="tech-img" loading="lazy" decoding="async">
         </div>
-        
+
         <div class="developer-section">
             <div class="dev-icon"><i class="fa-solid fa-code"></i></div>
             <h2 class="dev-title">For Developers</h2>
             <p class="dev-subtitle">We offer robust, lightning-fast and straightforward API documentation for seamless integration.</p>
             <div class="tech-img-container">
-                <img src="https://i.imgur.com/Sm8GWk2.png" alt="AmanData Technology" class="tech-img" loading="lazy">
+                <img src="https://i.imgur.com/Sm8GWk2.png" alt="AmanData Technology" class="tech-img" loading="lazy" decoding="async">
             </div>
             <div class="download-container">
-                <img src="https://i.imgur.com/5Ktqg0D.png" alt="Download on Google Play" class="download-btn" onclick="window.location.href='#'" loading="lazy">
-                <img src="https://i.imgur.com/tuCNOYq.png" alt="Download on App Store" class="download-btn" onclick="window.location.href='#'" loading="lazy">
+                <img src="https://i.imgur.com/5Ktqg0D.png" alt="Download on Google Play" class="download-btn" onclick="window.location.href='#'" loading="lazy" decoding="async">
+                <img src="https://i.imgur.com/tuCNOYq.png" alt="Download on App Store" class="download-btn" onclick="window.location.href='#'" loading="lazy" decoding="async">
             </div>
         </div>
     </div>
-    
-    <section class="page-section">
+
+    <section class="page-section" id="vtu">
         <div class="section-head">
             <span class="eyebrow">VTU Services</span>
             <h2>Top Up in Seconds</h2>
             <p>Fast, secure value top-up for all networks, anytime and anywhere.</p>
         </div>
         <div class="vtu-wrap">
-            <img src="https://i.imgur.com/U5j25OV.jpeg" alt="AmanData VTU Services" class="vtu-img" loading="lazy">
+            <img src="https://i.imgur.com/U5j25OV.jpeg" alt="AmanData VTU Services" class="vtu-img" loading="lazy" decoding="async">
         </div>
     </section>
-    
-    <section class="page-section">
+
+    <section class="page-section" id="offer">
         <div class="section-head">
             <span class="eyebrow">What We Offer</span>
             <h2>Services That Work for You</h2>
@@ -742,7 +978,7 @@
         <div class="feat-grid">
             <div class="feat-card">
                 <span class="feat-num">01</span>
-                <img src="https://i.imgur.com/lYJ0oIO.jpeg" alt="Premium Card Printing" class="feat-img" loading="lazy">
+                <img src="https://i.imgur.com/lYJ0oIO.jpeg" alt="Premium Card Printing" class="feat-img" loading="lazy" decoding="async">
                 <div class="feat-body">
                     <div class="feat-ico"><i class="fa-solid fa-id-card"></i></div>
                     <h3>Airtime to Cash </h3>
@@ -752,7 +988,7 @@
             </div>
             <div class="feat-card">
                 <span class="feat-num">02</span>
-                <img src="https://i.imgur.com/d1XGDnb.jpeg" alt="Application Fee Payments" class="feat-img" loading="lazy">
+                <img src="https://i.imgur.com/d1XGDnb.jpeg" alt="Application Fee Payments" class="feat-img" loading="lazy" decoding="async">
                 <div class="feat-body">
                     <div class="feat-ico"><i class="fa-solid fa-file-invoice-dollar"></i></div>
                     <h3>Bill Fee Payments</h3>
@@ -762,8 +998,7 @@
             </div>
             <div class="feat-card">
                 <span class="feat-num">03</span>
-                
-                <img src="https://i.imgur.com/oetsOZr.jpeg" alt="Instant Data and Airtime" class="feat-img" loading="lazy">
+                <img src="https://i.imgur.com/oetsOZr.jpeg" alt="Instant Data and Airtime" class="feat-img" loading="lazy" decoding="async">
                 <div class="feat-body">
                     <div class="feat-ico"><i class="fa-solid fa-wifi"></i></div>
                     <h3>Instant Data &amp; Airtime</h3>
@@ -773,7 +1008,7 @@
             </div>
             <div class="feat-card">
                 <span class="feat-num">04</span>
-                <img src="https://i.imgur.com/bho84LC.jpeg" alt="Bills and Subscriptions" class="feat-img" loading="lazy">
+                <img src="https://i.imgur.com/bho84LC.jpeg" alt="Bills and Subscriptions" class="feat-img" loading="lazy" decoding="async">
                 <div class="feat-body">
                     <div class="feat-ico"><i class="fa-solid fa-tv"></i></div>
                     <h3>TV Subscriptions</h3>
@@ -783,15 +1018,15 @@
             </div>
         </div>
     </section>
-    
-    <section class="page-section">
+
+    <section class="page-section" id="developers">
         <div class="section-head">
             <span class="eyebrow">For Developers</span>
             <h2>Robust API Integration</h2>
             <p>Build your platform with our fast, secure and reliable API.</p>
         </div>
         <div class="api-card">
-            <img src="https://i.imgur.com/e5FrFK9.jpeg" alt="AmanData API" class="api-img" loading="lazy">
+            <img src="https://i.imgur.com/e5FrFK9.jpeg" alt="AmanData API" class="api-img" loading="lazy" decoding="async">
             <div class="api-body">
                 <p>Get dedicated API access, documentation and full support to integrate AmanData into your platform seamlessly.</p>
                 <a href="https://wa.me/2348166836059?text=Hello%20AmanData%2C%20I%20want%20to%20get%20access%20to%20your%20API" target="_blank" rel="noopener" class="wa-btn">
@@ -800,8 +1035,8 @@
             </div>
         </div>
     </section>
-    
-    <section class="page-section corp-section">
+
+    <section class="page-section corp-section" id="contact">
         <div class="section-head">
             <span class="eyebrow">Contact Us</span>
             <h2>We're Here to Help</h2>
@@ -829,240 +1064,353 @@
                     <h4>Phone Support</h4>
                     <a href="tel:+2348087311654">08087311654</a>
                     <p>Call or message us on WhatsApp during business hours.</p>
-                    
-                    
-                    <h4>Email Support</h4>
-                    <a href="tel:+2348087311654">amandataapp@gmail.com </a>
-                    <p>Send message us on  during business hours.</p>
-                                       
-                    
+
+                    <h4 style="margin-top:16px;">Email Support</h4>
+                    <a href="mailto:amandataapp@gmail.com">amandataapp@gmail.com</a>
+                    <p>Send us a message by email during business hours.</p>
                 </div>
             </div>
         </div>
         <div class="map-frame">
-            <iframe src="https://maps.google.com/maps?q=No%2011%2C%20100%20Housing%20Estate%2C%20Gusau%2C%20Zamfara%2C%20Nigeria&t=&z=15&ie=UTF8&iwloc=&output=embed" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen title="AmanData Office Location"></iframe>
+            <iframe data-src="https://maps.google.com/maps?q=No%2011%2C%20100%20Housing%20Estate%2C%20Gusau%2C%20Zamfara%2C%20Nigeria&t=&z=15&ie=UTF8&iwloc=&output=embed" referrerpolicy="no-referrer-when-downgrade" allowfullscreen title="AmanData Office Location"></iframe>
         </div>
         <a class="dir-btn" href="https://www.google.com/maps/dir/?api=1&destination=No%2011%2C%20100%20Housing%20Estate%2C%20Gusau%2C%20Zamfara%2C%20Nigeria" target="_blank" rel="noopener">
             <i class="fa-solid fa-map-location-dot"></i> Get Directions
         </a>
     </section>
-    
+
     <footer>
         <p>&copy; 2026 AmanData Platform. All Rights Reserved.</p>
     </footer>
     <div id="pd-whatsapp-widget" class="pd-whatsapp-widget">
         <div class="pd-wa-pulse-ring"></div>
-        <a href="https://wa.me/2347060739494?text=I%20am%20in%20need%20of%20help%20from%20the%20AmanData%20app" 
-           target="_blank" 
-           class="pd-wa-link" 
+        <a href="https://wa.me/2347060739494?text=I%20am%20in%20need%20of%20help%20from%20the%20AmanData%20app"
+           target="_blank"
+           class="pd-wa-link"
            id="pd-wa-link"
            draggable="false">
             <img src="image/whatsapp.png" alt="WhatsApp Support" class="pd-wa-icon" draggable="false">
         </a>
     </div>
-    
-    
-    
-   
-    <script>
-        document.addEventListener("DOMContentLoaded", () => {
-            setTimeout(() => {
-                document.getElementById('liquid').classList.add('fill');
-            }, 100);
-        });
-        window.addEventListener('load', () => {
-            setTimeout(() => {
-                const liq = document.getElementById('liquid');
-                liq.style.transition = 'height 1.2s cubic-bezier(0.4, 0, 0.2, 1)';
-                liq.style.height = '0%';
-                
-                document.getElementById('brand').classList.add('hide');
-                document.getElementById('loaderLogo').classList.add('hide');
-                document.getElementById('loadingScene').classList.add('hide');
-            }, 1500);
-        });
-        
-        let deferredPrompt;
-        const installBtnContainer = document.getElementById('pwaInstallContainer');
-        
-        window.addEventListener('beforeinstallprompt', (e) => {
-            e.preventDefault();
-            deferredPrompt = e;
-        });
-        
-        if (installBtnContainer) {
-            installBtnContainer.addEventListener('click', async () => {
-                if (!deferredPrompt) return;
-                deferredPrompt.prompt();
-                const { outcome } = await deferredPrompt.userChoice;
-                if (outcome === 'accepted') {
-                    installBtnContainer.style.display = 'none';
-                }
-                deferredPrompt = null;
-            });
-        }
-        
-        window.addEventListener('appinstalled', () => {
-            if (installBtnContainer) {
-                installBtnContainer.style.display = 'none';
-            }
-            deferredPrompt = null;
-        });
-    </script>
-    
-    
-    <script>
-(function() {
-    var urlParams = new URLSearchParams(window.location.search);
-    var ua = navigator.userAgent || '';
-    var isIOS = /iphone|ipad|ipod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-    var isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true || window.matchMedia('(display-mode: window-controls-overlay)').matches;
-    var isAppMode = urlParams.get('mode') === 'app' || ua.indexOf('AmanDataAppInside') !== -1 || isStandalone;
 
-    var refCode = '';
-    if (window.location.pathname.indexOf('/ref/') !== -1) {
-        var parts = window.location.pathname.split('/ref/');
-        if (parts[1]) refCode = parts[1].replace('/', '');
-    } else if (urlParams.has('ref')) {
-        refCode = urlParams.get('ref');
-    }
-
-    var targetPage = refCode ? 'register.html?ref=' + encodeURIComponent(refCode) : 'register.html';
-
-    if (isAppMode) {
-        window.location.replace(targetPage);
-        return;
-    }
-
-    var startBtn = document.getElementById('btnGetStarted');
-    if (startBtn) {
-        startBtn.setAttribute('href', targetPage);
-    }
-
-    var messages = [
-        "Fund your wallet instantly with zero charges. Save, deposit, and withdraw money with ease. Convert your unused airtime into instant cash. Enjoy affordable, high-speed, and reliable data bundles anytime with AmanData.",
-        "Saka kuɗi a asusunka cikin sauri ba tare da an cire maka ko sisi ba. Ajiye, saka, da cire kuɗi cikin sauƙi. Maida airtime ɗinka zuwa tsabar kuɗi nan take. Samu data mai araha, sauri, kuma ingantacciya a kowane lokaci tare da AmanData.",
-        "Fi owo kun wallet rẹ lẹsẹkẹsẹ lai san owo afikun kankan. Fipamọ, fi owo kun, ki o si yọ owo rẹ ni irọrun. Yi airtime rẹ pada si owo gidi lẹsẹkẹsẹ. Gba data to din owo, yara, ati didara ga nigbakugba pẹlu AmanData.",
-        "Tinye ego na wallet gị ozugbo n'enweghị ụgwọ ọ bụla. Chekwaa ego, tinye ego ma dọrọ ego gị n'ụzọ dị mfe. Gbanwee airtime gị ka ọ bụrụ ego ozugbo. Nweta data dị ọnụ ala, dị ngwa, ma dị mma oge ọ bụla site na AmanData."
-    ];
-    var currentIndex = 0;
-    var isPaused = false;
-    var textElement = document.getElementById('wazobiaText');
-    var boardElement = document.getElementById('wazobiaBoard');
-
-    if (textElement && boardElement) {
-        var rotateText = function() {
-            if (!isPaused) {
-                currentIndex = (currentIndex + 1) % messages.length;
-                textElement.textContent = messages[currentIndex];
-            }
-        };
-        setInterval(rotateText, 5000);
-        boardElement.addEventListener('touchstart', function() { isPaused = true; });
-        boardElement.addEventListener('touchend', function() { isPaused = false; });
-        boardElement.addEventListener('mousedown', function() { isPaused = true; });
-        boardElement.addEventListener('mouseup', function() { isPaused = false; });
-    }
-
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', function() {
-            navigator.serviceWorker.register('./sw.js').catch(function() {});
-        });
-    }
-
-    var deferredPrompt = null;
-    var installContainer = document.getElementById('pwaInstallContainer');
-
-    var buildGuide = function() {
-        var overlay = document.createElement('div');
-        overlay.setAttribute('style', 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:999999;display:flex;align-items:center;justify-content:center;padding:20px;');
-
-        var box = document.createElement('div');
-        box.setAttribute('style', 'background:#001233;color:#ffffff;max-width:400px;width:100%;border-radius:16px;padding:22px;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;box-shadow:0 10px 40px rgba(0,0,0,0.6);border:1px solid #0066ff;');
-
-        var title = document.createElement('h3');
-        title.textContent = 'Sanya AmanData App';
-        title.setAttribute('style', 'margin:0 0 14px;font-size:19px;color:#0066ff;text-align:center;');
-        box.appendChild(title);
-
-        var body = document.createElement('div');
-        body.setAttribute('style', 'font-size:14.5px;line-height:1.7;');
-
-        if (isIOS) {
-            body.innerHTML = '1. Danna maɓallin <b>Share</b> a ƙasan Safari (square mai kibiya sama).<br>2. Zabi <b>Add to Home Screen</b>.<br>3. Danna <b>Add</b> a kusurwa ta sama.<br><br>App ɗin zai bayyana a allon wayarka kamar app na yau da kullum.';
-        } else {
-            body.innerHTML = '1. Danna maɓallin <b>menu</b> (digiri uku a kusurwa ta sama).<br>2. Zabi <b>Install app</b> ko <b>Add to Home screen</b>.<br>3. Danna <b>Install</b> don tabbatarwa.<br><br>Idan ba ka gani ba, duba cewa ka buɗe shafin a <b>Chrome</b>, <b>Edge</b>, ko <b>Samsung Internet</b>.';
-        }
-        box.appendChild(body);
-
-        var closeBtn = document.createElement('button');
-        closeBtn.textContent = 'Na Gane';
-        closeBtn.setAttribute('style', 'margin-top:18px;width:100%;padding:12px;border:none;border-radius:10px;background:#0066ff;color:#ffffff;font-size:15px;font-weight:600;cursor:pointer;');
-        box.appendChild(closeBtn);
-
-        overlay.appendChild(box);
-        document.body.appendChild(overlay);
-
-        var removeOverlay = function() {
-            if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
-        };
-        closeBtn.addEventListener('click', removeOverlay);
-        overlay.addEventListener('click', function(e) {
-            if (e.target === overlay) removeOverlay();
-        });
-    };
-
-    window.addEventListener('beforeinstallprompt', function(e) {
-        e.preventDefault();
-        deferredPrompt = e;
-        if (installContainer) installContainer.style.display = 'flex';
-    });
-
-    if (installContainer) {
-        installContainer.style.display = 'flex';
-        installContainer.style.cursor = 'pointer';
-        installContainer.addEventListener('click', function() {
-            if (deferredPrompt) {
-                deferredPrompt.prompt();
-                deferredPrompt.userChoice.then(function() {
-                    deferredPrompt = null;
-                });
-            } else {
-                buildGuide();
-            }
-        });
-    }
-
-    window.addEventListener('appinstalled', function() {
-        deferredPrompt = null;
-        if (installContainer) installContainer.style.display = 'none';
-    });
-
-    if (isStandalone && installContainer) {
-        installContainer.style.display = 'none';
-    }
-})();
-</script>
     <script>
         function handleStore(el) {
-            const url = el.getAttribute('data-url');
+            var url = el.getAttribute('data-url');
             if (url && url !== '' && url !== '#') {
                 window.open(url, '_blank', 'noopener');
             } else {
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             }
         }
-        (function() {
-            const now = new Date();
-            const hours = now.getHours() + now.getMinutes() / 60;
-            const isOpen = hours >= 7 && hours < 22;
-            const pill = document.getElementById('openPill');
-            const status = document.getElementById('openStatus');
-            if (isOpen) {
+
+        (function () {
+            var cfg = window.__amd || { target: 'register.html', standalone: false, app: false };
+            if (cfg.app) return;
+            var ua = navigator.userAgent || '';
+
+            var scene = document.getElementById('loadingScene');
+            var liquid = document.getElementById('liquid');
+            var brand = document.getElementById('brand');
+            var loaderLogo = document.getElementById('loaderLogo');
+            var finished = false;
+            var startedAt = Date.now();
+
+            function removeLoader() {
+                [scene, brand, loaderLogo].forEach(function (n) {
+                    if (n && n.parentNode) n.parentNode.removeChild(n);
+                });
+            }
+
+            function finishLoader() {
+                if (finished) return;
+                finished = true;
+                if (liquid) liquid.style.height = '0%';
+                if (brand) brand.classList.add('hide');
+                if (loaderLogo) loaderLogo.classList.add('hide');
+                if (scene) scene.classList.add('hide');
+                var chip = document.getElementById('welcomeChip');
+                if (chip) chip.classList.add('play');
+                setTimeout(removeLoader, 600);
+            }
+
+            function scheduleFinish() {
+                var wait = Math.max(0, 450 - (Date.now() - startedAt));
+                setTimeout(finishLoader, wait);
+            }
+
+            requestAnimationFrame(function () {
+                if (liquid) liquid.classList.add('fill');
+            });
+
+            var firstImages = [document.querySelector('.hero-section .logo'), document.querySelector('.girl-img')];
+            var pending = 0;
+            function oneDone() {
+                pending--;
+                if (pending <= 0) scheduleFinish();
+            }
+            firstImages.forEach(function (img) {
+                if (img && !img.complete) {
+                    pending++;
+                    img.addEventListener('load', oneDone);
+                    img.addEventListener('error', oneDone);
+                }
+            });
+            if (pending === 0) scheduleFinish();
+            setTimeout(finishLoader, 10000);
+
+            var startBtn = document.getElementById('btnGetStarted');
+            if (startBtn) startBtn.setAttribute('href', cfg.target);
+            var authLinks = document.querySelectorAll('[data-auth]');
+            for (var a = 0; a < authLinks.length; a++) {
+                authLinks[a].setAttribute('href', cfg.target);
+            }
+
+            var overlay = document.getElementById('menuOverlay');
+            var toggle = document.getElementById('menuToggle');
+            var closeBtn = document.getElementById('menuClose');
+
+            function openMenu() {
+                overlay.classList.add('open');
+                overlay.setAttribute('aria-hidden', 'false');
+                document.body.classList.add('menu-open');
+                toggle.setAttribute('aria-expanded', 'true');
+                setTimeout(function () { closeBtn.focus(); }, 60);
+            }
+
+            function closeMenu() {
+                if (!overlay.classList.contains('open')) return;
+                overlay.classList.remove('open');
+                overlay.setAttribute('aria-hidden', 'true');
+                document.body.classList.remove('menu-open');
+                toggle.setAttribute('aria-expanded', 'false');
+            }
+
+            function goTo(id) {
+                closeMenu();
+                setTimeout(function () {
+                    if (id === 'home') {
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                        return;
+                    }
+                    var el = document.getElementById(id);
+                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 280);
+            }
+
+            toggle.addEventListener('click', openMenu);
+            closeBtn.addEventListener('click', function () {
+                closeMenu();
+                toggle.focus();
+            });
+            overlay.addEventListener('click', function (e) {
+                if (e.target && e.target.getAttribute && e.target.getAttribute('data-close') === '1') closeMenu();
+                var item = e.target.closest ? e.target.closest('.menu-item') : null;
+                if (item) goTo(item.getAttribute('data-target'));
+                var auth = e.target.closest ? e.target.closest('.menu-btn') : null;
+                if (auth) closeMenu();
+            });
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape') closeMenu();
+            });
+
+            var messages = [
+                "Fund your wallet instantly and securely, with a small 1% processing charge on deposits that keeps every payment fast and reliable. Save, deposit and withdraw money with ease. Convert your unused airtime into instant cash. Enjoy affordable, high-speed data bundles anytime with AmanData.",
+                "Saka kuɗi a asusunka cikin sauri da tsaro, tare da ƙaramin kuɗin sarrafawa na 1% a kan kowane saka kuɗi domin kowane biyan kuɗi ya yi sauri kuma ya tabbata. Ajiye, saka, da cire kuɗi cikin sauƙi. Maida airtime ɗinka zuwa tsabar kuɗi nan take. Samu data mai araha, sauri, kuma ingantacciya a kowane lokaci tare da AmanData.",
+                "Fi owo kun wallet rẹ lẹsẹkẹsẹ ati lailewu, pẹlu owo iṣẹ kekere 1% lori fifi owo kun kọọkan ki gbogbo sisanwo le yara ki o si ni igbẹkẹle. Fipamọ, fi owo kun, ki o si yọ owo rẹ ni irọrun. Yi airtime rẹ pada si owo gidi lẹsẹkẹsẹ. Gba data to din owo, yara, ati didara ga nigbakugba pẹlu AmanData.",
+                "Tinye ego na wallet gị ozugbo ma n'enweghị nsogbu, ya na obere ụgwọ ọrụ 1% n'ịtinye ego ọ bụla ka ịkwụ ụgwọ ọ bụla dị ngwa ma pụta ìhè. Chekwaa ego, tinye ego ma dọrọ ego gị n'ụzọ dị mfe. Gbanwee airtime gị ka ọ bụrụ ego ozugbo. Nweta data dị ọnụ ala, dị ngwa, ma dị mma oge ọ bụla site na AmanData."
+            ];
+            var currentIndex = 0;
+            var isPaused = false;
+            var textElement = document.getElementById('wazobiaText');
+            var boardElement = document.getElementById('wazobiaBoard');
+
+            if (textElement && boardElement) {
+                setInterval(function () {
+                    if (!isPaused) {
+                        currentIndex = (currentIndex + 1) % messages.length;
+                        textElement.textContent = messages[currentIndex];
+                    }
+                }, 6000);
+                boardElement.addEventListener('touchstart', function () { isPaused = true; }, { passive: true });
+                boardElement.addEventListener('touchend', function () { isPaused = false; });
+                boardElement.addEventListener('mousedown', function () { isPaused = true; });
+                boardElement.addEventListener('mouseup', function () { isPaused = false; });
+            }
+
+            if ('serviceWorker' in navigator) {
+                window.addEventListener('load', function () {
+                    navigator.serviceWorker.register('./sw.js').catch(function () {});
+                });
+            }
+
+            var isIOS = /iphone|ipad|ipod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+            var isAndroid = /android/i.test(ua);
+            var isInApp = /FBAN|FBAV|FB_IAB|Instagram|Line\/|MicroMessenger|Snapchat|TikTok|Twitter|WhatsApp|; wv\)/i.test(ua);
+            var deferredPrompt = null;
+            var installContainer = document.getElementById('pwaInstallContainer');
+
+            function guideContent() {
+                var generalNote = 'No install option showing? Open this page in Chrome, Edge, Safari or Samsung Internet.';
+                if (isInApp) {
+                    return {
+                        icon: 'fa-globe',
+                        title: 'Open in Your Browser',
+                        steps: [
+                            'Tap the <b>menu</b> or <b>share</b> icon inside this app.',
+                            'Choose <b>Open in browser</b> (Chrome on Android, Safari on iPhone).',
+                            'Tap the download icon again to install AmanData.'
+                        ],
+                        note: 'This in-app browser does not allow installing apps.'
+                    };
+                }
+                if (isIOS) {
+                    var safari = /safari/i.test(ua) && !/crios|fxios|edgios|opios|duckduckgo/i.test(ua);
+                    if (!safari) {
+                        return {
+                            icon: 'fa-compass',
+                            title: 'Open in Safari',
+                            steps: [
+                                'Copy the link of this page.',
+                                'Open <b>Safari</b> and paste the link.',
+                                'Tap <b>Share</b>, then <b>Add to Home Screen</b>.'
+                            ],
+                            note: 'iPhone and iPad only allow installing apps from Safari.'
+                        };
+                    }
+                    return {
+                        icon: 'fa-download',
+                        title: 'Install AmanData',
+                        steps: [
+                            'Tap the <b>Share</b> button at the bottom of Safari.',
+                            'Scroll down and tap <b>Add to Home Screen</b>.',
+                            'Tap <b>Add</b> at the top right corner.'
+                        ],
+                        note: 'AmanData will appear on your home screen like any other app.'
+                    };
+                }
+                if (isAndroid) {
+                    return {
+                        icon: 'fa-download',
+                        title: 'Install AmanData',
+                        steps: [
+                            'Tap the <b>menu</b> icon (three dots) at the top of your browser.',
+                            'Choose <b>Install app</b> or <b>Add to Home screen</b>.',
+                            'Tap <b>Install</b> to confirm.'
+                        ],
+                        note: generalNote
+                    };
+                }
+                return {
+                    icon: 'fa-download',
+                    title: 'Install AmanData',
+                    steps: [
+                        'Look for the <b>install icon</b> at the right end of the address bar.',
+                        'Click it, then choose <b>Install</b>.',
+                        'You can also open the browser menu and choose <b>Install AmanData</b>.'
+                    ],
+                    note: generalNote
+                };
+            }
+
+            function showGuide() {
+                if (document.querySelector('.guide-overlay')) return;
+                var c = guideContent();
+                var overlayEl = document.createElement('div');
+                overlayEl.className = 'guide-overlay';
+                var box = document.createElement('div');
+                box.className = 'guide-box';
+                var html = '<div class="guide-ico"><i class="fa-solid ' + c.icon + '"></i></div>';
+                html += '<h3>' + c.title + '</h3><ol class="guide-steps">';
+                for (var i = 0; i < c.steps.length; i++) html += '<li>' + c.steps[i] + '</li>';
+                html += '</ol><div class="guide-note">' + c.note + '</div>';
+                box.innerHTML = html;
+                var btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'guide-close';
+                btn.textContent = 'Got it';
+                box.appendChild(btn);
+                overlayEl.appendChild(box);
+                document.body.appendChild(overlayEl);
+                function remove() {
+                    if (overlayEl.parentNode) overlayEl.parentNode.removeChild(overlayEl);
+                }
+                btn.addEventListener('click', remove);
+                overlayEl.addEventListener('click', function (e) {
+                    if (e.target === overlayEl) remove();
+                });
+            }
+
+            window.addEventListener('beforeinstallprompt', function (e) {
+                e.preventDefault();
+                deferredPrompt = e;
+                if (installContainer) installContainer.style.display = 'flex';
+            });
+
+            function handleInstall() {
+                if (deferredPrompt) {
+                    var dp = deferredPrompt;
+                    deferredPrompt = null;
+                    dp.prompt();
+                    dp.userChoice.then(function (choice) {
+                        if (choice && choice.outcome === 'accepted' && installContainer) {
+                            installContainer.style.display = 'none';
+                        }
+                    }).catch(function () {});
+                } else {
+                    showGuide();
+                }
+            }
+
+            if (installContainer) {
+                installContainer.style.display = 'flex';
+                installContainer.addEventListener('click', handleInstall);
+                installContainer.addEventListener('keydown', function (e) {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handleInstall();
+                    }
+                });
+                if (cfg.standalone) installContainer.style.display = 'none';
+            }
+
+            window.addEventListener('appinstalled', function () {
+                deferredPrompt = null;
+                if (installContainer) installContainer.style.display = 'none';
+            });
+
+            var now = new Date();
+            var hours = now.getHours() + now.getMinutes() / 60;
+            var pill = document.getElementById('openPill');
+            var status = document.getElementById('openStatus');
+            if (hours >= 7 && hours < 22) {
                 status.textContent = 'Open Now - Closes at 10:00 PM';
             } else {
                 pill.classList.add('closed');
                 status.textContent = 'Closed Now - Opens at 7:00 AM';
+            }
+
+            var frame = document.querySelector('.map-frame iframe');
+            if (frame) {
+                var loadMap = function () {
+                    var src = frame.getAttribute('data-src');
+                    if (src) {
+                        frame.setAttribute('src', src);
+                        frame.removeAttribute('data-src');
+                    }
+                };
+                if ('IntersectionObserver' in window) {
+                    var io = new IntersectionObserver(function (entries) {
+                        entries.forEach(function (en) {
+                            if (en.isIntersecting) {
+                                loadMap();
+                                io.disconnect();
+                            }
+                        });
+                    }, { rootMargin: '400px' });
+                    io.observe(frame);
+                } else {
+                    loadMap();
+                }
             }
         })();
     </script>
