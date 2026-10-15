@@ -1,10 +1,8 @@
-
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>AmanData - Enterprise Dashboard</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -44,11 +42,10 @@ body {
     flex-direction: column;
     box-shadow: 0 0 30px rgba(0,0,0,0.08);
     position: relative;
-    padding-bottom: 90px;
+    padding-bottom: 100px;
 }
 .dashboard-header {
     background: linear-gradient(135deg, #0055ff 0%, #0022aa 100%);
-     
     padding: 20px 20px 460px 20px;
     color: #ffffff;
     position: absolute;
@@ -171,10 +168,9 @@ body {
     font-size: 28px;
     font-weight: 800;
     color: black;
-    
 }
 .balance-visibility-toggle {
-    color: #94a3b8;
+    color: black;
     cursor: pointer;
     font-size: 18px;
     padding: 4px;
@@ -254,6 +250,20 @@ body {
     border-radius: 50%;
     box-shadow: 0 2px 6px rgba(0,0,0,0.04);
 }
+.accounts-empty {
+    text-align: center;
+    padding: 10px;
+    font-size: 12px;
+    color: #64748b;
+    font-weight: 500;
+}
+.fee-note {
+    margin-top: 12px;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 600;
+    color: #334155;
+}
 .advertising-container {
     margin-top: 25px;
     width: 100%;
@@ -281,46 +291,101 @@ body {
 }
 .services-grid-layout {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 20px 10px;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 12px;
 }
 .service-anchor-node {
+    --rgb: 0, 102, 255;
+    position: relative;
+    grid-column: span 2;
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
+    gap: 9px;
+    padding: 16px 6px 14px;
     text-decoration: none;
     text-align: center;
-}
-.service-icon-frame {
-    width: 62px;
-    height: 62px;
+    overflow: hidden;
     border-radius: 20px;
-    background: #ffffff;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.03);
-    border: 1px solid #e2e8f0;
+    background: linear-gradient(145deg, #ffffff 0%, rgba(var(--rgb), 0.12) 100%);
+    border: 2px solid rgba(var(--rgb), 0.45);
+    box-shadow: 0 8px 18px rgba(var(--rgb), 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.service-anchor-node::after {
+    content: "";
+    position: absolute;
+    top: -22px;
+    right: -22px;
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: rgba(var(--rgb), 0.12);
+    pointer-events: none;
+}
+.service-anchor-node.wide {
+    grid-column: span 3;
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 14px;
+    padding: 14px 16px;
+    text-align: left;
+}
+.service-anchor-node:hover {
+    transform: translateY(-3px);
+    border-color: rgba(var(--rgb), 0.85);
+    box-shadow: 0 12px 24px rgba(var(--rgb), 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+.service-anchor-node:active {
+    transform: scale(0.96);
+}
+.service-anchor-node.srv-data { --rgb: 0, 102, 255; }
+.service-anchor-node.srv-airtime { --rgb: 16, 185, 129; }
+.service-anchor-node.srv-electric { --rgb: 245, 158, 11; }
+.service-anchor-node.srv-tv { --rgb: 139, 92, 246; }
+.service-anchor-node.srv-exam { --rgb: 244, 63, 94; }
+.service-anchor-node.srv-referral { --rgb: 6, 182, 212; }
+.service-anchor-node.srv-api { --rgb: 99, 102, 241; }
+.service-icon-frame {
+    position: relative;
+    z-index: 1;
+    width: 50px;
+    height: 50px;
+    min-width: 50px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, rgb(var(--rgb)) 0%, rgba(var(--rgb), 0.72) 100%);
+    color: #ffffff;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 24px;
-    margin-bottom: 8px;
-    transition: all 0.2s;
+    font-size: 21px;
+    box-shadow: 0 6px 14px rgba(var(--rgb), 0.38);
 }
-.service-anchor-node:active .service-icon-frame {
-    transform: scale(0.92);
-    background: #f8fafc;
+.service-anchor-node.wide .service-icon-frame {
+    width: 54px;
+    height: 54px;
+    min-width: 54px;
+    border-radius: 18px;
+    font-size: 23px;
 }
-.service-icon-frame.srv-data { color: #0066ff; }
-.service-icon-frame.srv-airtime { color: #10b981; }
-.service-icon-frame.srv-electric { color: #f59e0b; }
-.service-icon-frame.srv-tv { color: #8b5cf6; }
-.service-icon-frame.srv-print { color: #ec4899; }
-.service-icon-frame.srv-referral { color: #06b6d4; }
-.service-icon-frame.srv-exam { color: #f43f5e; }
 .service-title-lbl {
+    position: relative;
+    z-index: 1;
     font-size: 12px;
-    font-weight: 600;
-    color: #475569;
+    font-weight: 700;
+    color: #1e293b;
     line-height: 1.3;
+}
+.service-anchor-node.wide .service-title-lbl {
+    font-size: 12px;
+    flex-grow: 1;
+}
+.service-arrow {
+    position: relative;
+    z-index: 1;
+    font-size: 12px;
+    color: rgb(var(--rgb));
 }
 .partner-button-block {
     display: none;
@@ -568,6 +633,12 @@ body {
     line-height: 1.4;
     font-weight: 500;
 }
+.alerts-empty {
+    text-align: center;
+    color: #94a3b8;
+    font-size: 13px;
+    padding: 20px 0;
+}
 .help-channels-card {
     background-image: linear-gradient(var(--frost-fill), var(--frost-fill)), var(--bg-image);
     background-size: cover;
@@ -648,77 +719,108 @@ body {
 .bottom-nav-bar {
     position: fixed;
     bottom: 0;
-    left: 60%;
+    left: 50%;
     transform: translateX(-50%);
     width: 100%;
     max-width: 450px;
-    height: 72px;
-    background: rgba(255, 255, 255, 0.78);
+    min-height: 78px;
+    background: rgba(255, 255, 255, 0.92);
     backdrop-filter: blur(20px) saturate(180%);
     -webkit-backdrop-filter: blur(20px) saturate(180%);
-    border-top: 1px solid rgba(0, 0, 0, 0.05);
+    border-top: 1px solid rgba(0, 102, 255, 0.1);
+    border-top-left-radius: 24px;
+    border-top-right-radius: 24px;
     display: grid;
-    grid-template-columns: 1fr 1fr 0.8fr 1fr 1fr;
+    grid-template-columns: repeat(4, 1fr);
     z-index: 999;
-    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.04);
-    padding-bottom: env(safe-area-inset-bottom);
+    box-shadow: 0 -8px 28px rgba(0, 40, 120, 0.1);
+    padding: 0 6px env(safe-area-inset-bottom);
 }
 .nav-item-anchor {
+    --rgb: 0, 102, 255;
+    position: relative;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
+    gap: 5px;
+    padding-top: 6px;
     text-decoration: none;
-    gap: 4px;
-    color: #94a3b8;
+    color: #475569;
     transition: color 0.2s, transform 0.2s;
     width: 100%;
 }
-.nav-item-anchor.active {
-    color: #0066ff;
+.nav-item-anchor.nav-home { --rgb: 0, 102, 255; }
+.nav-item-anchor.nav-history { --rgb: 139, 92, 246; }
+.nav-item-anchor.nav-help { --rgb: 37, 211, 102; }
+.nav-item-anchor.nav-profile { --rgb: 245, 158, 11; }
+.nav-icon-bubble {
+    width: 46px;
+    height: 34px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(var(--rgb), 0.12);
+    border: 1px solid rgba(var(--rgb), 0.32);
+    color: rgb(var(--rgb));
+    transition: transform 0.25s ease, box-shadow 0.25s ease, background 0.25s ease, color 0.25s ease;
+}
+.nav-icon-bubble i {
+    font-size: 19px;
+}
+.nav-label {
+    font-size: 11px;
+    font-weight: 700;
+    transition: transform 0.25s ease, color 0.25s ease;
 }
 .nav-item-anchor:active {
     transform: scale(0.92);
 }
-.nav-item-anchor i {
-    font-size: 22px;
+.nav-item-anchor.active {
+    color: #0066ff;
 }
-.nav-item-anchor span {
-    font-size: 11px;
-    font-weight: 600;
-}
-.nav-center-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-    width: 100%;
-}
-.nav-center-btn .fab-trigger {
-    position: absolute;
-    top: -24px;
-    width: 56px;
-    height: 56px;
-    background: #0066ff;
-    border-radius: 50%;
+.nav-item-anchor.active .nav-icon-bubble {
+    background: linear-gradient(135deg, #1a7dff 0%, #0044cc 100%);
+    border-color: transparent;
     color: #ffffff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 24px;
-    box-shadow: 0 4px 16px rgba(0, 102, 255, 0.4);
-    border: 4px solid #ffffff;
-    cursor: pointer;
-    transition: transform 0.2s;
+    transform: translateY(-6px);
+    box-shadow: 0 8px 18px rgba(0, 102, 255, 0.45);
 }
-.nav-center-btn .fab-trigger:active {
-    transform: scale(0.92);
+.nav-item-anchor.active .nav-label {
+    transform: translateY(-4px);
+}
+.nav-item-anchor.active::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: 34px;
+    height: 4px;
+    border-radius: 0 0 6px 6px;
+    background: #0066ff;
+    box-shadow: 0 2px 10px rgba(0, 102, 255, 0.6);
+    transform: translateX(-50%);
+}
+.nav-item-anchor.active::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: 60px;
+    height: 38px;
+    transform: translateX(-50%);
+    background: linear-gradient(180deg, rgba(0, 102, 255, 0.22), rgba(0, 102, 255, 0));
+    clip-path: polygon(18% 0, 82% 0, 100% 100%, 0 100%);
+    pointer-events: none;
 }
 .toast-popup-msg {
     position: fixed;
-    bottom: 85px;
+    bottom: 90px;
     left: 50%;
     transform: translateX(-50%);
+    max-width: calc(100% - 32px);
+    text-align: center;
     background: #1e293b;
     color: #ffffff;
     padding: 12px 24px;
@@ -779,12 +881,18 @@ body {
     height: 100%;
 }
 .wave-svg-node path {
-    
     fill: #6c5ce7;
-    
 }
 .wave-anim-fast { animation: drift 3s linear infinite; }
 .wave-anim-slow { animation: drift 5s linear infinite reverse; opacity: 0.5; }
+@keyframes drift {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+}
+@keyframes blink {
+    0%, 60%, 100% { opacity: 0.2; }
+    30% { opacity: 1; }
+}
 .loading-text-string {
     position: absolute;
     top: 60%;
@@ -866,11 +974,6 @@ body {
         transform: translateY(-5px);
     }
 }
-
-#toggleBalanceVisibility{
-    color: Black;
-}
-
     </style>
 </head>
 <body>
@@ -879,8 +982,8 @@ body {
         <header class="dashboard-header">
             <img src="image/logo.png" class="header-watermark" alt="Watermark">
             <div class="top-bar">
-                <button class="menu-trigger" id="openMenuBtn"><i class="fa-solid fa-bars"></i></button>
-                <button class="notification-trigger" id="openAlertsBtn">
+                <button class="menu-trigger" id="openMenuBtn" aria-label="Open menu"><i class="fa-solid fa-bars"></i></button>
+                <button class="notification-trigger" id="openAlertsBtn" aria-label="Notifications">
                     <i class="fa-solid fa-bell"></i>
                     <span class="notification-badge" id="alertCounter">0</span>
                 </button>
@@ -910,6 +1013,8 @@ body {
                 </div>
 
                 <div class="accounts-grid" id="virtualAccountsContainer"></div>
+
+                <p class="fee-note">A 1% fee is deducted from every deposit.</p>
             </section>
 
             <section class="advertising-container" id="adBannerWrapper">
@@ -919,37 +1024,37 @@ body {
             <section class="services-section-wrapper">
                 <h2 class="section-headline">What would you like to do?</h2>
                 <div class="services-grid-layout">
-                    <a href="buydata.html" class="service-anchor-node">
-                        <div class="service-icon-frame srv-data"><i class="fa-solid fa-database"></i></div>
+                    <a href="buydata.html" class="service-anchor-node srv-data">
+                        <div class="service-icon-frame"><i class="fa-solid fa-database"></i></div>
                         <span class="service-title-lbl">Buy Data</span>
                     </a>
-                    <a href="airtime.html" class="service-anchor-node">
-                        <div class="service-icon-frame srv-airtime"><i class="fa-solid fa-mobile-screen-button"></i></div>
+                    <a href="airtime.html" class="service-anchor-node srv-airtime">
+                        <div class="service-icon-frame"><i class="fa-solid fa-mobile-screen-button"></i></div>
                         <span class="service-title-lbl">Airtime</span>
                     </a>
-                    <a href="electricity.html" class="service-anchor-node">
-                        <div class="service-icon-frame srv-electric"><i class="fa-solid fa-bolt"></i></div>
+                    <a href="electricity.html" class="service-anchor-node srv-electric">
+                        <div class="service-icon-frame"><i class="fa-solid fa-bolt"></i></div>
                         <span class="service-title-lbl">Electricity</span>
                     </a>
-                    <a href="tv.html" class="service-anchor-node">
-                        <div class="service-icon-frame srv-tv"><i class="fa-solid fa-tv"></i></div>
+                    <a href="tv.html" class="service-anchor-node wide srv-tv">
+                        <div class="service-icon-frame"><i class="fa-solid fa-tv"></i></div>
                         <span class="service-title-lbl">TV Sub</span>
+                        <i class="fa-solid fa-chevron-right service-arrow"></i>
                     </a>
-                    <a href="#" class="service-anchor-node">
-                        <div class="service-icon-frame srv-print"><i class="fa-solid fa-print"></i></div>
-                        <span class="service-title-lbl">Card Print</span>
-                    </a>
-                    <a href="exam.html" class="service-anchor-node">
-                        <div class="service-icon-frame srv-exam"><i class="fa-solid fa-graduation-cap"></i></div>
+                    <a href="exam.html" class="service-anchor-node wide srv-exam">
+                        <div class="service-icon-frame"><i class="fa-solid fa-graduation-cap"></i></div>
                         <span class="service-title-lbl">Exam Pin</span>
+                        <i class="fa-solid fa-chevron-right service-arrow"></i>
                     </a>
-                    <a href="referral.html" class="service-anchor-node">
-                        <div class="service-icon-frame srv-referral"><i class="fa-solid fa-user-plus"></i></div>
+                    <a href="referral.html" class="service-anchor-node wide srv-referral">
+                        <div class="service-icon-frame"><i class="fa-solid fa-user-plus"></i></div>
                         <span class="service-title-lbl">Referral</span>
+                        <i class="fa-solid fa-chevron-right service-arrow"></i>
                     </a>
-                    <a href="help.html" class="service-anchor-node">
-                        <div class="service-icon-frame srv-exam"><i class="fa-solid fa-code"></i></div>
-                        <span class="service-title-lbl">AP1</span>
+                    <a href="help.html" class="service-anchor-node wide srv-api">
+                        <div class="service-icon-frame"><i class="fa-solid fa-code"></i></div>
+                        <span class="service-title-lbl">API</span>
+                        <i class="fa-solid fa-chevron-right service-arrow"></i>
                     </a>
                 </div>
             </section>
@@ -963,21 +1068,21 @@ body {
         </main>
 
         <nav class="bottom-nav-bar">
-            <a href="index.html" class="nav-item-anchor">
-                <i class="fa-solid fa-house"></i>
-                <span>Home</span>
+            <a href="index.html" class="nav-item-anchor nav-home activ">
+                <span class="nav-icon-bubble"><i class="fa-solid fa-house"></i></span>
+                <span class="nav-label">Home</span>
             </a>
-            <a href="history.html" class="nav-item-anchor">
-                <i class="fa-solid fa-chart-line"></i>
-                <span>Transaction</span>
+            <a href="history.html" class="nav-item-anchor nav-history">
+                <span class="nav-icon-bubble"><i class="fa-solid fa-chart-line"></i></span>
+                <span class="nav-label">Transaction</span>
             </a>
-            <a href="#" class="nav-item-anchor" id="triggerHelpModal">
-                <i class="fa-brands fa-whatsapp"></i>
-                <span>Help</span>
+            <a href="#" class="nav-item-anchor nav-help" id="triggerHelpModal">
+                <span class="nav-icon-bubble"><i class="fa-brands fa-whatsapp"></i></span>
+                <span class="nav-label">Help</span>
             </a>
-            <a href="profile.html" class="nav-item-anchor">
-                <i class="fa-solid fa-circle-user"></i>
-                <span>Profile</span>
+            <a href="profile.html" class="nav-item-anchor nav-profile">
+                <span class="nav-icon-bubble"><i class="fa-solid fa-circle-user"></i></span>
+                <span class="nav-label">Profile</span>
             </a>
         </nav>
     </div>
@@ -986,7 +1091,7 @@ body {
         <div class="navigation-drawer-card">
             <div class="drawer-brand-header">
                 <img src="image/logo.png" class="drawer-logo-img" alt="AmanData">
-                <button class="drawer-dismiss-btn" id="closeMenuBtn"><i class="fa-solid fa-xmark"></i></button>
+                <button class="drawer-dismiss-btn" id="closeMenuBtn" aria-label="Close menu"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <div class="drawer-menu-links-list">
                 <a href="index.html" class="drawer-item-link"><i class="fa-solid fa-house"></i> Home</a>
@@ -996,7 +1101,6 @@ body {
                 <a href="buydata.html" class="drawer-item-link"><i class="fa-solid fa-database"></i> Buy Data</a>
                 <a href="card.html" class="drawer-item-link"><i class="fa-solid fa-mobile-screen-button"></i> Buy Airtime</a>
                 <a href="exam.html" class="drawer-item-link"><i class="fa-solid fa-graduation-cap"></i> Exam Pin</a>
-                <a href="cardprint.html" class="drawer-item-link"><i class="fa-solid fa-print"></i> Card Printing</a>
                 <a href="history.html" class="drawer-item-link"><i class="fa-solid fa-list-check"></i> Transactions</a>
                 <a href="profile.html" class="drawer-item-link"><i class="fa-solid fa-circle-user"></i> Profile</a>
                 <a href="#" class="drawer-item-link logout-node" id="accountLogoutTrigger"><i class="fa-solid fa-right-from-bracket"></i> Log Out</a>
@@ -1008,7 +1112,7 @@ body {
         <div class="modal-content-box">
             <div class="modal-title-bar">
                 <span>Notifications</span>
-                <button class="modal-close-trigger" id="closeAlertsBtn"><i class="fa-solid fa-xmark"></i></button>
+                <button class="modal-close-trigger" id="closeAlertsBtn" aria-label="Close notifications"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <div class="modal-body-scroll" id="alertsItemsContainer"></div>
         </div>
@@ -1021,7 +1125,7 @@ body {
                     <div class="help-headline">Customer Care</div>
                     <div class="help-subline">Select a channel to get instant support</div>
                 </div>
-                <button class="modal-close-trigger" id="closeHelpModal"><i class="fa-solid fa-xmark"></i></button>
+                <button class="modal-close-trigger" id="closeHelpModal" aria-label="Close help"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <div class="support-agent-row" data-phone="+2348087311654" data-msg="I am a AmanData customer and I have issues with my account.">
                 <div class="agent-mock-avatar">CC</div>
@@ -1035,7 +1139,7 @@ body {
                 <div class="agent-mock-avatar">CC</div>
                 <div class="agent-meta-block">
                     <div class="agent-title-string">Customer Care 2</div>
-                    <div class="agent-phone-string">+2347033963960 </div>
+                    <div class="agent-phone-string">+2347033963960</div>
                 </div>
                 <i class="fa-brands fa-whatsapp agent-whatsapp-badge"></i>
             </div>
@@ -1069,8 +1173,6 @@ body {
         <div class="loading-text-string">Loading<span>.</span><span>.</span><span>.</span></div>
     </div>
 
-    
-
     <div id="pd-whatsapp-widget" class="pd-wa-container">
         <div class="pd-wa-pulse-ring"></div>
         <a href="https://wa.me/2347060739494?text=I%20am%20in%20need%20of%20help%20from%20the%20AmanData%20app"
@@ -1083,87 +1185,89 @@ body {
     </div>
 
 <script>
-    (function() {
-    const widget = document.getElementById('pd-whatsapp-widget');
-    const link = document.getElementById('pd-wa-link');
+    (function () {
+        var widget = document.getElementById('pd-whatsapp-widget');
+        var link = document.getElementById('pd-wa-link');
 
-    let isDragging = false;
-    let startX, startY;
-    let initialX, initialY;
-    let hasMoved = false;
+        var isDragging = false;
+        var startX = 0;
+        var startY = 0;
+        var initialX = 0;
+        var initialY = 0;
+        var hasMoved = false;
 
-    widget.addEventListener('mousedown', dragStart);
-    document.addEventListener('mousemove', drag);
-    document.addEventListener('mouseup', dragEnd);
+        widget.addEventListener('mousedown', dragStart);
+        document.addEventListener('mousemove', drag);
+        document.addEventListener('mouseup', dragEnd);
 
-    widget.addEventListener('touchstart', dragStart, { passive: false });
-    document.addEventListener('touchmove', drag, { passive: false });
-    document.addEventListener('touchend', dragEnd);
+        widget.addEventListener('touchstart', dragStart, { passive: false });
+        document.addEventListener('touchmove', drag, { passive: false });
+        document.addEventListener('touchend', dragEnd);
 
-    link.addEventListener('click', function(e) {
-        if (hasMoved) {
-            e.preventDefault();
-        }
-    });
+        link.addEventListener('click', function (e) {
+            if (hasMoved) {
+                e.preventDefault();
+            }
+        });
 
-    function dragStart(e) {
-        hasMoved = false;
-        isDragging = true;
+        function dragStart(e) {
+            hasMoved = false;
+            isDragging = true;
 
-        const clientX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
-        const clientY = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
+            var clientX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
+            var clientY = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
 
-        const rect = widget.getBoundingClientRect();
-        initialX = rect.left;
-        initialY = rect.top;
+            var rect = widget.getBoundingClientRect();
+            initialX = rect.left;
+            initialY = rect.top;
 
-        startX = clientX;
-        startY = clientY;
-    }
-
-    function drag(e) {
-        if (!isDragging) return;
-
-        if (e.cancelable) {
-            e.preventDefault();
+            startX = clientX;
+            startY = clientY;
         }
 
-        const clientX = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX;
-        const clientY = e.type === 'touchmove' ? e.touches[0].clientY : e.clientY;
+        function drag(e) {
+            if (!isDragging) return;
 
-        const dx = clientX - startX;
-        const dy = clientY - startY;
+            if (e.cancelable) {
+                e.preventDefault();
+            }
 
-        if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
-            hasMoved = true;
+            var clientX = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX;
+            var clientY = e.type === 'touchmove' ? e.touches[0].clientY : e.clientY;
+
+            var dx = clientX - startX;
+            var dy = clientY - startY;
+
+            if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+                hasMoved = true;
+            }
+
+            var newX = initialX + dx;
+            var newY = initialY + dy;
+
+            var widgetWidth = widget.offsetWidth;
+            var widgetHeight = widget.offsetHeight;
+            var windowWidth = window.innerWidth;
+            var windowHeight = window.innerHeight;
+
+            if (newX < 10) newX = 10;
+            if (newX > windowWidth - widgetWidth - 10) newX = windowWidth - widgetWidth - 10;
+            if (newY < 10) newY = 10;
+            if (newY > windowHeight - widgetHeight - 10) newY = windowHeight - widgetHeight - 10;
+
+            widget.style.left = newX + 'px';
+            widget.style.top = newY + 'px';
+            widget.style.bottom = 'auto';
+            widget.style.right = 'auto';
         }
 
-        let newX = initialX + dx;
-        let newY = initialY + dy;
-
-        const widgetWidth = widget.offsetWidth;
-        const widgetHeight = widget.offsetHeight;
-        const windowWidth = window.innerWidth;
-        const windowHeight = window.innerHeight;
-
-        if (newX < 10) newX = 10;
-        if (newX > windowWidth - widgetWidth - 10) newX = windowWidth - widgetWidth - 10;
-        if (newY < 10) newY = 10;
-        if (newY > windowHeight - widgetHeight - 10) newY = windowHeight - widgetHeight - 10;
-
-        widget.style.left = `${newX}px`;
-        widget.style.top = `${newY}px`;
-        widget.style.bottom = 'auto';
-        widget.style.right = 'auto';
-    }
-
-    function dragEnd() {
-        isDragging = false;
-    }
-})();
+        function dragEnd() {
+            isDragging = false;
+        }
+    })();
 </script>
 
-<script type="module" src="dash.js"></script>
+<script type="module" src="dashboard10.js"></script>
 
 </body>
 </html>
