@@ -1,30 +1,33 @@
 import { supabase } from './supabase.js';
 
-(function() {
-
+(function () {
     const SESSION_KEY = 'puredata_user_session';
+    const PARTNER_CACHE_KEY = 'puredata_partner_button_cache';
+    const ADS_CACHE_KEY = 'puredata_seen_ads';
+    const SYNC_INTERVAL_MS = 10000;
 
-    const sessionTokenString = localStorage.getItem(SESSION_KEY);
-
-    if (!sessionTokenString) {
-        window.location.replace('register.html');
-        return;
+    function readSession() {
+        try {
+            return JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
+        } catch (e) {
+            return null;
+        }
     }
 
-    let activeSession = null;
-    try {
-        activeSession = JSON.parse(sessionTokenString);
-    } catch (e) {
-        activeSession = null;
-    }
-
-    let currentUserId = activeSession ? (activeSession.userId || activeSession.id) : null;
-
-    if (!currentUserId) {
+    function redirectToRegister() {
         localStorage.removeItem(SESSION_KEY);
         window.location.replace('register.html');
+    }
+
+    const activeSession = readSession();
+    const currentUserId = activeSession && (activeSession.userId || activeSession.id);
+
+    if (!currentUserId) {
+        redirectToRegister();
         return;
     }
+
+    const BALANCE_KEY = 'amandata_last_balance_' + currentUserId;
 
     const openMenuBtn = document.getElementById('openMenuBtn');
     const closeMenuBtn = document.getElementById('closeMenuBtn');
@@ -47,62 +50,82 @@ import { supabase } from './supabase.js';
     const adBannerImage = document.getElementById('adBannerImage');
     const adBannerWrapper = document.getElementById('adBannerWrapper');
     const toastNotificationBox = document.getElementById('toastNotificationBox');
-
     const partnerButtonWrapper = document.getElementById('partnerButtonWrapper');
     const partnerButtonLink = document.getElementById('partnerButtonLink');
     const partnerButtonImage = document.getElementById('partnerButtonImage');
 
-    const PARTNER_CACHE_KEY = 'puredata_partner_button_cache';
-    const ADS_CACHE_KEY = 'puredata_seen_ads';
-
-    let cachedRealBalance = "0.00";
+    let cachedRealBalance = 0;
     let isBalanceMasked = false;
     let localNotificationsArray = [];
-    let syncInProgress = false;
+    let accountsSignature = '';
+    let isSyncing = false;
+    let toastTimer = null;
 
-    function showDataAlert(message) {
+    function formatNaira(value) {
+        return '₦' + value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function readLastBalance() {
+        const raw = localStorage.getItem(BALANCE_KEY);
+        if (raw === null) return null;
+        const parsed = parseFloat(raw);
+        return isNaN(parsed) ? null : parsed;
+    }
+
+    function writeLastBalance(value) {
         try {
-            if (typeof Notification === 'undefined') return;
-            if (Notification.permission === 'granted') {
-                if (!('serviceWorker' in navigator)) return;
-                navigator.serviceWorker.ready.then(function(registration) {
-                    registration.showNotification('AmanData warning!', {
-                        body: message,
-                        icon: 'https://i.imgur.com/gv5b3VT.png',
-                        badge: 'https://i.imgur.com/gv5b3VT.png',
-                        vibrate: [200, 100, 200]
-                    });
-                }).catch(() => {});
-            } else if (Notification.permission !== 'denied') {
-                Notification.requestPermission();
-            }
+            localStorage.setItem(BALANCE_KEY, String(value));
         } catch (e) {}
     }
 
-    if ('connection' in navigator) {
-        const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-
-        if (connection) {
-            const checkDataUsage = function() {
-                if (connection.saveData) {
-                    showDataAlert("Data Saver: Turn it on to reduce image loading and save your mobile data.");
-                }
-
-                if (connection.effectiveType === '2g' || connection.effectiveType === '3g') {
-                    showDataAlert("Notice: Your internet speed is slow. Please ensure you have sufficient mobile data.");
-                }
-            };
-
-            if (connection.addEventListener) connection.addEventListener('change', checkDataUsage);
-            checkDataUsage();
-        }
+    function renderBalance() {
+        if (!walletBalanceDisplay) return;
+        walletBalanceDisplay.textContent = isBalanceMasked ? '••••' : formatNaira(cachedRealBalance);
     }
 
     function showToastNotification(text) {
         if (!toastNotificationBox) return;
         toastNotificationBox.textContent = text;
         toastNotificationBox.classList.add('visible');
-        setTimeout(() => { toastNotificationBox.classList.remove('visible'); }, 3000);
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => { toastNotificationBox.classList.remove('visible'); }, 3000);
+    }
+
+    function showDataAlert(key, message) {
+        if (typeof Notification === 'undefined' || !('serviceWorker' in navigator)) return;
+
+        const storageKey = 'amandata_data_alert_' + key;
+
+        try {
+            if (sessionStorage.getItem(storageKey) === '1') return;
+            sessionStorage.setItem(storageKey, '1');
+        } catch (e) {}
+
+        if (Notification.permission === 'granted') {
+            navigator.serviceWorker.ready.then(function (registration) {
+                registration.showNotification('AmanData warning!', {
+                    body: message,
+                    icon: 'https://i.imgur.com/gv5b3VT.png',
+                    badge: 'https://i.imgur.com/gv5b3VT.png',
+                    vibrate: [200, 100, 200]
+                });
+            }).catch(function () {});
+        } else if (Notification.permission !== 'denied') {
+            Notification.requestPermission();
+        }
+    }
+
+    function checkDataUsage() {
+        const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+        if (!connection) return;
+
+        if (connection.saveData) {
+            showDataAlert('saver', 'Data Saver: Turn it on to reduce image loading and save your mobile data.');
+        }
+
+        if (connection.effectiveType === '2g' || connection.effectiveType === '3g') {
+            showDataAlert('slow', 'Notice: Your internet speed is slow. Please ensure you have sufficient mobile data.');
+        }
     }
 
     function toggleLoaderDisplay(visible) {
@@ -117,113 +140,9 @@ import { supabase } from './supabase.js';
         }
     }
 
-    async function forceLogout() {
-        try { await supabase.auth.signOut(); } catch (e) {}
-        try { localStorage.removeItem(SESSION_KEY); } catch (e) {}
-        window.location.replace('register.html');
-    }
-
-    async function ensureAuthenticated() {
-        let session = null;
-
-        try {
-            const { data } = await supabase.auth.getSession();
-            session = data && data.session ? data.session : null;
-        } catch (e) {
-            session = null;
-        }
-
-        if (!session || !session.user || !session.user.id) {
-            console.error('Dashboard guard: no active Supabase session found.');
-            try { localStorage.removeItem(SESSION_KEY); } catch (e) {}
-            window.location.replace('register.html');
-            return false;
-        }
-
-        currentUserId = session.user.id;
-
-        try {
-            localStorage.setItem(SESSION_KEY, JSON.stringify({
-                id: session.user.id,
-                userId: session.user.id,
-                name: (session.user.user_metadata && session.user.user_metadata.full_name) || '',
-                email: session.user.email || ''
-            }));
-        } catch (e) {}
-
-        return true;
-    }
-
-    if (openMenuBtn && sidebarMenuDrawer) openMenuBtn.addEventListener('click', () => sidebarMenuDrawer.classList.add('active'));
-    if (closeMenuBtn && sidebarMenuDrawer) closeMenuBtn.addEventListener('click', () => sidebarMenuDrawer.classList.remove('active'));
-
-    if (sidebarMenuDrawer) {
-        sidebarMenuDrawer.addEventListener('click', (e) => {
-            if (e.target === sidebarMenuDrawer) sidebarMenuDrawer.classList.remove('active');
-        });
-    }
-
-    if (openAlertsBtn && alertsModalView) {
-        openAlertsBtn.addEventListener('click', () => {
-            alertsModalView.classList.add('active');
-            if (localNotificationsArray.length > 0) {
-                localNotificationsArray = [];
-                if (alertCounter) alertCounter.textContent = "0";
-            }
-        });
-    }
-
-    if (closeAlertsBtn && alertsModalView) {
-        closeAlertsBtn.addEventListener('click', () => {
-            alertsModalView.classList.remove('active');
-            if (alertsItemsContainer) {
-                alertsItemsContainer.innerHTML = `<div style="text-align:center; color:#94a3b8; font-size:13px; padding:20px 0;">No new notifications</div>`;
-            }
-        });
-    }
-
-    if (triggerHelpModal && helpModalView) {
-        triggerHelpModal.addEventListener('click', (e) => {
-            e.preventDefault();
-            helpModalView.classList.add('active');
-        });
-    }
-
-    if (closeHelpModal && helpModalView) closeHelpModal.addEventListener('click', () => helpModalView.classList.remove('active'));
-
-    document.querySelectorAll('.support-agent-row').forEach(row => {
-        row.addEventListener('click', function() {
-            const phoneNumber = this.getAttribute('data-phone');
-            const messageBody = this.getAttribute('data-msg');
-            window.open(`https://wa.me/${phoneNumber}?text=${encodeURIComponent(messageBody)}`, '_blank');
-        });
-    });
-
-    if (accountLogoutTrigger) {
-        accountLogoutTrigger.addEventListener('click', (e) => {
-            e.preventDefault();
-            forceLogout();
-        });
-    }
-
-    if (toggleBalanceVisibility && walletBalanceDisplay) {
-        toggleBalanceVisibility.addEventListener('click', () => {
-            isBalanceMasked = !isBalanceMasked;
-
-            if (isBalanceMasked) {
-                walletBalanceDisplay.textContent = "••••";
-                toggleBalanceVisibility.classList.replace('fa-eye', 'fa-eye-slash');
-            } else {
-                walletBalanceDisplay.textContent = `₦${parseFloat(cachedRealBalance).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-                toggleBalanceVisibility.classList.replace('fa-eye-slash', 'fa-eye');
-            }
-        });
-    }
-
-    function executeVirtualStringCopy(text) {
-        navigator.clipboard.writeText(text).then(() => {
-            showToastNotification("Account number copied successfully!");
-        }).catch(() => {});
+    function renderEmptyAlerts() {
+        if (!alertsItemsContainer) return;
+        alertsItemsContainer.innerHTML = '<div class="alerts-empty">No new notifications</div>';
     }
 
     function triggerAudioNotificationAlert() {
@@ -245,19 +164,110 @@ import { supabase } from './supabase.js';
         localNotificationsArray.unshift({ text, type, timestamp: new Date() });
         if (alertCounter) alertCounter.textContent = localNotificationsArray.length;
 
-        const rowNode = document.createElement('div');
-        rowNode.className = `alert-entry ${type}`;
-        rowNode.innerHTML = `<p class="alert-body-text">${text}</p>`;
-
         if (alertsItemsContainer) {
-            if (alertsItemsContainer.firstChild && alertsItemsContainer.firstChild.innerText === "No new notifications") {
-                alertsItemsContainer.innerHTML = "";
-            }
+            const emptyNode = alertsItemsContainer.querySelector('.alerts-empty');
+            if (emptyNode) emptyNode.remove();
+
+            const rowNode = document.createElement('div');
+            rowNode.className = 'alert-entry ' + type;
+
+            const textNode = document.createElement('p');
+            textNode.className = 'alert-body-text';
+            textNode.textContent = text;
+
+            rowNode.appendChild(textNode);
             alertsItemsContainer.insertBefore(rowNode, alertsItemsContainer.firstChild);
         }
 
         triggerAudioNotificationAlert();
         showToastNotification(text);
+    }
+
+    function copyTextFallback(text) {
+        const area = document.createElement('textarea');
+        area.value = text;
+        area.setAttribute('readonly', '');
+        area.style.position = 'fixed';
+        area.style.opacity = '0';
+        document.body.appendChild(area);
+        area.select();
+        try {
+            document.execCommand('copy');
+            showToastNotification('Account number copied successfully!');
+        } catch (e) {}
+        document.body.removeChild(area);
+    }
+
+    function executeVirtualStringCopy(text) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(() => {
+                showToastNotification('Account number copied successfully!');
+            }).catch(() => { copyTextFallback(text); });
+        } else {
+            copyTextFallback(text);
+        }
+    }
+
+    function renderVirtualAccounts(accounts) {
+        if (!virtualAccountsContainer) return;
+
+        const signature = JSON.stringify(accounts);
+        if (signature === accountsSignature) return;
+        accountsSignature = signature;
+
+        virtualAccountsContainer.innerHTML = '';
+
+        if (!accounts.length) {
+            virtualAccountsContainer.innerHTML = '<div class="accounts-empty"><i class="fa-solid fa-triangle-exclamation"></i> Virtual Accounts generating...</div>';
+            return;
+        }
+
+        accounts.forEach(acc => {
+            const tile = document.createElement('div');
+            tile.className = 'account-tile';
+
+            const meta = document.createElement('div');
+            meta.className = 'account-meta-info';
+
+            const bank = document.createElement('span');
+            bank.className = 'bank-title-lbl';
+            bank.textContent = acc.bankName;
+
+            const number = document.createElement('span');
+            number.className = 'bank-num-string';
+            number.textContent = acc.accountNumber;
+
+            const copyIcon = document.createElement('i');
+            copyIcon.className = 'fa-regular fa-copy bank-copy-icon';
+            copyIcon.addEventListener('click', () => executeVirtualStringCopy(String(acc.accountNumber)));
+
+            meta.appendChild(bank);
+            meta.appendChild(number);
+            tile.appendChild(meta);
+            tile.appendChild(copyIcon);
+            virtualAccountsContainer.appendChild(tile);
+        });
+    }
+
+    function handleBalanceUpdate(rawBalance) {
+        const parsed = parseFloat(rawBalance);
+        const newBalance = isNaN(parsed) ? 0 : parsed;
+        const previousBalance = readLastBalance();
+
+        cachedRealBalance = newBalance;
+        renderBalance();
+
+        if (previousBalance !== null && Math.abs(newBalance - previousBalance) >= 0.005) {
+            const diff = Math.abs(newBalance - previousBalance);
+
+            if (newBalance > previousBalance) {
+                pushClientNotificationMessage('AmanData account you get +₦' + diff.toFixed(2) + '. Your main balance: ₦' + newBalance.toFixed(2), 'income');
+            } else {
+                pushClientNotificationMessage('AmanData account you withdraw -₦' + diff.toFixed(2) + '. Your main balance: ₦' + newBalance.toFixed(2), 'expense');
+            }
+        }
+
+        writeLastBalance(newBalance);
     }
 
     function parseJsonbValue(raw) {
@@ -303,7 +313,7 @@ import { supabase } from './supabase.js';
             partnerButtonLink.style.pointerEvents = 'none';
         }
 
-        partnerButtonImage.onerror = function() {
+        partnerButtonImage.onerror = function () {
             partnerButtonWrapper.classList.remove('visible');
         };
 
@@ -354,107 +364,6 @@ import { supabase } from './supabase.js';
         }
     }
 
-    async function fetchProfileRow() {
-        for (let attempt = 0; attempt < 3; attempt++) {
-            const { data, error } = await supabase
-                .from('user_profiles')
-                .select('*')
-                .eq('id', currentUserId);
-
-            if (error) throw error;
-
-            if (data && data.length > 0) return data[0];
-
-            if (attempt < 2) {
-                await new Promise((resolve) => setTimeout(resolve, 900));
-            }
-        }
-        return null;
-    }
-
-    async function synchronousDashboardStateSync(showLoader = false) {
-        if (syncInProgress) return;
-        syncInProgress = true;
-
-        if (showLoader) toggleLoaderDisplay(true);
-
-        try {
-            const profileRow = await fetchProfileRow();
-
-            if (!profileRow) {
-                console.error('Dashboard guard: profile row not found for user', currentUserId);
-                if (showLoader) {
-                    await forceLogout();
-                }
-                return;
-            }
-
-            const payloadData = parseJsonbValue(profileRow.user_data);
-
-            if (userGreetingDisplay && payloadData.full_name) {
-                userGreetingDisplay.textContent = `Hello, ${payloadData.full_name.split(' ')[0]} 👋`;
-            }
-
-            const incomingBalance = payloadData.user_balance || "0.00";
-
-            if (incomingBalance !== cachedRealBalance) {
-                const oldBalance = parseFloat(cachedRealBalance);
-                const newBalance = parseFloat(incomingBalance);
-                cachedRealBalance = incomingBalance;
-
-                if (!isBalanceMasked && walletBalanceDisplay) {
-                    walletBalanceDisplay.textContent = `₦${newBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-                }
-
-                if (oldBalance > 0 || incomingBalance !== "0.00") {
-                    if (oldBalance < newBalance) {
-                        const diff = newBalance - oldBalance;
-                        pushClientNotificationMessage(`AmanData account you get +₦${diff.toFixed(2)}. Your main balance: ₦${newBalance.toFixed(2)}`, 'income');
-                    } else if (oldBalance > newBalance) {
-                        const diff = oldBalance - newBalance;
-                        pushClientNotificationMessage(`AmanData account you withdraw -₦${diff.toFixed(2)}. Your main balance: ₦${newBalance.toFixed(2)}`, 'expense');
-                    }
-                }
-            }
-
-            if (virtualAccountsContainer) {
-                virtualAccountsContainer.innerHTML = "";
-                const accounts = payloadData.virtual_accounts || [];
-
-                if (accounts.length > 0) {
-                    accounts.forEach(acc => {
-                        const tile = document.createElement('div');
-                        tile.className = "account-tile";
-                        tile.innerHTML = `
-                            <div class="account-meta-info">
-                                <span class="bank-title-lbl">${acc.bankName}</span>
-                                <span class="bank-num-string">${acc.accountNumber}</span>
-                            </div>
-                            <i class="fa-regular fa-copy bank-copy-icon"></i>
-                        `;
-                        tile.querySelector('.bank-copy-icon').addEventListener('click', () => executeVirtualStringCopy(acc.accountNumber));
-                        virtualAccountsContainer.appendChild(tile);
-                    });
-                } else {
-                    virtualAccountsContainer.innerHTML = `
-                        <div style="text-align:center; padding:10px; font-size:12px; color:#64748b; font-weight:500;">
-                            <i class="fa-solid fa-triangle-exclamation"></i> Virtual Accounts generating...
-                        </div>`;
-                }
-            }
-
-            await loadMarketingCampaignBanner();
-            await loadPartnerButton();
-
-        } catch (err) {
-            console.error('Dashboard sync error:', err);
-            showToastNotification("Sync engine validation tracking warning.");
-        } finally {
-            syncInProgress = false;
-            if (showLoader) toggleLoaderDisplay(false);
-        }
-    }
-
     async function loadMarketingCampaignBanner() {
         if (!adBannerImage || !adBannerWrapper) return;
 
@@ -465,54 +374,168 @@ import { supabase } from './supabase.js';
 
             if (error) throw error;
 
-            if (ads && ads.length > 0) {
-                const seenAdsIdsArray = JSON.parse(localStorage.getItem(ADS_CACHE_KEY) || '[]');
-                let targetAd = ads.find(item => !seenAdsIdsArray.includes(item.id));
+            if (!ads || ads.length === 0) return;
 
-                if (!targetAd) {
-                    localStorage.setItem(ADS_CACHE_KEY, '[]');
-                    targetAd = ads[0];
+            let seenAdsIdsArray = [];
+            try {
+                seenAdsIdsArray = JSON.parse(localStorage.getItem(ADS_CACHE_KEY) || '[]');
+            } catch (e) {
+                seenAdsIdsArray = [];
+            }
+
+            let targetAd = ads.find(item => !seenAdsIdsArray.includes(item.id));
+
+            if (!targetAd) {
+                seenAdsIdsArray = [];
+                localStorage.setItem(ADS_CACHE_KEY, '[]');
+                targetAd = ads[0];
+            }
+
+            const adContent = targetAd.ad_image;
+
+            if (adContent) {
+                const resolvedUrl = adContent.url || adContent;
+
+                if (adBannerImage.getAttribute('src') !== resolvedUrl) {
+                    adBannerImage.src = resolvedUrl;
                 }
 
-                const adContent = targetAd.ad_image;
-
-                if (adContent) {
-                    const resolvedUrl = adContent.url || adContent;
-                    if (adBannerImage.getAttribute('src') !== resolvedUrl) {
-                        adBannerImage.src = resolvedUrl;
+                adBannerWrapper.onclick = () => {
+                    if (adContent.link) {
+                        window.open(adContent.link, '_blank');
                     }
+                };
 
-                    adBannerWrapper.onclick = () => {
-                        if (adContent.link) {
-                            window.open(adContent.link, '_blank');
-                        }
-                    };
-
-                    if (!seenAdsIdsArray.includes(targetAd.id)) {
-                        seenAdsIdsArray.push(targetAd.id);
-                        localStorage.setItem(ADS_CACHE_KEY, JSON.stringify(seenAdsIdsArray));
-                    }
+                if (!seenAdsIdsArray.includes(targetAd.id)) {
+                    seenAdsIdsArray.push(targetAd.id);
+                    localStorage.setItem(ADS_CACHE_KEY, JSON.stringify(seenAdsIdsArray));
                 }
             }
         } catch (e) {}
     }
 
-    async function startDashboard() {
-        if (alertsItemsContainer) {
-            alertsItemsContainer.innerHTML = `<div style="text-align:center; color:#94a3b8; font-size:13px; padding:20px 0;">No new notifications</div>`;
+    async function synchronousDashboardStateSync(showLoader = false) {
+        if (isSyncing) return;
+        isSyncing = true;
+
+        if (showLoader) toggleLoaderDisplay(true);
+
+        try {
+            const { data: profiles, error } = await supabase
+                .from('user_profiles')
+                .select('*')
+                .eq('id', currentUserId);
+
+            if (error) throw error;
+
+            if (!profiles || profiles.length === 0) {
+                redirectToRegister();
+                return;
+            }
+
+            const payloadData = profiles[0].user_data || {};
+
+            if (userGreetingDisplay && payloadData.full_name) {
+                userGreetingDisplay.textContent = 'Hello, ' + String(payloadData.full_name).split(' ')[0] + ' 👋';
+            }
+
+            handleBalanceUpdate(payloadData.user_balance);
+            renderVirtualAccounts(payloadData.virtual_accounts || []);
+
+            loadMarketingCampaignBanner();
+            loadPartnerButton();
+        } catch (err) {
+            if (showLoader) showToastNotification('Unable to refresh your account. Please check your connection.');
+        } finally {
+            isSyncing = false;
+            if (showLoader) toggleLoaderDisplay(false);
+        }
+    }
+
+    if (openMenuBtn && sidebarMenuDrawer) {
+        openMenuBtn.addEventListener('click', () => sidebarMenuDrawer.classList.add('active'));
+    }
+
+    if (closeMenuBtn && sidebarMenuDrawer) {
+        closeMenuBtn.addEventListener('click', () => sidebarMenuDrawer.classList.remove('active'));
+    }
+
+    if (sidebarMenuDrawer) {
+        sidebarMenuDrawer.addEventListener('click', (e) => {
+            if (e.target === sidebarMenuDrawer) sidebarMenuDrawer.classList.remove('active');
+        });
+    }
+
+    if (openAlertsBtn && alertsModalView) {
+        openAlertsBtn.addEventListener('click', () => {
+            alertsModalView.classList.add('active');
+            if (localNotificationsArray.length > 0) {
+                localNotificationsArray = [];
+                if (alertCounter) alertCounter.textContent = '0';
+            }
+        });
+    }
+
+    if (closeAlertsBtn && alertsModalView) {
+        closeAlertsBtn.addEventListener('click', () => {
+            alertsModalView.classList.remove('active');
+            renderEmptyAlerts();
+        });
+    }
+
+    if (triggerHelpModal && helpModalView) {
+        triggerHelpModal.addEventListener('click', (e) => {
+            e.preventDefault();
+            helpModalView.classList.add('active');
+        });
+    }
+
+    if (closeHelpModal && helpModalView) {
+        closeHelpModal.addEventListener('click', () => helpModalView.classList.remove('active'));
+    }
+
+    document.querySelectorAll('.support-agent-row').forEach(row => {
+        row.addEventListener('click', function () {
+            const phoneNumber = this.getAttribute('data-phone');
+            const messageBody = this.getAttribute('data-msg');
+            window.open('https://wa.me/' + phoneNumber + '?text=' + encodeURIComponent(messageBody), '_blank');
+        });
+    });
+
+    if (accountLogoutTrigger) {
+        accountLogoutTrigger.addEventListener('click', (e) => {
+            e.preventDefault();
+            redirectToRegister();
+        });
+    }
+
+    if (toggleBalanceVisibility && walletBalanceDisplay) {
+        toggleBalanceVisibility.addEventListener('click', () => {
+            isBalanceMasked = !isBalanceMasked;
+            toggleBalanceVisibility.classList.toggle('fa-eye-slash', isBalanceMasked);
+            toggleBalanceVisibility.classList.toggle('fa-eye', !isBalanceMasked);
+            renderBalance();
+        });
+    }
+
+    function startDashboard() {
+        renderEmptyAlerts();
+        checkDataUsage();
+
+        const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+        if (connection && connection.addEventListener) {
+            connection.addEventListener('change', checkDataUsage);
         }
 
-        toggleLoaderDisplay(true);
-        const authenticated = await ensureAuthenticated();
-        toggleLoaderDisplay(false);
-
-        if (!authenticated) return;
-
-        await synchronousDashboardStateSync(true);
+        synchronousDashboardStateSync(true);
 
         setInterval(() => {
-            synchronousDashboardStateSync(false);
-        }, 10000);
+            if (!document.hidden) synchronousDashboardStateSync(false);
+        }, SYNC_INTERVAL_MS);
+
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) synchronousDashboardStateSync(false);
+        });
     }
 
     if (document.readyState === 'loading') {
@@ -520,5 +543,4 @@ import { supabase } from './supabase.js';
     } else {
         startDashboard();
     }
-
 })();
