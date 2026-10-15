@@ -1,5 +1,6 @@
 import { supabase } from './supabase.js';
 import { SESSION_KEY, sessionId, mountShell, showLoader, hideLoader, toast, pinBoxes, escapeHtml, money } from './ui.js';
+import './formpopup.js';
 
 const LOGOS = {
     '9mobile': 'https://i.imgur.com/bMOx9Q3.png',
@@ -126,7 +127,6 @@ const LOGOS = {
                 $('fNetwork').textContent = n.name;
                 buyForm.classList.remove('hidden');
                 renderNetworks();
-                buyForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 checkForm();
             });
             netGrid.appendChild(tile);
