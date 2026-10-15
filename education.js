@@ -1,5 +1,6 @@
 import { supabase } from './supabase.js';
 import { SESSION_KEY, sessionId, mountShell, showLoader, hideLoader, toast, pinBoxes, escapeHtml, money } from './ui.js';
+import './formpopup.js';
 
 const LOGOS = {
     dstv: 'https://i.imgur.com/XBe4eRi.png',
@@ -164,7 +165,6 @@ const LOGOS = {
         $('fUnit').textContent = '₦' + money(x.price);
         buyForm.classList.remove('hidden');
         renderItems();
-        buyForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
         checkForm();
     }
 
