@@ -3,6 +3,29 @@ import { LOGO, showLoader, hideLoader, toast } from './uix.js';
 
 export const LOGIN_PAGE = 'admin.html';
 
+const SALT = 'amandata.admin.v1:';
+const ALLOWED = [
+    '05de40b3f479234c3634b8816708ec0fcf9415cc78912e3982134879ec663df6',
+    '2c7155195ede75f2540ed2068c0292329f178918a406d3d67eebba64052480e5',
+    '30eb92690d4adc566024cc4907708d84747696efffde3ac12f3a45cc5a748624',
+    'bdac7f63e2697a92ff989ccd0a21707431a2510d924dae88da7e3cbcaf80cc10'
+];
+const DENIED_MESSAGE = 'This email is not allowed to sign in here.';
+const UNSUPPORTED_MESSAGE = 'This browser cannot verify the sign in. Open the page over a secure (https) connection.';
+
+async function fingerprint(email) {
+    const subtle = window.crypto && window.crypto.subtle;
+    if (!subtle) return null;
+    const bytes = new TextEncoder().encode(SALT + String(email || '').trim().toLowerCase());
+    const buffer = await subtle.digest('SHA-256', bytes);
+    return Array.from(new Uint8Array(buffer)).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+export async function isAllowedEmail(email) {
+    const code = await fingerprint(email);
+    return code !== null && ALLOWED.indexOf(code) !== -1;
+}
+
 export async function getSession() {
     try {
         const { data } = await supabase.auth.getSession();
@@ -17,10 +40,22 @@ export async function accessToken() {
     return session ? session.access_token : null;
 }
 
-export async function signIn(email, password) {
+export async function signOut() {
+    try { await supabase.auth.signOut(); } catch (err) {}
+}
+
+export async function signIn(email, password, options) {
+    const open = Boolean(options && options.anyUser);
+
+    if (!open) {
+        const code = await fingerprint(email);
+        if (code === null) return { ok: false, message: UNSUPPORTED_MESSAGE };
+        if (ALLOWED.indexOf(code) === -1) return { ok: false, message: DENIED_MESSAGE };
+    }
+
     let result;
     try {
-        result = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password: password });
+        result = await supabase.auth.signInWithPassword({ email: String(email).trim().toLowerCase(), password: password });
     } catch (err) {
         return { ok: false, message: 'Could not reach the server. Check your connection and try again.' };
     }
@@ -30,19 +65,25 @@ export async function signIn(email, password) {
             : 'Sign in failed. Please try again.';
         return { ok: false, message: message };
     }
-    return { ok: true, session: result.data.session };
+
+    const session = result.data.session;
+    if (!open && !(await isAllowedEmail(session.user && session.user.email))) {
+        await signOut();
+        return { ok: false, message: DENIED_MESSAGE };
+    }
+    return { ok: true, session: session };
 }
 
-export async function signOut() {
-    try { await supabase.auth.signOut(); } catch (err) {}
-}
-
-export function requireSession() {
+export function requireSession(options) {
+    const open = Boolean(options && options.anyUser);
     return new Promise(async (resolve) => {
         const existing = await getSession();
         if (existing) {
-            resolve(existing);
-            return;
+            if (open || (await isAllowedEmail(existing.user && existing.user.email))) {
+                resolve(existing);
+                return;
+            }
+            await signOut();
         }
         hideLoader();
         const overlay = document.createElement('div');
@@ -57,11 +98,11 @@ export function requireSession() {
             overlay.remove();
             showLoader();
             resolve(session);
-        });
+        }, options);
     });
 }
 
-export function mountLogin(root, onSuccess) {
+export function mountLogin(root, onSuccess, options) {
     root.innerHTML =
         '<h3 class="form-title">Sign in</h3>' +
         '<p class="form-desc">Sign in with your email and password.</p>' +
@@ -103,7 +144,7 @@ export function mountLogin(root, onSuccess) {
         busy = true;
         button.disabled = true;
         button.textContent = 'Signing in...';
-        const result = await signIn(email.value, password.value);
+        const result = await signIn(email.value, password.value, options);
         busy = false;
         button.disabled = false;
         button.textContent = 'Sign in';
