@@ -10,6 +10,8 @@ const getBaseUrl = (value) => {
   return base;
 };
 
+const PAYSTACK_BASE_URL = "https://api.paystack.co";
+
 export async function onRequestPost(context) {
   const { request, env } = context;
   let createdAuthId = null;
@@ -28,6 +30,43 @@ export async function onRequestPost(context) {
       });
     } catch (e) {}
     createdAuthId = null;
+  };
+
+  const removeProfileRow = async (id) => {
+    try {
+      await fetch(`${baseUrl}/rest/v1/user_profiles?id=eq.${encodeURIComponent(id)}`, {
+        method: "DELETE",
+        headers: {
+          "apikey": supabaseKey,
+          "Authorization": `Bearer ${supabaseKey}`
+        }
+      });
+    } catch (e) {}
+  };
+
+  const paystackCall = async (path, method, payload) => {
+    const res = await fetch(`${PAYSTACK_BASE_URL}${path}`, {
+      method: method,
+      headers: {
+        "Authorization": `Bearer ${env.PAYSTACK_API_KEY}`,
+        "Content-Type": "application/json"
+      },
+      body: payload ? JSON.stringify(payload) : undefined
+    });
+    let data = null;
+    try {
+      data = await res.json();
+    } catch (e) {}
+    return {
+      ok: res.ok && !!data && data.status === true,
+      data: data,
+      httpStatus: res.status
+    };
+  };
+
+  const paystackMessage = (result, fallback) => {
+    if (result && result.data && result.data.message) return String(result.data.message);
+    return fallback;
   };
 
   try {
@@ -69,7 +108,7 @@ export async function onRequestPost(context) {
     baseUrl = getBaseUrl(env.SUPABASE_URL);
     supabaseKey = env.SUPABASE_SERVICE_ROLE_KEY;
 
-    if (!supabaseKey) {
+    if (!supabaseKey || !env.PAYSTACK_API_KEY) {
       return jsonResponse({ success: false, message: "Server is not configured." }, 500);
     }
 
@@ -166,55 +205,71 @@ export async function onRequestPost(context) {
     const generatedRefLink = `https://www.amandata.com.ng/register/ref/${generatedRefCode}`;
     const registrationDate = new Date().toISOString();
 
-    let monnifyAccessToken = null;
-
-    try {
-      const monnifyAuthBase = btoa(`${env.MONNIFY_API_KEY}:${env.MONNIFY_SECRET_KEY}`);
-      const monnifyAuthRes = await fetch(`${env.MONNIFY_BASE_URL}/api/v1/auth/login`, {
-        method: "POST",
-        headers: {
-          "Authorization": `Basic ${monnifyAuthBase}`,
-          "Content-Type": "application/json"
-        }
-      });
-      if (monnifyAuthRes.ok) {
-        const authData = await monnifyAuthRes.json();
-        monnifyAccessToken = authData.responseBody.accessToken;
-      }
-    } catch (e) {}
+    const nameParts = String(fullName).trim().split(/\s+/);
+    const firstName = nameParts[0];
+    const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : nameParts[0];
 
     let virtualAccounts = [];
-    if (monnifyAccessToken) {
-      try {
-        const monnifyAccountRes = await fetch(`${env.MONNIFY_BASE_URL}/api/v2/bank-transfer/reserved-accounts`, {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${monnifyAccessToken}`,
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            accountReference: uniqueId,
-            accountName: fullName,
-            currencyCode: "NGN",
-            contractCode: env.MONNIFY_CONTRACT_CODE,
-            customerEmail: email,
-            customerName: fullName,
-            getAllAvailableBanks: false,
-            preferredBanks: ["035", "50515"]
-          })
-        });
+    let paystackError = null;
 
-        if (monnifyAccountRes.ok) {
-          const accData = await monnifyAccountRes.json();
-          if (accData.requestSuccessful && accData.responseBody) {
-            virtualAccounts = accData.responseBody.accounts.map(acc => ({
-              bankName: acc.bankName,
-              accountNumber: acc.accountNumber,
-              accountName: acc.accountName
-            }));
+    try {
+      const customerRes = await paystackCall("/customer", "POST", {
+        email: email,
+        first_name: firstName,
+        last_name: lastName,
+        phone: String(phone).trim()
+      });
+
+      if (!customerRes.ok || !customerRes.data.data || !customerRes.data.data.customer_code) {
+        paystackError = paystackMessage(customerRes, "Paystack could not create the customer.");
+      } else {
+        const customerCode = customerRes.data.data.customer_code;
+        let dva = null;
+
+        const existingRes = await paystackCall(`/customer/${encodeURIComponent(customerCode)}`, "GET");
+        if (
+          existingRes.ok &&
+          existingRes.data.data &&
+          existingRes.data.data.dedicated_account &&
+          existingRes.data.data.dedicated_account.account_number
+        ) {
+          dva = existingRes.data.data.dedicated_account;
+        }
+
+        if (!dva) {
+          const dvaRes = await paystackCall("/dedicated_account", "POST", {
+            customer: customerCode,
+            preferred_bank: "wema-bank"
+          });
+
+          if (!dvaRes.ok) {
+            paystackError = paystackMessage(dvaRes, "Paystack could not create the virtual account.");
+          } else if (dvaRes.data.data && dvaRes.data.data.account_number) {
+            dva = dvaRes.data.data;
+          } else {
+            paystackError = paystackMessage(dvaRes, "Paystack did not return an account number.");
           }
         }
-      } catch (e) {}
+
+        if (!paystackError && dva && dva.account_number) {
+          virtualAccounts = [
+            {
+              bankName: (dva.bank && dva.bank.name) ? dva.bank.name : "Wema Bank",
+              accountNumber: String(dva.account_number),
+              accountName: dva.account_name || `AmanData ${fullName}`
+            }
+          ];
+        } else if (!paystackError) {
+          paystackError = "Paystack did not return an account number.";
+        }
+      }
+    } catch (e) {
+      paystackError = "Could not reach Paystack. Registration aborted.";
+    }
+
+    if (paystackError || virtualAccounts.length === 0) {
+      await removeAuthUser();
+      return jsonResponse({ success: false, message: paystackError || "Virtual account could not be created. Registration aborted." }, 502);
     }
 
     const finalUserData = {
@@ -249,6 +304,7 @@ export async function onRequestPost(context) {
     });
 
     if (!insertProfileRes.ok) {
+      await removeProfileRow(uniqueId);
       await removeAuthUser();
       return jsonResponse({ success: false, message: "Database core execution error. Registration aborted." }, 500);
     }
