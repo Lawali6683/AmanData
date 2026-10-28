@@ -6,9 +6,32 @@
     <title>Buy Data - AmanData</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="ui2.css">
-    
-
-       
+    <style>
+        .net-row {
+            display: grid !important;
+            grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+            flex-wrap: nowrap !important;
+            gap: 8px !important;
+            width: 100% !important;
+            box-sizing: border-box !important;
+        }
+        .net-row > * {
+            width: 100% !important;
+            min-width: 0 !important;
+            max-width: 100% !important;
+            flex: none !important;
+            margin: 0 !important;
+            padding: 6px !important;
+            box-sizing: border-box !important;
+        }
+        .net-row > * img {
+            display: block !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            height: auto !important;
+            object-fit: contain !important;
+        }
+    </style>
 </head>
 <body>
     <div class="app-container" id="appContainer">
