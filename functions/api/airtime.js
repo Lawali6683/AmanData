@@ -64,17 +64,6 @@ async function callProvider(env, path, payload) {
     return { state: 'unknown', data: data, message: message };
 }
 
-async function pricingRule(env, service, itemId) {
-    const res = await rest(env, 'bill_pricing?service=eq.' + service + '&item_id=eq.' + encodeURIComponent(itemId) + '&select=mode,value,enabled&limit=1');
-    const row = res.ok && Array.isArray(res.data) && res.data[0] ? res.data[0] : null;
-    return { mode: row && row.mode === 'fixed' ? 'fixed' : 'percent', value: row ? Number(row.value) || 0 : 0, enabled: row ? row.enabled !== false : true };
-}
-
-function serviceCharge(rule, amount) {
-    if (!(rule.value > 0)) return 0;
-    return rule.mode === 'fixed' ? round2(rule.value) : round2((amount * rule.value) / 100);
-}
-
 async function guardPin(env, uuid, pin, ud) {
     const key = 'pin-attempts:' + uuid;
     if (String(ud.pin || '') !== '' && String(ud.pin) === pin) {
@@ -94,18 +83,120 @@ async function pinLocked(env, uuid) {
     return attempts >= MAX_PIN_ATTEMPTS;
 }
 
+async function getProfile(env, uuid) {
+    const res = await rest(env, 'user_profiles?id=eq.' + encodeURIComponent(uuid) + '&select=user_data');
+    if (!res.ok) throw new Error('profile ' + res.status);
+    return res.data && res.data[0] ? res.data[0].user_data : null;
+}
+
+async function gate(env, uuid, pin) {
+    if (await pinLocked(env, uuid)) {
+        return { response: json({ success: false, message: 'Too many wrong PIN attempts. Try again in 10 minutes.' }, 429) };
+    }
+    const ud = await getProfile(env, uuid);
+    if (!ud) return { response: json({ success: false, message: 'Account not found.' }, 404) };
+    const wrong = await guardPin(env, uuid, pin, ud);
+    if (wrong) return { response: wrong };
+    return { ud: ud };
+}
+
+function replay(tx, ud, okMessage, extra) {
+    if (tx.status === 'success') {
+        return json(Object.assign({ success: true, message: okMessage, balance: toNumber(ud.user_balance) }, extra || {}));
+    }
+    if (tx.status === 'pending') return json({ success: false, pending: true, message: MSG.pending });
+    return json({ success: false, message: MSG.failed });
+}
+
+function debitError(debit) {
+    const m = rpcMessage(debit);
+    if (/INSUFFICIENT_FUNDS/.test(m)) return json({ success: false, message: 'Your wallet balance is not enough. Please fund your wallet.' }, 400);
+    if (/DUPLICATE_REQUEST/.test(m)) return json({ success: false, pending: true, message: MSG.pending });
+    if (/USER_NOT_FOUND/.test(m)) return json({ success: false, message: 'Account not found.' }, 404);
+    console.error('wallet_debit failed', debit.status, snippet(m));
+    return json({ success: false, message: MSG.server }, 500);
+}
+
+async function settleSuccess(env, uuid, reference, extra) {
+    const args = { p_user: uuid, p_reference: reference, p_status: 'success', p_extra: extra || {} };
+    const first = await rpc(env, 'wallet_settle', args);
+    if (!first.ok) {
+        const second = await rpc(env, 'wallet_settle', args);
+        if (!second.ok) console.error('settle failed', reference, second.status);
+    }
+}
+
+async function refundResponse(env, uuid, reference, outcome) {
+    console.error('provider refused', reference, snippet(outcome.message));
+    const refund = await rpc(env, 'wallet_refund', { p_user: uuid, p_reference: reference });
+    if (!refund.ok) {
+        console.error('refund failed', reference, refund.status);
+        return json({ success: false, pending: true, message: MSG.pending });
+    }
+    return json({ success: false, message: LOW_FUNDS.test(outcome.message) ? MSG.network : MSG.failed, balance: Number(refund.data) });
+}
+
+async function shareProfit(env, uuid, reference, profit) {
+    if (!(profit > 0)) return;
+    const args = {
+        p_reference: reference,
+        p_user: uuid,
+        p_profit: round2(profit),
+        p_investor_email: String(env.INVESTOR_EMAIL || '').trim().toLowerCase()
+    };
+    for (let i = 0; i < 3; i++) {
+        try {
+            const res = await rpc(env, 'distribute_profit', args);
+            if (res.ok) {
+                if (res.data === 'investor_not_found') console.error('profit share: investor not found', reference);
+                return;
+            }
+            console.error('distribute_profit failed', reference, res.status, snippet(rpcMessage(res)));
+        } catch (err) {
+            console.error('distribute_profit error', reference, err && err.message);
+        }
+    }
+}
+
+async function recordProfit(env, uuid, service, description, reference, cost, price) {
+    const known = cost !== null && cost !== undefined && isFinite(cost);
+    const profit = known ? round2(price - cost) : 0;
+    try {
+        await rest(env, 'profit_log', {
+            method: 'POST',
+            body: JSON.stringify({
+                user_id: uuid,
+                service: service,
+                description: description,
+                reference: reference,
+                cost: known ? round2(cost) : 0,
+                price: round2(price),
+                profit: profit
+            })
+        });
+    } catch (err) {
+        console.error('profit_log failed', err && err.message);
+    }
+    await shareProfit(env, uuid, reference, profit);
+}
+
+async function pricingRule(env, service, itemId) {
+    const res = await rest(env, 'bill_pricing?service=eq.' + service + '&item_id=eq.' + encodeURIComponent(itemId) + '&select=mode,value,enabled&limit=1');
+    const row = res.ok && Array.isArray(res.data) && res.data[0] ? res.data[0] : null;
+    return { mode: row && row.mode === 'fixed' ? 'fixed' : 'percent', value: row ? Number(row.value) || 0 : 0, enabled: row ? row.enabled !== false : true };
+}
+
+function serviceCharge(rule, amount) {
+    if (!(rule.value > 0)) return 0;
+    return rule.mode === 'fixed' ? round2(rule.value) : round2((amount * rule.value) / 100);
+}
+
 const NETWORKS = {
     mtn: { id: 1, name: 'MTN' },
     airtel: { id: 2, name: 'AIRTEL' },
     glo: { id: 3, name: 'GLO' },
     '9mobile': { id: 4, name: '9MOBILE' }
 };
-
-function replay(tx, ud) {
-    if (tx.status === 'success') return json({ success: true, message: 'This purchase was already completed.', balance: toNumber(ud.user_balance) });
-    if (tx.status === 'pending') return json({ success: false, pending: true, message: MSG.pending });
-    return json({ success: false, message: MSG.failed });
-}
 
 export async function onRequestPost({ request, env }) {
     let body;
@@ -137,18 +228,12 @@ export async function onRequestPost({ request, env }) {
     let balanceAfterDebit = 0;
 
     try {
-        if (await pinLocked(env, uuid)) return json({ success: false, message: 'Too many wrong PIN attempts. Try again in 10 minutes.' }, 429);
-
-        const profileRes = await rest(env, 'user_profiles?id=eq.' + encodeURIComponent(uuid) + '&select=user_data');
-        if (!profileRes.ok) throw new Error('profile ' + profileRes.status);
-        const ud = profileRes.data && profileRes.data[0] ? profileRes.data[0].user_data : null;
-        if (!ud) return json({ success: false, message: 'Account not found.' }, 404);
-
-        const wrongPin = await guardPin(env, uuid, pin, ud);
-        if (wrongPin) return wrongPin;
+        const access = await gate(env, uuid, pin);
+        if (access.response) return access.response;
+        const ud = access.ud;
 
         const previous = findTx(ud, reference);
-        if (previous) return replay(previous, ud);
+        if (previous) return replay(previous, ud, 'This purchase was already completed.');
 
         const rule = await pricingRule(env, 'airtime', netKey);
         if (!rule.enabled) return json({ success: false, message: 'This network is not available right now. Please try again later.' }, 400);
@@ -173,14 +258,7 @@ export async function onRequestPost({ request, env }) {
         };
 
         const debit = await rpc(env, 'wallet_debit', { p_user: uuid, p_amount: total, p_tx: tx });
-        if (!debit.ok) {
-            const m = rpcMessage(debit);
-            if (/INSUFFICIENT_FUNDS/.test(m)) return json({ success: false, message: 'Your wallet balance is not enough. Please fund your wallet.' }, 400);
-            if (/DUPLICATE_REQUEST/.test(m)) return json({ success: false, pending: true, message: MSG.pending });
-            if (/USER_NOT_FOUND/.test(m)) return json({ success: false, message: 'Account not found.' }, 404);
-            console.error('wallet_debit failed', debit.status, snippet(m));
-            return json({ success: false, message: MSG.server }, 500);
-        }
+        if (!debit.ok) return debitError(debit);
         debited = true;
         balanceAfterDebit = Number(debit.data);
 
@@ -193,31 +271,14 @@ export async function onRequestPost({ request, env }) {
         });
 
         if (outcome.state === 'success') {
-            const settleArgs = { p_user: uuid, p_reference: reference, p_status: 'success', p_extra: {} };
-            const settle = await rpc(env, 'wallet_settle', settleArgs);
-            if (!settle.ok) await rpc(env, 'wallet_settle', settleArgs);
+            await settleSuccess(env, uuid, reference, {});
             const charged = parseFloat(outcome.data && outcome.data.oldbal) - parseFloat(outcome.data && outcome.data.newbal);
             const cost = isFinite(charged) && charged > 0 ? charged : amount;
-            try {
-                await rest(env, 'profit_log', {
-                    method: 'POST',
-                    body: JSON.stringify({ user_id: uuid, service: 'airtime', description: title, reference: reference, cost: round2(cost), price: total, profit: round2(total - cost) })
-                });
-            } catch (err) {
-                console.error('profit_log failed', err && err.message);
-            }
+            await recordProfit(env, uuid, 'airtime', title, reference, cost, total);
             return json({ success: true, message: '₦' + amount + ' ' + net.name + ' airtime has been sent to ' + phone + '.', balance: balanceAfterDebit });
         }
 
-        if (outcome.state === 'failed') {
-            console.error('provider refused airtime', reference, snippet(outcome.message));
-            const refund = await rpc(env, 'wallet_refund', { p_user: uuid, p_reference: reference });
-            if (!refund.ok) {
-                console.error('refund failed', reference, refund.status);
-                return json({ success: false, pending: true, message: MSG.pending });
-            }
-            return json({ success: false, message: LOW_FUNDS.test(outcome.message) ? MSG.network : MSG.failed, balance: Number(refund.data) });
-        }
+        if (outcome.state === 'failed') return await refundResponse(env, uuid, reference, outcome);
 
         console.error('provider outcome unknown', reference, snippet(outcome.message));
         return json({ success: false, pending: true, message: MSG.pending });
