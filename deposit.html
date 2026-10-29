@@ -8,42 +8,71 @@
 <link rel="stylesheet" href="uix.css">
 <style>
   #appContainer { display: block !important; visibility: visible !important; opacity: 1 !important; transform: none !important; min-height: 100vh; }
-  #depRoot { display: block !important; visibility: visible !important; opacity: 1 !important; background: #ffffff; color: #1a1a1a; padding: 14px; margin: 12px; border-radius: 12px; }
-  #depErr { display: none; background: #fdecea; color: #b3261e; padding: 10px; margin: 12px; border-radius: 8px; font-size: 13px; word-break: break-word; }
-  #depRoot h2 { font-size: 16px; margin: 18px 0 8px; }
-  #depRoot input { padding: 10px; border: 1px solid #c9ccd1; border-radius: 8px; font-size: 14px; width: 100%; box-sizing: border-box; margin-bottom: 8px; }
-  #depRoot button { padding: 10px 14px; border: 0; border-radius: 8px; background: #0b6b3a; color: #fff; font-size: 14px; margin: 3px 6px 3px 0; cursor: pointer; }
-  #depRoot button.dep-warn { background: #b3261e; }
-  #depRoot button.dep-alt { background: #3b4a6b; }
-  .dep-card { border: 1px solid #dde0e5; border-radius: 10px; padding: 10px; margin-bottom: 10px; font-size: 14px; }
-  .dep-line { margin: 2px 0; word-break: break-word; }
-  .dep-label { opacity: 0.65; }
-  .dep-err { color: #b3261e; padding: 6px 0; }
-  .dep-ok { color: #0b6b3a; padding: 6px 0; }
-  .dep-scroll { overflow-x: auto; }
-  #depRoot table { border-collapse: collapse; font-size: 12px; min-width: 640px; }
-  #depRoot th, #depRoot td { border: 1px solid #dde0e5; padding: 5px 7px; text-align: left; vertical-align: top; }
-  .dep-user { border-top: 1px dashed #c9ccd1; margin-top: 6px; padding-top: 6px; }
+  #depRoot { display: block !important; visibility: visible !important; opacity: 1 !important; background: #ffffff; color: #1a1a1a; padding: 16px; margin: 12px; border-radius: 16px; }
+  #depErr { display: none; background: #fdecea; color: #b3261e; padding: 10px; margin: 12px; border-radius: 10px; font-size: 13px; word-break: break-word; }
+  .dep-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
+  .dep-title { font-size: 20px; font-weight: 700; margin: 0; }
+  .dep-sub { font-size: 13px; color: #5b6470; margin-top: 2px; }
+  .dep-icon { width: 42px; height: 42px; border: 0; border-radius: 50%; background: #eef6f1; color: #0b6b3a; font-size: 16px; cursor: pointer; flex: none; }
+  .dep-keybox { display: flex; gap: 8px; margin-bottom: 14px; }
+  .dep-keybox input { flex: 1; min-width: 0; }
+  #depRoot input { padding: 12px; border: 1px solid #d3d7dd; border-radius: 12px; font-size: 15px; width: 100%; box-sizing: border-box; background: #fff; color: #1a1a1a; }
+  #depRoot button { font-family: inherit; }
+  .dep-btn { padding: 12px 16px; border: 0; border-radius: 12px; font-size: 15px; font-weight: 600; cursor: pointer; }
+  .dep-primary { background: #0b6b3a; color: #fff; }
+  .dep-second { background: #eef1f6; color: #26324d; }
+  .dep-danger { background: #fdecea; color: #b3261e; }
+  .dep-btn[disabled] { opacity: 0.6; cursor: default; }
+  .dep-card { border: 1px solid #e3e6eb; border-radius: 16px; padding: 14px; margin-bottom: 14px; box-shadow: 0 2px 8px rgba(20, 30, 55, 0.06); background: #fff; }
+  .dep-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .dep-amount { font-size: 24px; font-weight: 700; }
+  .dep-chip { font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: #fdecea; color: #b3261e; white-space: nowrap; }
+  .dep-time { font-size: 12px; color: #6b7480; margin-top: 2px; }
+  .dep-note { font-size: 13px; color: #0b6b3a; background: #eef6f1; padding: 8px 10px; border-radius: 10px; margin-top: 10px; }
+  .dep-grid { margin-top: 10px; display: grid; grid-template-columns: 1fr; gap: 6px; }
+  .dep-row { font-size: 14px; word-break: break-word; }
+  .dep-label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: #7a838f; }
+  .dep-reason { margin-top: 10px; font-size: 12px; color: #6b7480; word-break: break-word; }
+  .dep-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .dep-actions .dep-btn { flex: 1 1 auto; }
+  .dep-find { display: none; margin-top: 12px; }
+  .dep-find.open { display: block; }
+  .dep-findbar { display: flex; gap: 8px; }
+  .dep-findbar input { flex: 1; min-width: 0; }
+  .dep-user { border-top: 1px dashed #d3d7dd; margin-top: 10px; padding-top: 10px; }
+  .dep-empty { text-align: center; padding: 30px 10px; color: #0b6b3a; font-weight: 600; }
+  .dep-foot { display: flex; justify-content: center; gap: 18px; margin-top: 10px; }
+  .dep-link { background: none; border: 0; color: #5b6470; font-size: 13px; text-decoration: underline; cursor: pointer; padding: 6px; }
+  #toasts { position: fixed; top: 12px; left: 50%; transform: translateX(-50%); width: min(94vw, 420px); z-index: 99999; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+  .dep-toast { pointer-events: auto; display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 14px; color: #fff; font-size: 14px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25); word-break: break-word; animation: depIn 0.22s ease-out; }
+  .dep-toast.ok { background: #0b6b3a; }
+  .dep-toast.bad { background: #b3261e; }
+  .dep-toast i { margin-top: 2px; }
+  @keyframes depIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
 </style>
 </head>
 <body>
+<div id="toasts"></div>
 <div id="depErr"></div>
 <div class="app-container" id="appContainer">
 <header><button type="button" class="btn-back" id="btnBack" aria-label="Back"><i class="fa-solid fa-arrow-left"></i></button><img src="https://i.imgur.com/bNK9ccG.png" class="page-logo" alt="AmanData"><span class="header-spacer"></span></header>
 <section class="form-card" id="depRoot">
-<h2>Deposits</h2>
-<input id="api" placeholder="API URL">
-<input id="key" type="password" placeholder="Admin key">
-<div>
-  <button id="load">Load</button>
-  <button id="diag" class="dep-alt">Diagnose</button>
-</div>
-<div id="msg"></div>
-<div id="diagbox"></div>
-<h2>Pending deposits</h2>
-<div id="pending"></div>
-<h2>Recent webhook events</h2>
-<div id="events" class="dep-scroll"></div>
+  <div class="dep-top">
+    <div>
+      <h2 class="dep-title">Unpaid deposits</h2>
+      <div class="dep-sub" id="depCount">Enter your admin key</div>
+    </div>
+    <button type="button" class="dep-icon" id="refresh" aria-label="Refresh"><i class="fa-solid fa-rotate"></i></button>
+  </div>
+  <div class="dep-keybox" id="keyBox">
+    <input id="key" type="password" placeholder="Admin key" autocomplete="off">
+    <button type="button" class="dep-btn dep-primary" id="openBtn">Open</button>
+  </div>
+  <div id="pending"></div>
+  <div class="dep-foot">
+    <button type="button" class="dep-link" id="check">System check</button>
+    <button type="button" class="dep-link" id="changeKey">Change key</button>
+  </div>
 </section>
 </div>
 <script>
@@ -67,15 +96,14 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 </script>
 <script>
+const API = location.origin + '/api/webhook';
+const $ = (id) => document.getElementById(id);
+const keyInput = $('key');
+let adminKey = sessionStorage.getItem('dep_key') || '';
+
 document.getElementById('btnBack').addEventListener('click', function () {
   if (document.referrer) history.back(); else location.href = 'admin.html';
 });
-
-const $ = (id) => document.getElementById(id);
-const apiInput = $('api');
-const keyInput = $('key');
-apiInput.value = sessionStorage.getItem('dep_api') || (location.origin + '/api/webhook');
-keyInput.value = sessionStorage.getItem('dep_key') || '';
 
 function el(tag, text, cls) {
   const n = document.createElement(tag);
@@ -84,160 +112,261 @@ function el(tag, text, cls) {
   return n;
 }
 
-function say(text, bad) {
-  const m = $('msg');
-  m.textContent = text;
-  m.className = bad ? 'dep-err' : 'dep-ok';
+function toast(text, kind) {
+  const box = el('div', null, 'dep-toast ' + (kind === 'bad' ? 'bad' : 'ok'));
+  const icon = el('i');
+  icon.className = kind === 'bad' ? 'fa-solid fa-circle-exclamation' : 'fa-solid fa-circle-check';
+  box.appendChild(icon);
+  box.appendChild(el('div', text));
+  box.onclick = () => box.remove();
+  $('toasts').appendChild(box);
+  setTimeout(() => box.remove(), kind === 'bad' ? 9000 : 6000);
+}
+
+function money(n) {
+  return '\u20A6' + Number(n || 0).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function when(v) {
+  const d = new Date(v);
+  return isNaN(d.getTime()) ? String(v || '') : d.toLocaleString();
+}
+
+function setBusy(btn, busy, text) {
+  if (busy) {
+    btn.dataset.label = btn.textContent;
+    btn.textContent = text || 'Please wait...';
+    btn.disabled = true;
+  } else {
+    btn.textContent = btn.dataset.label || btn.textContent;
+    btn.disabled = false;
+  }
+}
+
+function showKeyBox(show) {
+  $('keyBox').style.display = show ? 'flex' : 'none';
 }
 
 async function call(body) {
-  sessionStorage.setItem('dep_api', apiInput.value.trim());
-  sessionStorage.setItem('dep_key', keyInput.value.trim());
-  const res = await fetch(apiInput.value.trim(), {
+  const res = await fetch(API, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-admin-key': keyInput.value.trim() },
+    headers: { 'Content-Type': 'application/json', 'x-admin-key': adminKey },
     body: JSON.stringify(body)
   });
   let data = null;
   try { data = await res.json(); } catch (e) {}
-  if (!data) throw new Error('HTTP ' + res.status);
+  if (res.status === 401) {
+    sessionStorage.removeItem('dep_key');
+    showKeyBox(true);
+    throw new Error('Wrong admin key.');
+  }
+  if (!data) throw new Error('Server answered with HTTP ' + res.status);
   if (!res.ok) throw new Error(data.message || 'HTTP ' + res.status);
   return data;
 }
 
-function line(parent, label, value) {
-  const row = el('div', null, 'dep-line');
-  row.appendChild(el('span', label + ': ', 'dep-label'));
-  row.appendChild(el('span', value === '' || value === null || value === undefined ? '-' : value));
-  parent.appendChild(row);
+function row(parent, label, value) {
+  if (value === '' || value === null || value === undefined) return;
+  const r = el('div', null, 'dep-row');
+  r.appendChild(el('span', label, 'dep-label'));
+  r.appendChild(el('span', value));
+  parent.appendChild(r);
 }
 
-function renderPending(list) {
-  const box = $('pending');
-  box.textContent = '';
-  if (!list.length) {
-    box.appendChild(el('div', 'No pending deposits.', 'dep-ok'));
-    return;
+function updateCount() {
+  const n = document.querySelectorAll('.dep-card').length;
+  $('depCount').textContent = n === 0 ? 'All deposits are paid' : n + ' unpaid deposit' + (n === 1 ? '' : 's');
+  if (n === 0 && !document.querySelector('.dep-empty')) {
+    $('pending').appendChild(el('div', 'No unpaid deposits.', 'dep-empty'));
   }
-  list.forEach((p) => {
-    const card = el('div', null, 'dep-card');
-    line(card, 'Amount', p.amount);
-    line(card, 'Reference', p.reference);
-    line(card, 'Time', p.created_at);
-    line(card, 'Error', p.reason);
-    line(card, 'Account number', p.account);
-    line(card, 'Customer code', p.customer_code);
-    line(card, 'Email', p.email);
-    line(card, 'Customer name', p.customer_name);
-    line(card, 'Sender', p.sender_name);
-    line(card, 'Channel', p.channel);
-    line(card, 'Attempts', p.attempts);
-
-    const retry = el('button', 'Read all users and credit');
-    retry.onclick = async () => {
-      if (!confirm('Search all users and credit this deposit?')) return;
-      try {
-        const r = await call({ action: 'retry', reference: p.reference });
-        say(r.message, !r.success);
-        if (r.success) load();
-      } catch (e) { say(e.message, true); }
-    };
-    card.appendChild(retry);
-
-    const del = el('button', 'Delete', 'dep-warn');
-    del.className = 'dep-warn';
-    del.onclick = async () => {
-      if (!confirm('Delete this record without crediting anyone?')) return;
-      try {
-        const r = await call({ action: 'delete', reference: p.reference });
-        say(r.message, !r.success);
-        load();
-      } catch (e) { say(e.message, true); }
-    };
-    card.appendChild(del);
-
-    const q = el('input');
-    q.placeholder = 'Search user by email, name or phone';
-    card.appendChild(q);
-    const results = el('div');
-    const search = el('button', 'Search user');
-    search.className = 'dep-alt';
-    search.onclick = async () => {
-      results.textContent = '';
-      try {
-        const r = await call({ action: 'search', q: q.value });
-        if (!r.users.length) results.appendChild(el('div', 'No user found.', 'dep-err'));
-        r.users.forEach((u) => {
-          const box2 = el('div', null, 'dep-user');
-          line(box2, 'Name', u.name);
-          line(box2, 'Email', u.email);
-          line(box2, 'Phone', u.phone);
-          line(box2, 'Account', Array.isArray(u.accounts) ? u.accounts.map((a) => a.accountNumber).join(', ') : '');
-          const pay = el('button', 'Credit this user');
-          pay.onclick = async () => {
-            if (!confirm('Credit ' + (u.name || u.email) + ' with this deposit?')) return;
-            try {
-              const c = await call({ action: 'credit', reference: p.reference, user_id: u.id });
-              say(c.message, !c.success);
-              if (c.success) load();
-            } catch (e) { say(e.message, true); }
-          };
-          box2.appendChild(pay);
-          results.appendChild(box2);
-        });
-      } catch (e) { say(e.message, true); }
-    };
-    card.appendChild(search);
-    card.appendChild(results);
-    box.appendChild(card);
-  });
 }
 
-function renderEvents(list, available) {
-  const box = $('events');
-  box.textContent = '';
-  if (!available) {
-    box.appendChild(el('div', 'webhook_events table is not available. Run webhook_events.sql.', 'dep-err'));
-    return;
-  }
-  if (!list.length) {
-    box.appendChild(el('div', 'No webhook events yet. If you paid and nothing shows here, Paystack is not reaching this URL.', 'dep-err'));
-    return;
-  }
-  const table = el('table');
-  const head = el('tr');
-  ['Time', 'Stage', 'Amount', 'Reference', 'Channel', 'Email', 'Account', 'Detail'].forEach((h) => head.appendChild(el('th', h)));
-  table.appendChild(head);
-  list.forEach((e) => {
-    const tr = el('tr');
-    [e.received_at, e.stage, e.amount, e.reference, e.channel, e.email, e.account, e.detail].forEach((v) => tr.appendChild(el('td', v === null || v === undefined ? '' : v)));
-    table.appendChild(tr);
-  });
-  box.appendChild(table);
+function feeText(amount) {
+  const gross = Math.round(Number(amount) * 100);
+  const fee = Math.round(gross / 100);
+  return 'User gets ' + money((gross - fee) / 100) + ' after 1% fee (' + money(fee / 100) + ')';
+}
+
+function buildCard(p) {
+  const card = el('div', null, 'dep-card');
+  const head = el('div', null, 'dep-head');
+  head.appendChild(el('div', money(p.amount), 'dep-amount'));
+  head.appendChild(el('div', /UNMATCHED|AMBIGUOUS/.test(p.reason || '') ? 'User not found' : 'Credit error', 'dep-chip'));
+  card.appendChild(head);
+  card.appendChild(el('div', when(p.created_at), 'dep-time'));
+  card.appendChild(el('div', feeText(p.amount), 'dep-note'));
+
+  const grid = el('div', null, 'dep-grid');
+  row(grid, 'Name', p.customer_name);
+  row(grid, 'Sender', p.sender_name);
+  row(grid, 'Email', p.email);
+  row(grid, 'Account number', p.account);
+  row(grid, 'Reference', p.reference);
+  card.appendChild(grid);
+
+  const reason = el('div', 'Problem: ' + (p.reason || 'unknown'), 'dep-reason');
+  card.appendChild(reason);
+
+  const actions = el('div', null, 'dep-actions');
+  const confirmBtn = el('button', 'Confirm and credit', 'dep-btn dep-primary');
+  confirmBtn.type = 'button';
+  const findBtn = el('button', 'Find user', 'dep-btn dep-second');
+  findBtn.type = 'button';
+  const delBtn = el('button', 'Delete', 'dep-btn dep-danger');
+  delBtn.type = 'button';
+  actions.appendChild(confirmBtn);
+  actions.appendChild(findBtn);
+  actions.appendChild(delBtn);
+  card.appendChild(actions);
+
+  const find = el('div', null, 'dep-find');
+  const bar = el('div', null, 'dep-findbar');
+  const q = el('input');
+  q.placeholder = 'Email, name or phone';
+  const go = el('button', 'Search', 'dep-btn dep-second');
+  go.type = 'button';
+  bar.appendChild(q);
+  bar.appendChild(go);
+  find.appendChild(bar);
+  const results = el('div');
+  find.appendChild(results);
+  card.appendChild(find);
+
+  confirmBtn.onclick = async () => {
+    setBusy(confirmBtn, true, 'Checking users...');
+    try {
+      const r = await call({ action: 'retry', reference: p.reference });
+      if (r.success) {
+        toast(r.message, 'ok');
+        card.remove();
+        updateCount();
+        return;
+      }
+      reason.textContent = 'Problem: ' + (r.message || 'could not credit');
+      toast(r.message || 'Could not credit this deposit.', 'bad');
+    } catch (e) {
+      toast(e.message, 'bad');
+    }
+    setBusy(confirmBtn, false);
+  };
+
+  findBtn.onclick = () => find.classList.toggle('open');
+
+  delBtn.onclick = async () => {
+    if (!confirm('Delete this record without crediting anyone?')) return;
+    setBusy(delBtn, true, 'Deleting...');
+    try {
+      await call({ action: 'delete', reference: p.reference });
+      toast('Record deleted.', 'ok');
+      card.remove();
+      updateCount();
+      return;
+    } catch (e) {
+      toast(e.message, 'bad');
+    }
+    setBusy(delBtn, false);
+  };
+
+  go.onclick = async () => {
+    results.textContent = '';
+    setBusy(go, true, '...');
+    try {
+      const r = await call({ action: 'search', q: q.value });
+      if (!r.users.length) results.appendChild(el('div', 'No user found.', 'dep-reason'));
+      r.users.forEach((u) => {
+        const box = el('div', null, 'dep-user');
+        row(box, 'Name', u.name);
+        row(box, 'Email', u.email);
+        row(box, 'Phone', u.phone);
+        row(box, 'Account', Array.isArray(u.accounts) ? u.accounts.map((a) => a.accountNumber).join(', ') : '');
+        const pay = el('button', 'Credit this user', 'dep-btn dep-primary');
+        pay.type = 'button';
+        pay.style.marginTop = '8px';
+        pay.onclick = async () => {
+          if (!confirm('Credit ' + (u.name || u.email) + ' with this deposit?')) return;
+          setBusy(pay, true, 'Crediting...');
+          try {
+            const c = await call({ action: 'credit', reference: p.reference, user_id: u.id });
+            if (c.success) {
+              toast(c.message, 'ok');
+              card.remove();
+              updateCount();
+              return;
+            }
+            toast(c.message || 'Could not credit.', 'bad');
+          } catch (e) {
+            toast(e.message, 'bad');
+          }
+          setBusy(pay, false);
+        };
+        box.appendChild(pay);
+        results.appendChild(box);
+      });
+    } catch (e) {
+      toast(e.message, 'bad');
+    }
+    setBusy(go, false);
+  };
+
+  return card;
 }
 
 async function load() {
+  if (!adminKey) {
+    showKeyBox(true);
+    return;
+  }
+  $('depCount').textContent = 'Loading...';
   try {
     const r = await call({ action: 'list' });
-    renderPending(r.pending);
-    renderEvents(r.events, r.events_available);
-    say('Loaded.', false);
-  } catch (e) { say(e.message, true); }
+    const box = $('pending');
+    box.textContent = '';
+    r.pending.forEach((p) => box.appendChild(buildCard(p)));
+    showKeyBox(false);
+    updateCount();
+  } catch (e) {
+    $('depCount').textContent = 'Could not load';
+    toast(e.message, 'bad');
+  }
 }
 
-async function diagnose() {
-  const box = $('diagbox');
-  box.textContent = '';
+async function systemCheck() {
+  if (!adminKey) {
+    showKeyBox(true);
+    return;
+  }
   try {
     const r = await call({ action: 'diagnose' });
-    const card = el('div', null, 'dep-card');
-    Object.keys(r.checks).forEach((k) => line(card, k, String(r.checks[k])));
-    box.appendChild(card);
-  } catch (e) { say(e.message, true); }
+    const failed = Object.keys(r.checks).filter((k) => r.checks[k] === false);
+    if (!failed.length) {
+      toast('All checks passed. Paystack key mode: ' + r.checks.paystack_key_mode + '.', 'ok');
+      return;
+    }
+    failed.forEach((k) => toast('Check failed: ' + k + (r.checks[k + '_error'] ? ' - ' + r.checks[k + '_error'] : ''), 'bad'));
+  } catch (e) {
+    toast(e.message, 'bad');
+  }
 }
 
-$('load').onclick = load;
-$('diag').onclick = diagnose;
+$('openBtn').onclick = () => {
+  adminKey = keyInput.value.trim();
+  if (!adminKey) return;
+  sessionStorage.setItem('dep_key', adminKey);
+  load();
+};
+keyInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') $('openBtn').click(); });
+$('refresh').onclick = load;
+$('check').onclick = systemCheck;
+$('changeKey').onclick = () => {
+  sessionStorage.removeItem('dep_key');
+  adminKey = '';
+  keyInput.value = '';
+  showKeyBox(true);
+  $('pending').textContent = '';
+  $('depCount').textContent = 'Enter your admin key';
+};
+
+if (adminKey) load(); else showKeyBox(true);
 </script>
 </body>
 </html>
