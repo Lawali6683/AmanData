@@ -2,7 +2,7 @@ const PAYSTACK_API = "https://api.paystack.co";
 const SWEEP_BATCH = 20;
 const SWEEP_GAP_MS = 10 * 60 * 1000;
 const SWEEP_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000;
-const EVENT_KEEP_MS = 30 * 24 * 60 * 60 * 1000;
+const EVENT_KEEP_MS = 7 * 24 * 60 * 60 * 1000;
 const SCAN_PAGE = 1000;
 const SCAN_MAX_PAGES = 50;
 const UUID_RE = /^[0-9a-fA-F-]{36}$/;
@@ -383,11 +383,12 @@ async function processCharge(cfg, reference, signed, broad) {
 }
 
 async function clearPending(cfg, reference) {
+  const enc = encodeURIComponent(reference);
   try {
-    await sbFetch(cfg, `failed_webhooks?reference=eq.${encodeURIComponent(reference)}`, {
-      method: "DELETE",
-      prefer: "return=minimal"
-    });
+    await sbFetch(cfg, `failed_webhooks?reference=eq.${enc}`, { method: "DELETE", prefer: "return=minimal" });
+  } catch (e) {}
+  try {
+    await sbFetch(cfg, `webhook_events?reference=eq.${enc}&stage=in.(error,unmatched)`, { method: "DELETE", prefer: "return=minimal" });
   } catch (e) {}
 }
 
@@ -415,11 +416,19 @@ async function logFailed(cfg, payload, reference, info) {
       prefer: "return=minimal",
       body: JSON.stringify(extended)
     });
-    if (!first.ok) {
-      await sbFetch(cfg, "failed_webhooks", {
-        method: "POST",
-        prefer: "return=minimal",
-        body: JSON.stringify(base)
+    if (first.ok) return;
+
+    const second = await sbFetch(cfg, "failed_webhooks", {
+      method: "POST",
+      prefer: "return=minimal",
+      body: JSON.stringify(base)
+    });
+    if (!second.ok) {
+      const text = typeof second.data === "string" ? second.data : JSON.stringify(second.data || {});
+      await logEvent(cfg, {
+        stage: "log_failed",
+        reference: reference,
+        detail: "failed_webhooks insert failed: HTTP " + second.status + " " + text.slice(0, 300)
       });
     }
   } catch (e) {}
@@ -439,6 +448,67 @@ async function claimRow(cfg, row, gapIso) {
   return res.ok && Array.isArray(res.data) && res.data.length > 0;
 }
 
+async function eventPending(cfg) {
+  const since = new Date(Date.now() - SWEEP_MAX_AGE_MS).toISOString();
+  const res = await sbFetch(
+    cfg,
+    "webhook_events?select=reference,detail,received_at,email,amount,payload&stage=in.(error,unmatched)&payload=not.is.null" +
+      `&received_at=gte.${since}&order=received_at.desc&limit=200`
+  );
+  if (!res.ok || !Array.isArray(res.data)) return [];
+  const seen = {};
+  const rows = [];
+  for (const r of res.data) {
+    if (!r.reference || seen[r.reference]) continue;
+    seen[r.reference] = true;
+    rows.push({
+      reference: r.reference,
+      reason: r.detail,
+      created_at: r.received_at,
+      attempts: 0,
+      email: r.email,
+      amount: r.amount,
+      raw_payload: r.payload
+    });
+  }
+  return rows;
+}
+
+async function dropCredited(cfg, rows) {
+  if (!rows.length) return rows;
+  const list = rows.map((r) => '"' + String(r.reference).replace(/"/g, "") + '"').join(",");
+  const res = await sbFetch(cfg, `paystack_credits?select=reference&reference=in.(${encodeURIComponent(list)})`);
+  const done = {};
+  if (res.ok && Array.isArray(res.data)) res.data.forEach((c) => { done[c.reference] = true; });
+  return rows.filter((r) => !done[r.reference]);
+}
+
+async function describeUser(cfg, userId) {
+  try {
+    const res = await sbFetch(
+      cfg,
+      `user_profiles?select=name:user_data->>full_name,email:user_data->>email&id=eq.${encodeURIComponent(userId)}&limit=1`
+    );
+    if (res.ok && Array.isArray(res.data) && res.data[0]) return res.data[0];
+  } catch (e) {}
+  return {};
+}
+
+async function creditSummary(cfg, result) {
+  const user = await describeUser(cfg, result.userId);
+  const who = user.name || user.email || result.userId;
+  return {
+    name: user.name || "",
+    email: user.email || "",
+    net: result.net,
+    fee: result.fee,
+    gross: result.gross,
+    message: result.status === "credited"
+      ? "Credited " + who + " with ₦" + Number(result.net).toFixed(2) + " (1% fee ₦" + Number(result.fee).toFixed(2) + " removed)"
+      : "Already credited before. Record removed."
+  };
+}
+
 async function sweep(cfg) {
   const now = Date.now();
   const oldest = new Date(now - SWEEP_MAX_AGE_MS).toISOString();
@@ -451,39 +521,23 @@ async function sweep(cfg) {
     });
   } catch (e) {}
 
-  const list = await sbFetch(
-    cfg,
-    "failed_webhooks?select=reference,attempts,raw_payload&resolved=eq.false&raw_payload->>event=eq.charge.success" +
-      `&created_at=gte.${oldest}&or=(last_attempt_at.is.null,last_attempt_at.lt.${gap})` +
-      `&order=created_at.asc&limit=${SWEEP_BATCH}`
-  );
+  const summary = { checked: 0, credited: 0, cleared: 0, pending: 0 };
+  const handled = {};
 
-  if (!list.ok || !Array.isArray(list.data)) {
-    return { checked: 0, credited: 0, cleared: 0, pending: 0, note: "pending list unavailable" };
-  }
-
-  const seen = {};
-  const rows = list.data.filter((r) => {
-    if (!r.reference || seen[r.reference]) return false;
-    seen[r.reference] = true;
-    return true;
-  });
-
-  let credited = 0;
-  let cleared = 0;
-  let pending = 0;
-
-  for (const row of rows) {
+  const runRow = async (row, claim) => {
+    handled[row.reference] = true;
+    summary.checked++;
     try {
-      const claimed = await claimRow(cfg, row, gap);
-      if (!claimed) continue;
-
+      if (claim) {
+        const claimed = await claimRow(cfg, row, gap);
+        if (!claimed) return;
+      }
       const signed = row.raw_payload && row.raw_payload.data ? row.raw_payload.data : null;
       const result = await processCharge(cfg, row.reference, signed, false);
 
       if (result.status === "credited" || result.status === "duplicate") {
-        if (result.status === "credited") credited++;
-        cleared++;
+        if (result.status === "credited") summary.credited++;
+        summary.cleared++;
         await clearPending(cfg, row.reference);
         await logEvent(cfg, {
           stage: result.status,
@@ -495,17 +549,40 @@ async function sweep(cfg) {
           detail: "retried later by sweep, matched by " + result.by
         });
       } else if (result.status === "ignored" || result.status === "rejected") {
-        cleared++;
+        summary.cleared++;
         await clearPending(cfg, row.reference);
       } else {
-        pending++;
+        summary.pending++;
       }
     } catch (e) {
-      pending++;
+      summary.pending++;
+    }
+  };
+
+  const list = await sbFetch(
+    cfg,
+    "failed_webhooks?select=reference,attempts,raw_payload&resolved=eq.false&raw_payload->>event=eq.charge.success" +
+      `&created_at=gte.${oldest}&or=(last_attempt_at.is.null,last_attempt_at.lt.${gap})` +
+      `&order=created_at.asc&limit=${SWEEP_BATCH}`
+  );
+
+  if (list.ok && Array.isArray(list.data)) {
+    for (const row of list.data) {
+      if (!row.reference || handled[row.reference]) continue;
+      await runRow(row, true);
     }
   }
 
-  return { checked: rows.length, credited: credited, cleared: cleared, pending: pending };
+  let extra = [];
+  try {
+    extra = (await dropCredited(cfg, await eventPending(cfg))).slice(0, 10);
+  } catch (e) {}
+  for (const row of extra) {
+    if (handled[row.reference]) continue;
+    await runRow(row, false);
+  }
+
+  return summary;
 }
 
 async function handleWebhook(request, cfg, ctx) {
@@ -600,7 +677,7 @@ async function handleWebhook(request, cfg, ctx) {
     response = jsonResponse({ success: false, message: result.message }, 500);
   }
 
-  if (ctx && typeof ctx.waitUntil === "function" && Math.random() < 0.2) {
+  if (ctx && typeof ctx.waitUntil === "function" && Math.random() < 0.05) {
     ctx.waitUntil(sweep(cfg).catch(() => {}));
   }
 
@@ -642,15 +719,32 @@ async function listPending(cfg) {
         "&raw_payload->>event=eq.charge.success&order=created_at.desc&limit=100"
     );
   }
-  return res.ok && Array.isArray(res.data) ? res.data : [];
+  const rows = res.ok && Array.isArray(res.data) ? res.data.slice() : [];
+  const have = {};
+  rows.forEach((r) => { have[r.reference] = true; });
+  (await eventPending(cfg)).forEach((r) => {
+    if (!have[r.reference]) rows.push(r);
+  });
+  return dropCredited(cfg, rows);
 }
 
 async function getPendingRow(cfg, reference) {
+  const enc = encodeURIComponent(reference);
   const res = await sbFetch(
     cfg,
-    `failed_webhooks?select=reference,email,amount,reason,created_at,raw_payload&reference=eq.${encodeURIComponent(reference)}&limit=1`
+    `failed_webhooks?select=reference,email,amount,reason,created_at,raw_payload&reference=eq.${enc}&limit=1`
   );
-  return res.ok && Array.isArray(res.data) && res.data[0] ? res.data[0] : null;
+  if (res.ok && Array.isArray(res.data) && res.data[0]) return res.data[0];
+
+  const ev = await sbFetch(
+    cfg,
+    `webhook_events?select=reference,detail,received_at,email,amount,payload&reference=eq.${enc}&payload=not.is.null&order=received_at.desc&limit=1`
+  );
+  if (ev.ok && Array.isArray(ev.data) && ev.data[0]) {
+    const r = ev.data[0];
+    return { reference: r.reference, reason: r.detail, created_at: r.received_at, email: r.email, amount: r.amount, raw_payload: r.payload };
+  }
+  return null;
 }
 
 async function diagnose(cfg) {
@@ -675,6 +769,27 @@ async function diagnose(cfg) {
 
   const failed = await sbFetch(cfg, "failed_webhooks?select=reference,resolved,attempts,last_attempt_at&limit=1");
   checks.failed_webhooks_ready = failed.ok;
+
+  const probeRef = "diagnose_" + Date.now();
+  const probe = await sbFetch(cfg, "failed_webhooks", {
+    method: "POST",
+    prefer: "return=minimal",
+    body: JSON.stringify({
+      email: "",
+      amount: 0,
+      reference: probeRef,
+      raw_payload: { probe: true },
+      reason: "diagnose probe",
+      created_at: new Date().toISOString(),
+      resolved: true
+    })
+  });
+  checks.failed_webhooks_insert = probe.ok;
+  if (!probe.ok) {
+    checks.failed_webhooks_insert_error = (typeof probe.data === "string" ? probe.data : JSON.stringify(probe.data || {})).slice(0, 300);
+  } else {
+    await sbFetch(cfg, `failed_webhooks?reference=eq.${probeRef}`, { method: "DELETE", prefer: "return=minimal" });
+  }
 
   const credits = await sbFetch(cfg, "paystack_credits?select=reference&limit=1");
   checks.paystack_credits_table = credits.ok;
@@ -725,16 +840,15 @@ async function handleAdmin(request, cfg) {
 
   if (action === "list") {
     const pending = (await listPending(cfg)).map(summarizeRow);
+    return adminJson({ success: true, pending: pending }, 200);
+  }
+
+  if (action === "events") {
     const events = await sbFetch(
       cfg,
       "webhook_events?select=id,received_at,stage,reference,event,channel,amount,email,account,detail&order=received_at.desc&limit=60"
     );
-    return adminJson({
-      success: true,
-      pending: pending,
-      events: events.ok && Array.isArray(events.data) ? events.data : [],
-      events_available: events.ok
-    }, 200);
+    return adminJson({ success: true, events: events.ok && Array.isArray(events.data) ? events.data : [], events_available: events.ok }, 200);
   }
 
   if (action === "search") {
@@ -775,7 +889,8 @@ async function handleAdmin(request, cfg) {
         account: result.account || null,
         detail: "admin retry, matched by " + result.by + ", net " + result.net
       });
-      return adminJson({ success: true, status: result.status, message: result.status === "credited" ? "User credited: " + result.net : "Already credited before." }, 200);
+      const summary = await creditSummary(cfg, result);
+      return adminJson(Object.assign({ success: true, status: result.status }, summary), 200);
     }
     await sbFetch(cfg, `failed_webhooks?reference=eq.${encodeURIComponent(reference)}`, {
       method: "PATCH",
@@ -809,7 +924,8 @@ async function handleAdmin(request, cfg) {
         account: charge.identity.accounts[0] || null,
         detail: "admin manual credit to " + userId + ", net " + result.net
       });
-      return adminJson({ success: true, status: result.status, message: result.status === "credited" ? "User credited: " + result.net : "Already credited before." }, 200);
+      const summary = await creditSummary(cfg, result);
+      return adminJson(Object.assign({ success: true, status: result.status }, summary), 200);
     }
     return adminJson({ success: false, status: result.status, message: result.message }, 200);
   }
