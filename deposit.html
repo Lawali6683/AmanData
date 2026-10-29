@@ -7,6 +7,9 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <link rel="stylesheet" href="uix.css">
 <style>
+  #appContainer { display: block !important; visibility: visible !important; opacity: 1 !important; transform: none !important; min-height: 100vh; }
+  #depRoot { display: block !important; visibility: visible !important; opacity: 1 !important; background: #ffffff; color: #1a1a1a; padding: 14px; margin: 12px; border-radius: 12px; }
+  #depErr { display: none; background: #fdecea; color: #b3261e; padding: 10px; margin: 12px; border-radius: 8px; font-size: 13px; word-break: break-word; }
   #depRoot h2 { font-size: 16px; margin: 18px 0 8px; }
   #depRoot input { padding: 10px; border: 1px solid #c9ccd1; border-radius: 8px; font-size: 14px; width: 100%; box-sizing: border-box; margin-bottom: 8px; }
   #depRoot button { padding: 10px 14px; border: 0; border-radius: 8px; background: #0b6b3a; color: #fff; font-size: 14px; margin: 3px 6px 3px 0; cursor: pointer; }
@@ -24,6 +27,7 @@
 </style>
 </head>
 <body>
+<div id="depErr"></div>
 <div class="app-container" id="appContainer">
 <header><button type="button" class="btn-back" id="btnBack" aria-label="Back"><i class="fa-solid fa-arrow-left"></i></button><img src="https://i.imgur.com/bNK9ccG.png" class="page-logo" alt="AmanData"><span class="header-spacer"></span></header>
 <section class="form-card" id="depRoot">
@@ -42,6 +46,26 @@
 <div id="events" class="dep-scroll"></div>
 </section>
 </div>
+<script>
+window.addEventListener('error', function (e) {
+  var box = document.getElementById('depErr');
+  if (box) { box.style.display = 'block'; box.textContent = 'Page error: ' + (e.message || 'unknown') + (e.lineno ? ' (line ' + e.lineno + ')' : ''); }
+});
+window.addEventListener('unhandledrejection', function (e) {
+  var box = document.getElementById('depErr');
+  if (box) { box.style.display = 'block'; box.textContent = 'Error: ' + (e.reason && e.reason.message ? e.reason.message : 'unknown'); }
+});
+document.addEventListener('DOMContentLoaded', function () {
+  var hideClasses = ['hidden', 'is-hidden', 'hide', 'loading', 'invisible', 'preload', 'fade'];
+  [document.documentElement, document.body, document.getElementById('appContainer'), document.getElementById('depRoot')].forEach(function (n) {
+    if (!n) return;
+    hideClasses.forEach(function (c) { n.classList.remove(c); });
+    n.removeAttribute('hidden');
+  });
+  document.body.style.visibility = 'visible';
+  document.body.style.opacity = '1';
+});
+</script>
 <script>
 document.getElementById('btnBack').addEventListener('click', function () {
   if (document.referrer) history.back(); else location.href = 'admin.html';
