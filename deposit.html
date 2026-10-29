@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Deposits - AmanData</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link rel="stylesheet" href="uix.css">
+<style>
+  #depRoot h2 { font-size: 16px; margin: 18px 0 8px; }
+  #depRoot input { padding: 10px; border: 1px solid #c9ccd1; border-radius: 8px; font-size: 14px; width: 100%; box-sizing: border-box; margin-bottom: 8px; }
+  #depRoot button { padding: 10px 14px; border: 0; border-radius: 8px; background: #0b6b3a; color: #fff; font-size: 14px; margin: 3px 6px 3px 0; cursor: pointer; }
+  #depRoot button.dep-warn { background: #b3261e; }
+  #depRoot button.dep-alt { background: #3b4a6b; }
+  .dep-card { border: 1px solid #dde0e5; border-radius: 10px; padding: 10px; margin-bottom: 10px; font-size: 14px; }
+  .dep-line { margin: 2px 0; word-break: break-word; }
+  .dep-label { opacity: 0.65; }
+  .dep-err { color: #b3261e; padding: 6px 0; }
+  .dep-ok { color: #0b6b3a; padding: 6px 0; }
+  .dep-scroll { overflow-x: auto; }
+  #depRoot table { border-collapse: collapse; font-size: 12px; min-width: 640px; }
+  #depRoot th, #depRoot td { border: 1px solid #dde0e5; padding: 5px 7px; text-align: left; vertical-align: top; }
+  .dep-user { border-top: 1px dashed #c9ccd1; margin-top: 6px; padding-top: 6px; }
+</style>
+</head>
+<body>
+<div class="app-container" id="appContainer">
+<header><button type="button" class="btn-back" id="btnBack" aria-label="Back"><i class="fa-solid fa-arrow-left"></i></button><img src="https://i.imgur.com/bNK9ccG.png" class="page-logo" alt="AmanData"><span class="header-spacer"></span></header>
+<section class="form-card" id="depRoot">
+<h2>Deposits</h2>
+<input id="api" placeholder="API URL">
+<input id="key" type="password" placeholder="Admin key">
+<div>
+  <button id="load">Load</button>
+  <button id="diag" class="dep-alt">Diagnose</button>
+</div>
+<div id="msg"></div>
+<div id="diagbox"></div>
+<h2>Pending deposits</h2>
+<div id="pending"></div>
+<h2>Recent webhook events</h2>
+<div id="events" class="dep-scroll"></div>
+</section>
+</div>
+<script>
+document.getElementById('btnBack').addEventListener('click', function () {
+  if (document.referrer) history.back(); else location.href = 'admin.html';
+});
+
+const $ = (id) => document.getElementById(id);
+const apiInput = $('api');
+const keyInput = $('key');
+apiInput.value = sessionStorage.getItem('dep_api') || (location.origin + '/api/webhook');
+keyInput.value = sessionStorage.getItem('dep_key') || '';
+
+function el(tag, text, cls) {
+  const n = document.createElement(tag);
+  if (text !== undefined && text !== null) n.textContent = String(text);
+  if (cls) n.className = cls;
+  return n;
+}
+
+function say(text, bad) {
+  const m = $('msg');
+  m.textContent = text;
+  m.className = bad ? 'dep-err' : 'dep-ok';
+}
+
+async function call(body) {
+  sessionStorage.setItem('dep_api', apiInput.value.trim());
+  sessionStorage.setItem('dep_key', keyInput.value.trim());
+  const res = await fetch(apiInput.value.trim(), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-admin-key': keyInput.value.trim() },
+    body: JSON.stringify(body)
+  });
+  let data = null;
+  try { data = await res.json(); } catch (e) {}
+  if (!data) throw new Error('HTTP ' + res.status);
+  if (!res.ok) throw new Error(data.message || 'HTTP ' + res.status);
+  return data;
+}
+
+function line(parent, label, value) {
+  const row = el('div', null, 'dep-line');
+  row.appendChild(el('span', label + ': ', 'dep-label'));
+  row.appendChild(el('span', value === '' || value === null || value === undefined ? '-' : value));
+  parent.appendChild(row);
+}
+
+function renderPending(list) {
+  const box = $('pending');
+  box.textContent = '';
+  if (!list.length) {
+    box.appendChild(el('div', 'No pending deposits.', 'dep-ok'));
+    return;
+  }
+  list.forEach((p) => {
+    const card = el('div', null, 'dep-card');
+    line(card, 'Amount', p.amount);
+    line(card, 'Reference', p.reference);
+    line(card, 'Time', p.created_at);
+    line(card, 'Error', p.reason);
+    line(card, 'Account number', p.account);
+    line(card, 'Customer code', p.customer_code);
+    line(card, 'Email', p.email);
+    line(card, 'Customer name', p.customer_name);
+    line(card, 'Sender', p.sender_name);
+    line(card, 'Channel', p.channel);
+    line(card, 'Attempts', p.attempts);
+
+    const retry = el('button', 'Read all users and credit');
+    retry.onclick = async () => {
+      if (!confirm('Search all users and credit this deposit?')) return;
+      try {
+        const r = await call({ action: 'retry', reference: p.reference });
+        say(r.message, !r.success);
+        if (r.success) load();
+      } catch (e) { say(e.message, true); }
+    };
+    card.appendChild(retry);
+
+    const del = el('button', 'Delete', 'dep-warn');
+    del.className = 'dep-warn';
+    del.onclick = async () => {
+      if (!confirm('Delete this record without crediting anyone?')) return;
+      try {
+        const r = await call({ action: 'delete', reference: p.reference });
+        say(r.message, !r.success);
+        load();
+      } catch (e) { say(e.message, true); }
+    };
+    card.appendChild(del);
+
+    const q = el('input');
+    q.placeholder = 'Search user by email, name or phone';
+    card.appendChild(q);
+    const results = el('div');
+    const search = el('button', 'Search user');
+    search.className = 'dep-alt';
+    search.onclick = async () => {
+      results.textContent = '';
+      try {
+        const r = await call({ action: 'search', q: q.value });
+        if (!r.users.length) results.appendChild(el('div', 'No user found.', 'dep-err'));
+        r.users.forEach((u) => {
+          const box2 = el('div', null, 'dep-user');
+          line(box2, 'Name', u.name);
+          line(box2, 'Email', u.email);
+          line(box2, 'Phone', u.phone);
+          line(box2, 'Account', Array.isArray(u.accounts) ? u.accounts.map((a) => a.accountNumber).join(', ') : '');
+          const pay = el('button', 'Credit this user');
+          pay.onclick = async () => {
+            if (!confirm('Credit ' + (u.name || u.email) + ' with this deposit?')) return;
+            try {
+              const c = await call({ action: 'credit', reference: p.reference, user_id: u.id });
+              say(c.message, !c.success);
+              if (c.success) load();
+            } catch (e) { say(e.message, true); }
+          };
+          box2.appendChild(pay);
+          results.appendChild(box2);
+        });
+      } catch (e) { say(e.message, true); }
+    };
+    card.appendChild(search);
+    card.appendChild(results);
+    box.appendChild(card);
+  });
+}
+
+function renderEvents(list, available) {
+  const box = $('events');
+  box.textContent = '';
+  if (!available) {
+    box.appendChild(el('div', 'webhook_events table is not available. Run webhook_events.sql.', 'dep-err'));
+    return;
+  }
+  if (!list.length) {
+    box.appendChild(el('div', 'No webhook events yet. If you paid and nothing shows here, Paystack is not reaching this URL.', 'dep-err'));
+    return;
+  }
+  const table = el('table');
+  const head = el('tr');
+  ['Time', 'Stage', 'Amount', 'Reference', 'Channel', 'Email', 'Account', 'Detail'].forEach((h) => head.appendChild(el('th', h)));
+  table.appendChild(head);
+  list.forEach((e) => {
+    const tr = el('tr');
+    [e.received_at, e.stage, e.amount, e.reference, e.channel, e.email, e.account, e.detail].forEach((v) => tr.appendChild(el('td', v === null || v === undefined ? '' : v)));
+    table.appendChild(tr);
+  });
+  box.appendChild(table);
+}
+
+async function load() {
+  try {
+    const r = await call({ action: 'list' });
+    renderPending(r.pending);
+    renderEvents(r.events, r.events_available);
+    say('Loaded.', false);
+  } catch (e) { say(e.message, true); }
+}
+
+async function diagnose() {
+  const box = $('diagbox');
+  box.textContent = '';
+  try {
+    const r = await call({ action: 'diagnose' });
+    const card = el('div', null, 'dep-card');
+    Object.keys(r.checks).forEach((k) => line(card, k, String(r.checks[k])));
+    box.appendChild(card);
+  } catch (e) { say(e.message, true); }
+}
+
+$('load').onclick = load;
+$('diag').onclick = diagnose;
+</script>
+</body>
+</html>
