@@ -210,6 +210,7 @@ export async function onRequestPost(context) {
     const lastName = nameParts.length > 1 ? nameParts.slice(0, -1).join(" ") : nameParts[0];
 
     let virtualAccounts = [];
+    let paystackCustomerCode = "";
     let paystackError = null;
 
     try {
@@ -224,6 +225,7 @@ export async function onRequestPost(context) {
         paystackError = paystackMessage(customerRes, "Paystack could not create the customer.");
       } else {
         const customerCode = customerRes.data.data.customer_code;
+        paystackCustomerCode = String(customerCode);
         let dva = null;
 
         const existingRes = await paystackCall(`/customer/${encodeURIComponent(customerCode)}`, "GET");
@@ -286,7 +288,8 @@ export async function onRequestPost(context) {
       location: location,
       user_balance: "0.00",
       transactions: [],
-      virtual_accounts: virtualAccounts
+      virtual_accounts: virtualAccounts,
+      paystack_customer_code: paystackCustomerCode
     };
 
     const insertProfileRes = await fetch(`${restUrl}user_profiles`, {
