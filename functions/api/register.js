@@ -206,8 +206,8 @@ export async function onRequestPost(context) {
     const registrationDate = new Date().toISOString();
 
     const nameParts = String(fullName).trim().split(/\s+/);
-    const firstName = nameParts[0];
-    const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : nameParts[0];
+    const firstName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : nameParts[0];
+    const lastName = nameParts.length > 1 ? nameParts.slice(0, -1).join(" ") : nameParts[0];
 
     let virtualAccounts = [];
     let paystackError = null;
@@ -309,14 +309,29 @@ export async function onRequestPost(context) {
       return jsonResponse({ success: false, message: "Database core execution error. Registration aborted." }, 500);
     }
 
+    const sendWelcome = async () => {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const welcomeRes = await fetch("https://amandata.pages.dev/api/welcome", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ fullName: fullName, email: email }),
+            signal: AbortSignal.timeout(8000)
+          });
+          if (welcomeRes.ok) return;
+          console.error("welcome api returned", welcomeRes.status);
+        } catch (e) {
+          console.error("welcome api error", e && e.message);
+        }
+      }
+    };
+
     try {
-      context.waitUntil(
-        fetch("https://amandata.pages.dev/api/welcome", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ fullName: fullName, email: email })
-        }).catch(() => {})
-      );
+      if (typeof context.waitUntil === "function") {
+        context.waitUntil(sendWelcome());
+      } else {
+        await sendWelcome();
+      }
     } catch (e) {}
 
     let authHost = "";
