@@ -43,31 +43,6 @@ import { supabase } from './supabase.js';
         setTimeout(() => { window.location.href = DASHBOARD_URL; }, 2500);
     }
 
-    async function checkExistingSession() {
-        try {
-            const { data } = await supabase.auth.getSession();
-            const session = data && data.session ? data.session : null;
-            if (session && session.user && session.user.id) {
-                saveSession({
-                    id: session.user.id,
-                    userId: session.user.id,
-                    name: (session.user.user_metadata && session.user.user_metadata.full_name) || '',
-                    email: session.user.email || ''
-                });
-                goToDashboard();
-                return;
-            }
-        } catch (e) {}
-
-        try {
-            if (localStorage.getItem(SESSION_KEY)) {
-                localStorage.removeItem(SESSION_KEY);
-            }
-        } catch (e) {}
-    }
-
-    checkExistingSession();
-
     function showToast(msg, isSuccess = false) {
         if (!toastContainer || !toastMessage) return;
         toastMessage.textContent = msg;
