@@ -10,6 +10,8 @@ import { supabase } from './supabase.js';
     const SUBMIT_TIMEOUT = 40000;
     const LOADER_SAFETY = 12000;
     const LOADER_DELAY = 400;
+    const BANKS_TIMEOUT = 10000;
+    const PRIORITY_BANKS = [/opay/i, /palmpay/i, /moniepoint/i, /kuda/i, /guaranty|gtbank/i, /^access/i, /zenith/i, /united bank for africa|^uba$/i, /first bank/i];
     const SHOW_CLASSES = ['show', 'visible', 'active', 'open'];
 
     const $ = (id) => document.getElementById(id);
@@ -44,6 +46,17 @@ import { supabase } from './supabase.js';
     const submitLabel = submitBtn ? submitBtn.textContent : '';
     const noFundsHtml = noFundsBox ? noFundsBox.innerHTML : '';
 
+    const verifyNote = (() => {
+        const host = (verifyLoader && verifyLoader.parentNode) || (accountInput && accountInput.parentNode && accountInput.parentNode.parentNode);
+        if (!host) return null;
+        const el = document.createElement('div');
+        el.style.cssText = 'display:none;margin-top:8px;font-size:13px;line-height:1.4;color:#dc2626';
+        el.setAttribute('role', 'alert');
+        if (verifyLoader && verifyLoader.parentNode === host) host.insertBefore(el, verifyLoader.nextSibling);
+        else host.appendChild(el);
+        return el;
+    })();
+
     let userUUID = null;
     let balance = 0;
     let balanceError = false;
@@ -52,6 +65,8 @@ import { supabase } from './supabase.js';
     let withdrawals = [];
     let verified = { key: '', name: '' };
     let verifyToken = 0;
+    let verifyPromise = null;
+    let verifyMessage = '';
     let busy = false;
     let loaderHidden = false;
 
@@ -300,11 +315,33 @@ import { supabase } from './supabase.js';
         else conceal(verifyLoader);
     }
 
+    function clearNote() {
+        if (!verifyNote) return;
+        verifyNote.style.display = 'none';
+        verifyNote.textContent = '';
+    }
+
+    function showNote(message, retryable) {
+        if (!verifyNote) return;
+        verifyNote.textContent = message;
+        if (retryable) {
+            const retry = document.createElement('button');
+            retry.type = 'button';
+            retry.textContent = 'Try again';
+            retry.style.cssText = 'margin-left:8px;background:none;border:0;padding:0;color:inherit;font:inherit;font-weight:700;text-decoration:underline;cursor:pointer';
+            retry.addEventListener('click', () => { verifyAccount(); });
+            verifyNote.appendChild(retry);
+        }
+        verifyNote.style.display = 'block';
+    }
+
     function resetVerification() {
         verified = { key: '', name: '' };
         verifyToken++;
+        verifyMessage = '';
         if (nameGroup) nameGroup.style.display = 'none';
         if (accountName) accountName.value = '';
+        clearNote();
         setVerifying(false);
     }
 
@@ -312,26 +349,95 @@ import { supabase } from './supabase.js';
         return (bankSelect ? bankSelect.value : '') + ':' + (accountInput ? accountInput.value : '');
     }
 
-    async function verifyAccount() {
+    function verifyAccount() {
         const bank = bankSelect ? bankSelect.value : '';
         const number = accountInput ? accountInput.value : '';
-        if (!bank || !/^\d{10}$/.test(number)) return;
+        if (!bank || !/^\d{10}$/.test(number)) return Promise.resolve(false);
+
+        const key = bank + ':' + number;
+        if (verified.key === key) return Promise.resolve(true);
 
         const token = ++verifyToken;
+        verifyMessage = '';
+        clearNote();
         setVerifying(true);
-        const res = await postApi({ action: 'verify_account', bank_code: bank, account_number: number }, VERIFY_TIMEOUT);
-        if (token !== verifyToken) return;
-        setVerifying(false);
 
-        if (res.success && res.account_name) {
-            verified = { key: bank + ':' + number, name: String(res.account_name) };
-            if (accountName) accountName.value = verified.name;
-            if (nameGroup) nameGroup.style.display = 'block';
-        } else {
+        const run = (async () => {
+            const payload = { action: 'verify_account', bank_code: bank, account_number: number };
+            const started = Date.now();
+            let res = await postApi(payload, VERIFY_TIMEOUT);
+            if (token !== verifyToken) return false;
+            if (res.unsure && Date.now() - started < VERIFY_TIMEOUT / 2) {
+                res = await postApi(payload, VERIFY_TIMEOUT);
+                if (token !== verifyToken) return false;
+            }
+            setVerifying(false);
+
+            if (res.success && res.account_name) {
+                verified = { key: key, name: String(res.account_name) };
+                if (accountName) accountName.value = verified.name;
+                if (nameGroup) nameGroup.style.display = 'block';
+                clearNote();
+                return true;
+            }
+
             verified = { key: '', name: '' };
             if (nameGroup) nameGroup.style.display = 'none';
-            toast(res.message || 'Could not verify this account. Please check the details.');
+            verifyMessage = res.message || 'Could not verify this account. Please check the details.';
+            showNote(verifyMessage, Boolean(res.unsure || res.retry));
+            return false;
+        })();
+
+        verifyPromise = run;
+        run.finally(() => {
+            if (verifyPromise === run) verifyPromise = null;
+        });
+        return run;
+    }
+
+    async function ensureVerified() {
+        let current = verifyPromise || verifyAccount();
+        for (let i = 0; i < 4; i++) {
+            await current;
+            if (verified.key === accountKey()) return true;
+            if (!verifyPromise || verifyPromise === current) return false;
+            current = verifyPromise;
         }
+        return false;
+    }
+
+    function rankBank(name) {
+        const index = PRIORITY_BANKS.findIndex((pattern) => pattern.test(name));
+        return index === -1 ? PRIORITY_BANKS.length : index;
+    }
+
+    function populateBanks(list) {
+        const current = bankSelect.value;
+        const sorted = list.slice().sort((a, b) => rankBank(a.name) - rankBank(b.name) || a.name.localeCompare(b.name));
+        const fragment = document.createDocumentFragment();
+        const placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = '-- Choose Bank --';
+        fragment.appendChild(placeholder);
+        const seen = new Set();
+        sorted.forEach((bank) => {
+            if (seen.has(bank.code)) return;
+            seen.add(bank.code);
+            const option = document.createElement('option');
+            option.value = bank.code;
+            option.textContent = bank.name;
+            fragment.appendChild(option);
+        });
+        bankSelect.innerHTML = '';
+        bankSelect.appendChild(fragment);
+        if (current && seen.has(current)) bankSelect.value = current;
+        else if (current) resetVerification();
+    }
+
+    async function loadBanks() {
+        if (!bankSelect) return;
+        const res = await postApi({ action: 'banks' }, BANKS_TIMEOUT);
+        if (res.success && Array.isArray(res.banks) && res.banks.length > 0) populateBanks(res.banks);
     }
 
     function pinValue() {
@@ -363,6 +469,13 @@ import { supabase } from './supabase.js';
         render();
     }
 
+    function setBusy(flag, label) {
+        busy = flag;
+        if (!submitBtn) return;
+        submitBtn.disabled = flag;
+        submitBtn.textContent = flag ? label : submitLabel;
+    }
+
     async function submit() {
         if (busy) return;
 
@@ -375,17 +488,18 @@ import { supabase } from './supabase.js';
         if (amount > balance) return toast('Insufficient wallet balance.');
         if (!bank) return toast('Select a destination bank.');
         if (!/^\d{10}$/.test(number)) return toast('Enter a valid 10 digit account number.');
-        if (verified.key !== accountKey()) {
-            verifyAccount();
-            return toast('Please wait for your account name to be verified.');
-        }
         if (!/^\d{4}$/.test(pin)) return toast('Enter your 4 digit transaction PIN.');
 
-        busy = true;
-        if (submitBtn) {
-            submitBtn.disabled = true;
-            submitBtn.textContent = 'Processing...';
+        const submitted = bank + ':' + number;
+        if (verified.key !== submitted) {
+            setBusy(true, 'Verifying...');
+            const ok = await ensureVerified();
+            setBusy(false);
+            if (!ok) return toast(verifyMessage || 'Could not verify this account. Please check the details.');
+            if (accountKey() !== submitted) return toast('Account details changed. Please check them and try again.');
         }
+
+        setBusy(true, 'Processing...');
 
         const bankName = bankSelect.options[bankSelect.selectedIndex].text;
         const res = await postApi({
@@ -398,11 +512,7 @@ import { supabase } from './supabase.js';
             amount: amount
         }, SUBMIT_TIMEOUT);
 
-        busy = false;
-        if (submitBtn) {
-            submitBtn.disabled = false;
-            submitBtn.textContent = submitLabel;
-        }
+        setBusy(false);
 
         if (res.success) {
             toast('Withdrawal request submitted.', 'ok');
@@ -503,6 +613,7 @@ import { supabase } from './supabase.js';
         }
 
         userUUID = String(id);
+        loadBanks().catch(() => {});
         conceal(historyOverlay);
         conceal(verifyLoader);
         conceal(pendingBox);
