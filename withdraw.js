@@ -36,6 +36,7 @@ import { supabase } from './supabase.js';
     const nameGroup = $('nameGroup');
     const accountName = $('account_name');
     const pinBoxes = ['p1', 'p2', 'p3', 'p4'].map((id) => $(id)).filter(Boolean);
+    const pinIcons = ['s1', 's2', 's3', 's4'].map((id) => $(id));
     const submitBtn = $('submitBtn');
     const historyBtn = $('historyBtn');
     const historyOverlay = $('historyOverlay');
@@ -68,6 +69,9 @@ import { supabase } from './supabase.js';
     let verifyPromise = null;
     let verifyMessage = '';
     let busy = false;
+    let pinState = { value: '', ok: false, checking: false };
+    let pinToken = 0;
+    let pinPromise = null;
     let loaderHidden = false;
 
     function escapeHtml(value) {
@@ -301,6 +305,7 @@ import { supabase } from './supabase.js';
         conceal(noFundsBox);
         setForm(true);
         updateFee();
+        updateSubmit();
     }
 
     function updateFee() {
@@ -337,6 +342,7 @@ import { supabase } from './supabase.js';
 
     function resetVerification() {
         verified = { key: '', name: '' };
+        updateSubmit();
         verifyToken++;
         verifyMessage = '';
         if (nameGroup) nameGroup.style.display = 'none';
@@ -378,10 +384,12 @@ import { supabase } from './supabase.js';
                 if (accountName) accountName.value = verified.name;
                 if (nameGroup) nameGroup.style.display = 'block';
                 clearNote();
+                updateSubmit();
                 return true;
             }
 
             verified = { key: '', name: '' };
+            updateSubmit();
             if (nameGroup) nameGroup.style.display = 'none';
             verifyMessage = res.message || 'Could not verify this account. Please check the details.';
             showNote(verifyMessage, Boolean(res.unsure || res.retry));
@@ -444,12 +452,82 @@ import { supabase } from './supabase.js';
         return pinBoxes.map((box) => box.value).join('');
     }
 
+    function setPinIcons(kind) {
+        pinIcons.forEach((icon) => {
+            if (!icon) return;
+            icon.textContent = kind === 'ok' ? '\u2713' : kind === 'bad' ? '\u2715' : kind === 'wait' ? '\u2026' : '';
+            icon.style.color = kind === 'ok' ? '#16a34a' : kind === 'bad' ? '#dc2626' : '#9ca3af';
+            icon.style.fontWeight = '700';
+            icon.style.textAlign = 'center';
+        });
+    }
+
+    function resetPinState() {
+        pinToken++;
+        pinPromise = null;
+        pinState = { value: '', ok: false, checking: false };
+        setPinIcons('');
+    }
+
     function clearPin() {
         pinBoxes.forEach((box) => {
             box.value = '';
             box.classList.remove('filled');
         });
+        resetPinState();
+        updateSubmit();
         if (pinBoxes[0]) pinBoxes[0].focus();
+    }
+
+    function formReady() {
+        const amount = round2(toAmount(amountInput ? amountInput.value : 0));
+        const bank = bankSelect ? bankSelect.value : '';
+        return amount > 0 && amount <= balance && Boolean(bank) && verified.key !== '' && verified.key === accountKey() && pinState.ok && pinState.value === pinValue();
+    }
+
+    function updateSubmit() {
+        if (!submitBtn) return;
+        submitBtn.style.display = formReady() || busy ? '' : 'none';
+    }
+
+    function verifyPin() {
+        const pin = pinValue();
+        if (!/^\d{4}$/.test(pin)) return Promise.resolve(false);
+        if (pinState.ok && pinState.value === pin) return Promise.resolve(true);
+        if (pinState.checking && pinState.value === pin && pinPromise) return pinPromise;
+
+        const token = ++pinToken;
+        pinState = { value: pin, ok: false, checking: true };
+        setPinIcons('wait');
+        updateSubmit();
+
+        const run = (async () => {
+            const res = await postApi({ action: 'verify_pin', uuid: userUUID, pin: pin }, VERIFY_TIMEOUT);
+            if (token !== pinToken) return false;
+            if (res.success) {
+                pinState = { value: pin, ok: true, checking: false };
+                setPinIcons('ok');
+                updateSubmit();
+                return true;
+            }
+            pinState = { value: '', ok: false, checking: false };
+            updateSubmit();
+            if (res.unsure) {
+                setPinIcons('');
+                toast(res.message || 'Could not check your PIN. Please try again.');
+                return false;
+            }
+            setPinIcons('bad');
+            toast(res.message || 'Incorrect transaction PIN');
+            setTimeout(() => { if (token === pinToken) clearPin(); }, 700);
+            return false;
+        })();
+
+        pinPromise = run;
+        run.finally(() => {
+            if (pinPromise === run) pinPromise = null;
+        });
+        return run;
     }
 
     function clearForm() {
@@ -461,7 +539,9 @@ import { supabase } from './supabase.js';
             box.value = '';
             box.classList.remove('filled');
         });
+        resetPinState();
         updateFee();
+        updateSubmit();
     }
 
     async function refresh() {
@@ -474,6 +554,7 @@ import { supabase } from './supabase.js';
         if (!submitBtn) return;
         submitBtn.disabled = flag;
         submitBtn.textContent = flag ? label : submitLabel;
+        updateSubmit();
     }
 
     async function submit() {
@@ -489,6 +570,13 @@ import { supabase } from './supabase.js';
         if (!bank) return toast('Select a destination bank.');
         if (!/^\d{10}$/.test(number)) return toast('Enter a valid 10 digit account number.');
         if (!/^\d{4}$/.test(pin)) return toast('Enter your 4 digit transaction PIN.');
+
+        if (!(pinState.ok && pinState.value === pin)) {
+            setBusy(true, 'Checking PIN...');
+            const pinOk = await verifyPin();
+            setBusy(false);
+            if (!pinOk) return;
+        }
 
         const submitted = bank + ':' + number;
         if (verified.key !== submitted) {
@@ -557,7 +645,12 @@ import { supabase } from './supabase.js';
         conceal(historyOverlay);
     }
 
-    if (amountInput) amountInput.addEventListener('input', updateFee);
+    if (amountInput) {
+        amountInput.addEventListener('input', () => {
+            updateFee();
+            updateSubmit();
+        });
+    }
 
     if (bankSelect) {
         bankSelect.addEventListener('change', () => {
@@ -578,7 +671,15 @@ import { supabase } from './supabase.js';
         box.addEventListener('input', () => {
             box.value = box.value.replace(/\D/g, '').slice(0, 1);
             box.classList.toggle('filled', box.value !== '');
+            if (pinState.ok || pinState.checking || pinState.value) {
+                pinToken++;
+                pinPromise = null;
+                pinState = { value: '', ok: false, checking: false };
+                setPinIcons('');
+                updateSubmit();
+            }
             if (box.value && index < pinBoxes.length - 1) pinBoxes[index + 1].focus();
+            if (/^\d{4}$/.test(pinValue())) verifyPin();
         });
         box.addEventListener('keydown', (event) => {
             if (event.key === 'Backspace' && !box.value && index > 0) pinBoxes[index - 1].focus();
