@@ -2,7 +2,7 @@ import { supabase } from './supabase.js';
 import { SESSION_KEY, sessionId, mountShell, showLoader, hideLoader, toast, pinBoxes, escapeHtml, money } from './ui.js';
 
 const LOGOS = {
-   dstv: 'https://i.imgur.com/YZoTk8t.png',
+    dstv: 'https://i.imgur.com/YZoTk8t.png',
     gotv: 'https://i.imgur.com/eaTdFAU.png',
     startimes: 'https://i.imgur.com/3DbujW2.png',
     glo: 'https://i.imgur.com/JlSw9vx.png',
@@ -17,16 +17,45 @@ const LOGOS = {
 
 (function () {
     const API_ENDPOINT = '/api/tv';
+    const CATALOG_ENDPOINT = '/api/catalog?type=cable';
+    const REQUEST_TIMEOUT_MS = 60000;
+    const LOAD_TIMEOUT_MS = 12000;
+    const OPEN_DELAY_MS = 1600;
+    const OPEN_SAFETY_MS = 16000;
     const PROVIDERS = [
         { key: 'DSTV', name: 'DSTV', match: 'DSTV', logo: LOGOS.dstv },
         { key: 'GOTV', name: 'GOTV', match: 'GOTV', logo: LOGOS.gotv },
         { key: 'STARTIMES', name: 'STARTIMES', match: 'STARTIME', logo: LOGOS.startimes }
     ];
 
-    mountShell();
-    showLoader();
-
     const $ = (id) => document.getElementById(id);
+
+    function guard(fn) {
+        try {
+            return fn();
+        } catch (err) {
+            console.error(err);
+            return undefined;
+        }
+    }
+
+    function withTimeout(promise, ms) {
+        return new Promise((resolve, reject) => {
+            const timer = setTimeout(() => reject(new Error('timeout')), ms);
+            Promise.resolve(promise).then(
+                (value) => { clearTimeout(timer); resolve(value); },
+                (error) => { clearTimeout(timer); reject(error); }
+            );
+        });
+    }
+
+    function setText(id, value) {
+        const el = $(id);
+        if (el) el.textContent = value;
+    }
+
+    guard(() => { mountShell(); showLoader(); });
+
     const appContainer = $('appContainer');
     const provGrid = $('provGrid');
     const planList = $('planList');
@@ -34,14 +63,66 @@ const LOGOS = {
     const iucInput = $('iuc');
     const phoneInput = $('phone');
     const buyBtn = $('btnBuy');
-    const pin = pinBoxes($('pinRow'));
+    const pin = guard(() => pinBoxes($('pinRow'))) || { valid: () => false, value: () => '', clear: () => {} };
+
+    if (iucInput) iucInput.maxLength = 11;
 
     let uuid = null;
     let balance = 0;
     let plans = [];
+    let loadFailed = false;
     let provider = null;
     let selected = null;
+    let attemptId = null;
     let busy = false;
+    let opened = false;
+
+    function openPage() {
+        if (opened) return;
+        opened = true;
+        guard(() => hideLoader(() => appContainer.classList.add('ready')));
+        setTimeout(() => { if (appContainer) appContainer.classList.add('ready'); }, 1500);
+    }
+
+    function newToken() {
+        const bytes = new Uint8Array(16);
+        crypto.getRandomValues(bytes);
+        return Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    async function postJson(url, payload, timeoutMs) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+                signal: controller.signal
+            });
+            let data = null;
+            try { data = await res.json(); } catch (err) { data = null; }
+            if (!data || typeof data !== 'object') {
+                return { success: false, unsure: true, message: 'The server did not answer properly (' + res.status + '). Please check your history before trying again.' };
+            }
+            return data;
+        } catch (err) {
+            return { success: false, unsure: true, message: 'Network problem. Please check your history before trying again.' };
+        } finally {
+            clearTimeout(timer);
+        }
+    }
+
+    async function getJson(url, timeoutMs) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+            const res = await fetch(url, { cache: 'no-store', signal: controller.signal });
+            return await res.json();
+        } finally {
+            clearTimeout(timer);
+        }
+    }
 
     function plansFor(p) {
         return plans.filter((x) => String(x.cable_name || '').toUpperCase().indexOf(p.match) === 0 && Number(x.price) > 0)
@@ -50,27 +131,61 @@ const LOGOS = {
 
     async function loadProfile() {
         try {
-            const { data, error } = await supabase.from('user_profiles').select('user_data').eq('id', uuid);
+            const { data, error } = await withTimeout(
+                supabase.from('user_profiles').select('user_data').eq('id', uuid),
+                LOAD_TIMEOUT_MS
+            );
             if (error) throw error;
             const ud = data && data[0] && data[0].user_data ? data[0].user_data : {};
-            $('userName').textContent = ud.full_name || 'User';
+            setText('userName', ud.full_name || 'User');
             balance = parseFloat(String(ud.user_balance || 0).replace(/,/g, '')) || 0;
         } catch (err) {
             toast('Unable to load your account details.', 'err');
         }
-        $('sumBalance').textContent = money(balance);
+        setText('sumBalance', money(balance));
+    }
+
+    async function plansFromCatalog() {
+        const data = await getJson(CATALOG_ENDPOINT, LOAD_TIMEOUT_MS);
+        if (!data || !data.success || !data.cable) throw new Error('catalog');
+        return [].concat.apply([], Object.keys(data.cable).map((k) => data.cable[k]));
+    }
+
+    async function plansFromTable() {
+        const { data, error } = await withTimeout(
+            supabase.from('cabletv').select('*').limit(1),
+            LOAD_TIMEOUT_MS
+        );
+        if (error) throw error;
+        let list = data && data[0] ? data[0].alltv_plan : [];
+        if (typeof list === 'string') list = JSON.parse(list);
+        return Array.isArray(list) ? list : [];
     }
 
     async function loadPlans() {
+        let list = [];
+        let reached = false;
         try {
-            const { data, error } = await supabase.from('cabletv').select('*').limit(1);
-            if (error) throw error;
-            let list = data && data[0] ? data[0].alltv_plan : [];
-            if (typeof list === 'string') list = JSON.parse(list);
-            plans = Array.isArray(list) ? list : [];
+            list = await plansFromCatalog();
+            reached = true;
         } catch (err) {
-            plans = [];
+            list = [];
         }
+        if (!list.length) {
+            try {
+                list = await plansFromTable();
+                reached = true;
+            } catch (err) {
+                list = [];
+            }
+        }
+        plans = list;
+        loadFailed = !reached;
+        if (loadFailed) toast('TV packages could not be loaded. Please check your connection.', 'err');
+    }
+
+    function renderEmpty(icon, title, desc) {
+        planList.innerHTML = '<div class="empty-state"><i class="fa-solid ' + icon + ' empty-icon"></i><h3 class="empty-title">' + escapeHtml(title) + '</h3><p class="empty-desc">' + escapeHtml(desc) + '</p></div>';
     }
 
     function renderProviders() {
@@ -83,6 +198,7 @@ const LOGOS = {
             tile.addEventListener('click', () => {
                 provider = p;
                 selected = null;
+                attemptId = null;
                 buyForm.classList.add('hidden');
                 renderProviders();
                 renderPlans();
@@ -96,7 +212,13 @@ const LOGOS = {
         if (!provider) return;
         const list = plansFor(provider);
         if (!list.length) {
-            planList.innerHTML = '<div class="empty-state"><i class="fa-solid fa-circle-xmark empty-icon"></i><h3 class="empty-title">Not Available</h3><p class="empty-desc">Packages for this provider are not available right now. Please try again later.</p></div>';
+            if (loadFailed) {
+                renderEmpty('fa-triangle-exclamation', 'Packages not loaded', 'We could not load the TV packages. Please check your connection and refresh the page.');
+            } else if (!plans.length) {
+                renderEmpty('fa-box-open', 'No packages yet', 'No TV package is on sale right now. Please check again later.');
+            } else {
+                renderEmpty('fa-circle-xmark', 'Not Available', 'Packages for this provider are not available right now. Please try again later.');
+            }
             return;
         }
         list.forEach((p) => {
@@ -109,19 +231,20 @@ const LOGOS = {
                 '<div class="tx-right"><span class="tx-amount">₦' + escapeHtml(money(p.price)) + '</span></div>';
             card.addEventListener('click', () => {
                 selected = p;
-                $('fProvider').textContent = provider.name;
-                $('fPlan').textContent = p.plan_name;
-                $('fPrice').textContent = '₦' + money(p.price);
+                attemptId = null;
+                setText('fProvider', provider.name);
+                setText('fPlan', p.plan_name);
+                setText('fPrice', '₦' + money(p.price));
                 buyForm.classList.remove('hidden');
                 renderPlans();
-                buyForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 checkForm();
+                buyForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
             });
             planList.appendChild(card);
         });
     }
 
-    function iucValid() { return /^\d{10}$/.test(iucInput.value); }
+    function iucValid() { return /^\d{10,11}$/.test(iucInput.value); }
     function phoneValid() { return phoneInput.value === '' || /^(0\d{10}|234\d{10})$/.test(phoneInput.value); }
 
     function checkForm() {
@@ -138,66 +261,80 @@ const LOGOS = {
             return;
         }
         busy = true;
-        showLoader();
-        let result = null;
-        try {
-            const res = await fetch(API_ENDPOINT, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    uuid: uuid,
-                    provider: provider.key,
-                    plan_id: String(selected.plan_id),
-                    iuc: iucInput.value,
-                    phone: phoneInput.value,
-                    pin: pin.value()
-                })
-            });
-            result = await res.json();
-        } catch (err) {
-            result = { success: false, message: 'Network error. Please check your connection and your history before trying again.' };
-        }
-        hideLoader();
-        busy = false;
+        buyBtn.disabled = true;
+        guard(() => showLoader());
+        if (!attemptId) attemptId = newToken();
 
-        if (result && result.success) {
-            if (result.balance !== undefined) {
-                balance = Number(result.balance) || 0;
-                $('sumBalance').textContent = money(balance);
-            }
+        let result;
+        try {
+            result = await postJson(API_ENDPOINT, {
+                uuid: uuid,
+                provider: provider.key,
+                plan_id: String(selected.plan_id),
+                iuc: iucInput.value,
+                phone: phoneInput.value,
+                pin: pin.value(),
+                request_id: attemptId
+            }, REQUEST_TIMEOUT_MS);
+        } finally {
+            guard(() => hideLoader());
+            busy = false;
+            buyBtn.disabled = false;
+        }
+
+        if (!result.unsure && !result.pending) attemptId = null;
+
+        if (result.balance !== undefined && result.balance !== null) {
+            balance = Number(result.balance) || 0;
+            setText('sumBalance', money(balance));
+        }
+
+        if (result.success) {
             toast(result.message || 'Subscription renewed successfully.', 'ok');
             iucInput.value = '';
             phoneInput.value = '';
             pin.clear();
             selected = null;
+            attemptId = null;
             buyForm.classList.add('hidden');
             renderPlans();
             checkForm();
-        } else {
-            toast((result && result.message) || 'Something went wrong. Please try again.', 'err');
+            return;
         }
+
+        toast(result.message || 'Something went wrong. Please try again.', 'err');
     }
 
     async function initialize() {
-        uuid = sessionId();
+        uuid = guard(() => sessionId());
         if (!uuid) {
-            localStorage.removeItem(SESSION_KEY);
+            try { localStorage.removeItem(SESSION_KEY); } catch (err) {}
             window.location.replace('register.html');
             return;
         }
         renderProviders();
         try {
-            await Promise.all([loadProfile(), loadPlans()]);
+            await Promise.allSettled([loadProfile(), loadPlans()]);
+            renderPlans();
+        } catch (err) {
+            console.error(err);
         } finally {
-            setTimeout(() => hideLoader(() => appContainer.classList.add('ready')), 1600);
+            setTimeout(openPage, OPEN_DELAY_MS);
         }
     }
 
-    $('btnBack').addEventListener('click', () => { if (window.history.length > 1) window.history.back(); else window.location.href = 'dashboard.html'; });
-    iucInput.addEventListener('input', () => { iucInput.value = iucInput.value.replace(/\D/g, ''); checkForm(); });
-    phoneInput.addEventListener('input', () => { phoneInput.value = phoneInput.value.replace(/\D/g, ''); checkForm(); });
-    $('pinRow').addEventListener('input', checkForm);
-    buyBtn.addEventListener('click', submit);
+    setTimeout(openPage, OPEN_SAFETY_MS);
 
-    initialize();
+    const back = $('btnBack');
+    if (back) back.addEventListener('click', () => { if (window.history.length > 1) window.history.back(); else window.location.href = 'dashboard.html'; });
+    if (iucInput) iucInput.addEventListener('input', () => { iucInput.value = iucInput.value.replace(/\D/g, ''); attemptId = null; checkForm(); });
+    if (phoneInput) phoneInput.addEventListener('input', () => { phoneInput.value = phoneInput.value.replace(/\D/g, ''); attemptId = null; checkForm(); });
+    const pinRow = $('pinRow');
+    if (pinRow) pinRow.addEventListener('input', checkForm);
+    if (buyBtn) buyBtn.addEventListener('click', submit);
+
+    initialize().catch((err) => {
+        console.error(err);
+        openPage();
+    });
 })();
