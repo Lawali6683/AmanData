@@ -6,27 +6,27 @@
     <title>Secure Withdrawal</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="ui2.css">
-    
+
     <style>
         .btn-back {
-  position: absolute;
-  top: 20px;
-  left: 20px;
-  cursor: pointer;
-}
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
 
     <div class="toast-container" id="toastContainer"></div>
-    
-      <header>
-            <button type="button" class="btn-back" id="btnBack" aria-label="Back" onclick="history.back()">
-  <i class="fa-solid fa-arrow-left"></i>
-</button>
-            <img src="https://i.imgur.com/bNK9ccG.png" class="page-logo" alt="AmanData Logo">
-            <span class="header-spacer"></span>
-        </header>
+
+    <header>
+        <button type="button" class="btn-back" id="btnBack" aria-label="Back">
+            <i class="fa-solid fa-arrow-left"></i>
+        </button>
+        <img src="https://i.imgur.com/bNK9ccG.png" class="page-logo" alt="AmanData Logo">
+        <span class="header-spacer"></span>
+    </header>
 
     <div class="scene" id="loadingScene">
         <div class="bg" id="bg"></div>
@@ -167,7 +167,7 @@
                 </div>
             </div>
 
-            <button type="button" class="btn-submit" id="submitBtn">Confirm &amp; Withdraw Funds</button>
+            <button type="button" class="btn-submit" id="submitBtn" style="display:none;">Confirm &amp; Withdraw Funds</button>
         </div>
     </div>
 
@@ -181,8 +181,6 @@
         </div>
     </div>
 
-    
-
     <div id="pd-whatsapp-widget" class="pd-wa-container">
         <div class="pd-wa-pulse-ring"></div>
         <a href="https://wa.me/2347060739494?text=I%20am%20in%20need%20of%20help%20from%20the%20AmnData%20app"
@@ -195,99 +193,6 @@
         </a>
     </div>
 
-    <script>
-        (function () {
-            const widget = document.getElementById('pd-whatsapp-widget');
-            const link = document.getElementById('pd-wa-link');
-
-            let isDragging = false;
-            let startX = 0;
-            let startY = 0;
-            let initialX = 0;
-            let initialY = 0;
-            let hasMoved = false;
-
-            widget.addEventListener('mousedown', dragStart);
-            document.addEventListener('mousemove', drag);
-            document.addEventListener('mouseup', dragEnd);
-
-            widget.addEventListener('touchstart', dragStart, { passive: false });
-            document.addEventListener('touchmove', drag, { passive: false });
-            document.addEventListener('touchend', dragEnd);
-
-            link.addEventListener('click', function (e) {
-                if (hasMoved) {
-                    e.preventDefault();
-                }
-            });
-
-            function dragStart(e) {
-                hasMoved = false;
-                isDragging = true;
-
-                const clientX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
-                const clientY = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
-
-                const rect = widget.getBoundingClientRect();
-                initialX = rect.left;
-                initialY = rect.top;
-
-                startX = clientX;
-                startY = clientY;
-            }
-
-            function drag(e) {
-                if (!isDragging) return;
-
-                if (e.cancelable) {
-                    e.preventDefault();
-                }
-
-                const clientX = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX;
-                const clientY = e.type === 'touchmove' ? e.touches[0].clientY : e.clientY;
-
-                const dx = clientX - startX;
-                const dy = clientY - startY;
-
-                if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
-                    hasMoved = true;
-                }
-
-                let newX = initialX + dx;
-                let newY = initialY + dy;
-
-                const widgetWidth = widget.offsetWidth;
-                const widgetHeight = widget.offsetHeight;
-                const windowWidth = window.innerWidth;
-                const windowHeight = window.innerHeight;
-
-                if (newX < 10) newX = 10;
-                if (newX > windowWidth - widgetWidth - 10) newX = windowWidth - widgetWidth - 10;
-                if (newY < 10) newY = 10;
-                if (newY > windowHeight - widgetHeight - 10) newY = windowHeight - widgetHeight - 10;
-
-                widget.style.left = newX + 'px';
-                widget.style.top = newY + 'px';
-                widget.style.bottom = 'auto';
-                widget.style.right = 'auto';
-            }
-
-            function dragEnd() {
-                isDragging = false;
-            }
-        })();
-        
-        document.getElementById('btnBack').addEventListener('click', function() {
-  window.location.href = 'dashboard.html';
-});
-
-    </script>
-    
-    
-    
     <script type="module" src="withdraw.js"></script>
-    
-    
-    
 </body>
 </html>
