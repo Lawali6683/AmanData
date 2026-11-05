@@ -4,13 +4,13 @@ const TOKEN_TTL_MS = 12 * 60 * 60 * 1000;
 const MAX_PIN_ATTEMPTS = 5;
 const PIN_LOCK_SECONDS = 600;
 const DB_TIMEOUT = 12000;
-const MONNIFY_TIMEOUT = 10000;
-const TOKEN_FALLBACK_SECONDS = 600;
+const PAYSTACK_BASE = "https://api.paystack.co";
+const PAYSTACK_TIMEOUT = 10000;
+const MAX_BANK_PAGES = 10;
 const BANKS_TTL_MS = 6 * 60 * 60 * 1000;
 const textEncoder = new TextEncoder();
 
-const tokenCache = { value: null, expires: 0 };
-const banksCache = { list: null, expires: 0 };
+const banksCache = { list: null, expires: 0, loading: null };
 
 const MSG = {
   invalid: "Invalid Account Details",
@@ -39,10 +39,6 @@ function restBase(env) {
   let url = String(env.SUPABASE_URL || "").trim().replace(/\/+$/, "");
   if (!/\/rest\/v1$/.test(url)) url += "/rest/v1";
   return url + "/";
-}
-
-function monnifyBase(env) {
-  return String(env.MONNIFY_BASE_URL || "").trim().replace(/\/+$/, "");
 }
 
 async function db(env, path, options = {}) {
@@ -127,66 +123,67 @@ async function verifyToken(env, token) {
   return userId;
 }
 
-async function monnifyToken(env) {
-  if (tokenCache.value && Date.now() < tokenCache.expires) return tokenCache.value;
-  const base = monnifyBase(env);
-  if (!base || !env.MONNIFY_API_KEY || !env.MONNIFY_SECRET_KEY) return null;
-  const secret = btoa(`${env.MONNIFY_API_KEY}:${env.MONNIFY_SECRET_KEY}`);
-  const res = await fetch(`${base}/api/v1/auth/login`, {
-    method: "POST",
-    headers: { Authorization: `Basic ${secret}` },
-    signal: AbortSignal.timeout(MONNIFY_TIMEOUT)
+function paystackKey(env) {
+  return String(env.PAYSTACK_API_KEY || env.PAYSTACK_SECRET_KEY || "").trim();
+}
+
+async function paystackGet(env, path) {
+  const key = paystackKey(env);
+  if (!key) return { status: 0, data: null, missing: true };
+  const res = await fetch(`${PAYSTACK_BASE}${path}`, {
+    method: "GET",
+    headers: { Authorization: `Bearer ${key}` },
+    signal: AbortSignal.timeout(PAYSTACK_TIMEOUT)
   });
-  const data = await res.json();
-  const body = data && data.responseBody ? data.responseBody : null;
-  if (!body || !body.accessToken) return null;
-  const lifetime = Number(body.expiresIn) > 120 ? Number(body.expiresIn) - 60 : TOKEN_FALLBACK_SECONDS;
-  tokenCache.value = body.accessToken;
-  tokenCache.expires = Date.now() + lifetime * 1000;
-  return tokenCache.value;
-}
-
-async function monnifyGet(env, path) {
-  for (let attempt = 0; attempt < 2; attempt++) {
-    const token = await monnifyToken(env);
-    if (!token) return { status: 0, data: null, missing: true };
-    const res = await fetch(`${monnifyBase(env)}${path}`, {
-      method: "GET",
-      headers: { Authorization: `Bearer ${token}` },
-      signal: AbortSignal.timeout(MONNIFY_TIMEOUT)
-    });
-    if (res.status === 401) {
-      tokenCache.value = null;
-      continue;
-    }
-    let data = null;
-    try {
-      data = await res.json();
-    } catch {
-      data = null;
-    }
-    return { status: res.status, data };
-  }
-  return { status: 401, data: null };
-}
-
-async function loadBanks(env) {
-  if (banksCache.list && Date.now() < banksCache.expires) return banksCache.list;
+  let data = null;
   try {
-    const res = await monnifyGet(env, "/api/v1/banks");
-    const body = res.data && res.data.responseBody;
-    if (res.status === 200 && Array.isArray(body)) {
-      const list = body
-        .filter((item) => item && item.code && item.name)
-        .map((item) => ({ code: String(item.code), name: String(item.name) }));
-      if (list.length > 0) {
-        banksCache.list = list;
-        banksCache.expires = Date.now() + BANKS_TTL_MS;
-        return list;
+    data = await res.json();
+  } catch {
+    data = null;
+  }
+  return { status: res.status, data };
+}
+
+function loadBanks(env) {
+  if (banksCache.list && Date.now() < banksCache.expires) return Promise.resolve(banksCache.list);
+  if (!banksCache.loading) {
+    banksCache.loading = fetchBanks(env).finally(() => {
+      banksCache.loading = null;
+    });
+  }
+  return banksCache.loading;
+}
+
+async function fetchBanks(env) {
+  try {
+    const found = new Map();
+    let cursor = "";
+    let complete = false;
+    for (let page = 0; page < MAX_BANK_PAGES; page++) {
+      const next = cursor ? `&next=${encodeURIComponent(cursor)}` : "";
+      const res = await paystackGet(env, `/bank?country=nigeria&use_cursor=true&perPage=100${next}`);
+      const items = res.data && res.data.data;
+      if (res.status !== 200 || !res.data.status || !Array.isArray(items)) break;
+      items.forEach((item) => {
+        if (!item || !item.code || !item.name) return;
+        if (item.active === false || item.is_deleted === true) return;
+        if (item.currency && item.currency !== "NGN") return;
+        const code = String(item.code);
+        if (!found.has(code)) found.set(code, { code, name: String(item.name) });
+      });
+      cursor = res.data.meta && res.data.meta.next ? String(res.data.meta.next) : "";
+      if (!cursor) {
+        complete = true;
+        break;
       }
     }
+    if (complete && found.size > 0) {
+      banksCache.list = Array.from(found.values());
+      banksCache.expires = Date.now() + BANKS_TTL_MS;
+      return banksCache.list;
+    }
   } catch (err) {
-    console.error("monnify banks error", err && err.message);
+    console.error("paystack banks error", err && err.message);
   }
   return banksCache.list;
 }
@@ -196,21 +193,28 @@ async function resolveAccount(env, bankCode, accountNumber) {
     const banks = await loadBanks(env);
     if (banks && !banks.some((item) => item.code === bankCode)) return { error: "bank" };
 
-    const path = `/api/v1/disbursements/account/validate?accountNumber=${encodeURIComponent(accountNumber)}&bankCode=${encodeURIComponent(bankCode)}`;
-    const res = await monnifyGet(env, path);
-    if (res.missing) return { error: "unavailable" };
-
-    const body = res.data && res.data.responseBody;
-    if (res.data && res.data.requestSuccessful && body && body.accountName) {
-      return { name: String(body.accountName) };
-    }
-    if (!res.data || res.status === 0 || res.status === 401 || res.status === 429 || res.status >= 500) {
+    const path = `/bank/resolve?account_number=${encodeURIComponent(accountNumber)}&bank_code=${encodeURIComponent(bankCode)}`;
+    const res = await paystackGet(env, path);
+    if (res.missing) {
+      console.error("paystack key is not set");
       return { error: "unavailable" };
     }
-    if (/bank code/i.test(String(res.data.responseMessage || ""))) return { error: "bank" };
+
+    const body = res.data && res.data.data;
+    if (res.status === 200 && res.data.status === true && body && body.account_name) {
+      return { name: String(body.account_name) };
+    }
+    if (res.status === 401 || res.status === 403) {
+      console.error("paystack rejected the request", res.status, String((res.data && res.data.message) || "").slice(0, 160));
+      return { error: "unavailable" };
+    }
+    if (!res.data || res.status === 0 || res.status === 429 || res.status >= 500) {
+      return { error: "unavailable" };
+    }
+    if (/bank code/i.test(String(res.data.message || ""))) return { error: "bank" };
     return { error: "invalid" };
   } catch (err) {
-    console.error("monnify error", err && err.message);
+    console.error("paystack error", err && err.message);
     return { error: "unavailable" };
   }
 }
