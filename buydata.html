@@ -41,6 +41,19 @@
             padding: 6px !important;
             box-sizing: border-box !important;
         }
+        .filter-tabs {
+            display: flex !important;
+            flex-wrap: nowrap !important;
+            gap: 8px !important;
+            overflow-x: auto !important;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+        }
+        .filter-tabs::-webkit-scrollbar { display: none; }
+        .filter-tabs .tab-btn {
+            flex: 0 0 auto !important;
+            white-space: nowrap !important;
+        }
     </style>
 </head>
 <body>
@@ -58,10 +71,7 @@
             <div class="summary-balance">₦<span id="sumBalance">0.00</span></div>
         </section>
 
-        <section class="filter-tabs">
-            <button type="button" class="tab-btn active" id="tabEasy"><i class="fa-solid fa-bolt"></i> Easy Power Plan</button>
-            <button type="button" class="tab-btn" id="tabSimple"><i class="fa-solid fa-layer-group"></i> Simple Plan</button>
-        </section>
+        <section class="filter-tabs" id="filterTabs"></section>
 
         <div class="net-row" id="netRow"></div>
         <main class="history-list" id="planList"></main>
@@ -86,7 +96,7 @@
         </section>
     </div>
 
-    <script type="module" src="buydata.js"></script> 
-       <script src="formpopup.js" defer></script>
+    <script type="module" src="buydata.js"></script>
+    <script src="formpopup.js" defer></script>
 </body>
 </html>
