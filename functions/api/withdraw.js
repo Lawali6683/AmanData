@@ -1,7 +1,22 @@
 const HEADERS = { "Content-Type": "application/json", "Cache-Control": "no-store" };
 const FEE_RATE = 0.01;
 const TOKEN_TTL_MS = 12 * 60 * 60 * 1000;
+const MAX_PIN_ATTEMPTS = 5;
+const PIN_LOCK_SECONDS = 600;
+const DB_TIMEOUT = 12000;
+const MONNIFY_TIMEOUT = 10000;
+const TOKEN_FALLBACK_SECONDS = 600;
+const BANKS_TTL_MS = 6 * 60 * 60 * 1000;
 const textEncoder = new TextEncoder();
+
+const tokenCache = { value: null, expires: 0 };
+const banksCache = { list: null, expires: 0 };
+
+const MSG = {
+  invalid: "Invalid Account Details",
+  bank: "This bank is not supported for withdrawal. Please choose another bank.",
+  unavailable: "Account verification is not available right now. Please try again."
+};
 
 function reply(body, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: HEADERS });
@@ -9,6 +24,11 @@ function reply(body, status = 200) {
 
 function round2(value) {
   return Math.round((Number(value) + Number.EPSILON) * 100) / 100;
+}
+
+function toAmount(value) {
+  const number = parseFloat(String(value === undefined || value === null ? 0 : value).replace(/,/g, ""));
+  return isFinite(number) ? number : 0;
 }
 
 function isSafeId(value) {
@@ -21,26 +41,44 @@ function restBase(env) {
   return url + "/";
 }
 
+function monnifyBase(env) {
+  return String(env.MONNIFY_BASE_URL || "").trim().replace(/\/+$/, "");
+}
+
 async function db(env, path, options = {}) {
   const key = env.SUPABASE_SERVICE_ROLE_KEY;
   const headers = { apikey: key, Authorization: `Bearer ${key}` };
   if (options.body !== undefined) headers["Content-Type"] = "application/json";
   if (options.prefer) headers.Prefer = options.prefer;
-  const res = await fetch(restBase(env) + path, {
-    method: options.method || "GET",
-    headers,
-    body: options.body !== undefined ? JSON.stringify(options.body) : undefined
-  });
-  const text = await res.text();
-  let data = null;
-  if (text) {
-    try {
-      data = JSON.parse(text);
-    } catch {
-      data = text;
+  try {
+    const res = await fetch(restBase(env) + path, {
+      method: options.method || "GET",
+      headers,
+      body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+      signal: AbortSignal.timeout(DB_TIMEOUT)
+    });
+    const text = await res.text();
+    let data = null;
+    if (text) {
+      try {
+        data = JSON.parse(text);
+      } catch {
+        data = text;
+      }
     }
+    return { ok: res.ok, status: res.status, data };
+  } catch (err) {
+    console.error("db error", path.split("?")[0], err && err.message);
+    return { ok: false, status: 0, data: null };
   }
-  return { ok: res.ok, status: res.status, data };
+}
+
+function rpc(env, name, args) {
+  return db(env, `rpc/${name}`, { method: "POST", body: args, prefer: "return=representation" });
+}
+
+function rpcMessage(res) {
+  return res.data && res.data.message ? String(res.data.message) : "";
 }
 
 function toBase64Url(bytes) {
@@ -90,35 +128,104 @@ async function verifyToken(env, token) {
 }
 
 async function monnifyToken(env) {
+  if (tokenCache.value && Date.now() < tokenCache.expires) return tokenCache.value;
+  const base = monnifyBase(env);
+  if (!base || !env.MONNIFY_API_KEY || !env.MONNIFY_SECRET_KEY) return null;
   const secret = btoa(`${env.MONNIFY_API_KEY}:${env.MONNIFY_SECRET_KEY}`);
-  const res = await fetch(`${env.MONNIFY_BASE_URL}/api/v1/auth/login`, {
+  const res = await fetch(`${base}/api/v1/auth/login`, {
     method: "POST",
-    headers: { Authorization: `Basic ${secret}` }
+    headers: { Authorization: `Basic ${secret}` },
+    signal: AbortSignal.timeout(MONNIFY_TIMEOUT)
   });
   const data = await res.json();
-  return data && data.responseBody ? data.responseBody.accessToken : null;
+  const body = data && data.responseBody ? data.responseBody : null;
+  if (!body || !body.accessToken) return null;
+  const lifetime = Number(body.expiresIn) > 120 ? Number(body.expiresIn) - 60 : TOKEN_FALLBACK_SECONDS;
+  tokenCache.value = body.accessToken;
+  tokenCache.expires = Date.now() + lifetime * 1000;
+  return tokenCache.value;
+}
+
+async function monnifyGet(env, path) {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const token = await monnifyToken(env);
+    if (!token) return { status: 0, data: null, missing: true };
+    const res = await fetch(`${monnifyBase(env)}${path}`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(MONNIFY_TIMEOUT)
+    });
+    if (res.status === 401) {
+      tokenCache.value = null;
+      continue;
+    }
+    let data = null;
+    try {
+      data = await res.json();
+    } catch {
+      data = null;
+    }
+    return { status: res.status, data };
+  }
+  return { status: 401, data: null };
+}
+
+async function loadBanks(env) {
+  if (banksCache.list && Date.now() < banksCache.expires) return banksCache.list;
+  try {
+    const res = await monnifyGet(env, "/api/v1/banks");
+    const body = res.data && res.data.responseBody;
+    if (res.status === 200 && Array.isArray(body)) {
+      const list = body
+        .filter((item) => item && item.code && item.name)
+        .map((item) => ({ code: String(item.code), name: String(item.name) }));
+      if (list.length > 0) {
+        banksCache.list = list;
+        banksCache.expires = Date.now() + BANKS_TTL_MS;
+        return list;
+      }
+    }
+  } catch (err) {
+    console.error("monnify banks error", err && err.message);
+  }
+  return banksCache.list;
 }
 
 async function resolveAccount(env, bankCode, accountNumber) {
   try {
-    const token = await monnifyToken(env);
-    if (!token) return null;
-    const url = `${env.MONNIFY_BASE_URL}/api/v1/disbursements/account/validate?accountNumber=${encodeURIComponent(accountNumber)}&bankCode=${encodeURIComponent(bankCode)}`;
-    const res = await fetch(url, { method: "GET", headers: { Authorization: `Bearer ${token}` } });
-    const data = await res.json();
-    if (data && data.requestSuccessful && data.responseBody && data.responseBody.accountName) {
-      return data.responseBody.accountName;
+    const banks = await loadBanks(env);
+    if (banks && !banks.some((item) => item.code === bankCode)) return { error: "bank" };
+
+    const path = `/api/v1/disbursements/account/validate?accountNumber=${encodeURIComponent(accountNumber)}&bankCode=${encodeURIComponent(bankCode)}`;
+    const res = await monnifyGet(env, path);
+    if (res.missing) return { error: "unavailable" };
+
+    const body = res.data && res.data.responseBody;
+    if (res.data && res.data.requestSuccessful && body && body.accountName) {
+      return { name: String(body.accountName) };
     }
-    return null;
-  } catch {
-    return null;
+    if (!res.data || res.status === 0 || res.status === 401 || res.status === 429 || res.status >= 500) {
+      return { error: "unavailable" };
+    }
+    if (/bank code/i.test(String(res.data.responseMessage || ""))) return { error: "bank" };
+    return { error: "invalid" };
+  } catch (err) {
+    console.error("monnify error", err && err.message);
+    return { error: "unavailable" };
   }
+}
+
+function accountFailure(result) {
+  if (result.error === "bank") return reply({ success: false, message: MSG.bank });
+  if (result.error === "unavailable") return reply({ success: false, message: MSG.unavailable, retry: true });
+  return reply({ success: false, message: MSG.invalid });
 }
 
 async function getProfile(env, uuid) {
   const res = await db(env, `user_profiles?id=eq.${encodeURIComponent(uuid)}&select=id,user_data&limit=1`);
-  if (!res.ok || !Array.isArray(res.data) || res.data.length === 0) return null;
-  return res.data[0];
+  if (!res.ok) return { busy: true };
+  if (!Array.isArray(res.data) || res.data.length === 0) return { profile: null };
+  return { profile: res.data[0] };
 }
 
 async function findOpenWithdrawal(env, uuid) {
@@ -130,15 +237,22 @@ async function findOpenWithdrawal(env, uuid) {
   return res.data[0];
 }
 
+async function handleBanks(env) {
+  const banks = await loadBanks(env);
+  if (!banks) return reply({ success: false, message: "The bank list is not available right now" });
+  const sorted = banks.slice().sort((a, b) => a.name.localeCompare(b.name));
+  return reply({ success: true, banks: sorted });
+}
+
 async function handleVerifyAccount(env, body) {
   const accountNumber = String(body.account_number || "");
   const bankCode = String(body.bank_code || "");
   if (!/^\d{10}$/.test(accountNumber) || !bankCode) {
-    return reply({ success: false, message: "Invalid Account Details" });
+    return reply({ success: false, message: MSG.invalid });
   }
-  const name = await resolveAccount(env, bankCode, accountNumber);
-  if (!name) return reply({ success: false, message: "Invalid Account Details" });
-  return reply({ success: true, account_name: name });
+  const result = await resolveAccount(env, bankCode, accountNumber);
+  if (result.name) return reply({ success: true, account_name: result.name });
+  return accountFailure(result);
 }
 
 async function handleOverview(env, body) {
@@ -152,12 +266,22 @@ async function handleOverview(env, body) {
   return reply({ success: true, pending, history: res.data });
 }
 
+async function readAttempts(env, key) {
+  if (!env.LOCK_KV) return 0;
+  return parseInt((await env.LOCK_KV.get(key)) || "0", 10) || 0;
+}
+
 async function handleRequestWithdraw(env, body) {
   const { uuid, pin, bank_code, bank_name, account_number } = body;
   if (!isSafeId(uuid)) return reply({ success: false, message: "Bad Parameters" }, 400);
 
-  const amount = round2(parseFloat(body.amount));
-  if (!isFinite(amount) || amount <= 0) {
+  const attemptsKey = `pin-attempts:${uuid}`;
+  if ((await readAttempts(env, attemptsKey)) >= MAX_PIN_ATTEMPTS) {
+    return reply({ success: false, message: "Too many wrong PIN attempts. Try again in 10 minutes" }, 429);
+  }
+
+  const amount = round2(toAmount(body.amount));
+  if (!(amount > 0)) {
     return reply({ success: false, message: "Enter a valid amount" });
   }
   if (!/^\d{10}$/.test(String(account_number || ""))) {
@@ -167,15 +291,22 @@ async function handleRequestWithdraw(env, body) {
     return reply({ success: false, message: "Select a destination bank" });
   }
 
-  const profile = await getProfile(env, uuid);
+  const found = await getProfile(env, uuid);
+  if (found.busy) return reply({ success: false, message: "Service is busy right now. Please try again." });
+  const profile = found.profile;
   if (!profile) return reply({ success: false, message: "User profile not found" });
 
   const userData = profile.user_data || {};
   if (String(userData.pin || "") === "" || String(userData.pin) !== String(pin || "")) {
+    if (env.LOCK_KV) {
+      const attempts = await readAttempts(env, attemptsKey);
+      await env.LOCK_KV.put(attemptsKey, String(attempts + 1), { expirationTtl: PIN_LOCK_SECONDS });
+    }
     return reply({ success: false, message: "Incorrect transaction PIN" });
   }
+  if (env.LOCK_KV) await env.LOCK_KV.delete(attemptsKey);
 
-  const balance = parseFloat(userData.user_balance || 0) || 0;
+  const balance = round2(toAmount(userData.user_balance));
   if (balance <= 0) {
     return reply({ success: false, message: "You do not have any funds in your wallet" });
   }
@@ -188,14 +319,19 @@ async function handleRequestWithdraw(env, body) {
     return reply({ success: false, message: "You already have a pending withdrawal", pending: open });
   }
 
-  const accountName = await resolveAccount(env, String(bank_code), String(account_number));
-  if (!accountName) {
-    return reply({ success: false, message: "Unable to verify account details" });
-  }
+  const resolved = await resolveAccount(env, String(bank_code), String(account_number));
+  if (!resolved.name) return accountFailure(resolved);
+
+  const banks = await loadBanks(env);
+  const known = banks ? banks.find((item) => item.code === String(bank_code)) : null;
+  const bankLabel = known ? known.name : String(bank_name);
 
   const fee = round2(amount * FEE_RATE);
   const net = round2(amount - fee);
-  const reference = `WD-${Date.now()}-${Math.floor(Math.random() * 9000 + 1000)}`;
+  if (!(net > 0)) {
+    return reply({ success: false, message: "Enter a valid amount" });
+  }
+  const reference = `WD-${Date.now()}-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
 
   const insert = await db(env, "withdrawals", {
     method: "POST",
@@ -208,15 +344,15 @@ async function handleRequestWithdraw(env, body) {
       amount,
       fee,
       net_amount: net,
-      bank_name: String(bank_name).slice(0, 80),
+      bank_name: bankLabel.slice(0, 80),
       bank_code: String(bank_code).slice(0, 12),
       account_number: String(account_number),
-      account_name: String(accountName).slice(0, 160),
+      account_name: resolved.name.slice(0, 160),
       status: "pending"
     }
   });
 
-  if (insert.status === 409) {
+  if (insert.status === 409 || (insert.data && insert.data.code === "23505")) {
     return reply({ success: false, message: "You already have a pending withdrawal" });
   }
   if (!insert.ok || !Array.isArray(insert.data) || insert.data.length === 0) {
@@ -239,11 +375,8 @@ async function handleAdminLogin(env, request, body) {
 
   const ip = request.headers.get("CF-Connecting-IP") || "unknown";
   const attemptsKey = `admin-attempts:${ip}`;
-  if (env.LOCK_KV) {
-    const attempts = parseInt((await env.LOCK_KV.get(attemptsKey)) || "0", 10);
-    if (attempts >= 8) {
-      return reply({ success: false, message: "Too many attempts. Try again in 10 minutes" }, 429);
-    }
+  if ((await readAttempts(env, attemptsKey)) >= 8) {
+    return reply({ success: false, message: "Too many attempts. Try again in 10 minutes" }, 429);
   }
 
   const admins = String(env.ADMIN_EMAILS)
@@ -261,9 +394,9 @@ async function handleAdminLogin(env, request, body) {
         `user_profiles?user_data->>email=eq.${encodeURIComponent(candidate)}&select=id,user_data&limit=5`
       );
       if (res.ok && Array.isArray(res.data)) {
-        const found = res.data.find((row) => row.user_data && safeEqual(String(row.user_data.password || ""), password));
-        if (found) {
-          matched = found;
+        const row = res.data.find((item) => item.user_data && safeEqual(String(item.user_data.password || ""), password));
+        if (row) {
+          matched = row;
           break;
         }
       }
@@ -272,8 +405,8 @@ async function handleAdminLogin(env, request, body) {
 
   if (!matched) {
     if (env.LOCK_KV) {
-      const attempts = parseInt((await env.LOCK_KV.get(attemptsKey)) || "0", 10);
-      await env.LOCK_KV.put(attemptsKey, String(attempts + 1), { expirationTtl: 600 });
+      const attempts = await readAttempts(env, attemptsKey);
+      await env.LOCK_KV.put(attemptsKey, String(attempts + 1), { expirationTtl: PIN_LOCK_SECONDS });
     }
     return reply({ success: false, message: "Invalid email or password" }, 401);
   }
@@ -298,7 +431,7 @@ async function loadWalletStats(env) {
     );
     if (!res.ok || !Array.isArray(res.data)) throw new Error("Unable to read users");
     res.data.forEach((row) => {
-      const value = parseFloat(row.balance || 0) || 0;
+      const value = toAmount(row.balance);
       totalUsers += 1;
       totalWallet += value;
       if (value > 0) usersWithFunds += 1;
@@ -318,7 +451,7 @@ async function loadBalances(env, ids) {
     const res = await db(env, `user_profiles?id=in.(${chunk.join(",")})&select=id,balance:user_data->>user_balance`);
     if (res.ok && Array.isArray(res.data)) {
       res.data.forEach((row) => {
-        map[row.id] = parseFloat(row.balance || 0) || 0;
+        map[row.id] = toAmount(row.balance);
       });
     }
   }
@@ -341,35 +474,6 @@ async function handleAdminDashboard(env) {
   return reply({ success: true, stats, pending });
 }
 
-async function deductBalance(env, userId, amount) {
-  for (let attempt = 0; attempt < 4; attempt++) {
-    const profile = await getProfile(env, userId);
-    if (!profile) return { ok: false, message: "User profile not found" };
-
-    const userData = profile.user_data || {};
-    const oldValue = String(userData.user_balance !== undefined && userData.user_balance !== null ? userData.user_balance : "0.00");
-    const balance = parseFloat(oldValue) || 0;
-    if (balance < amount) {
-      return { ok: false, message: "User wallet balance is lower than the withdrawal amount" };
-    }
-
-    const newBalance = round2(balance - amount).toFixed(2);
-    const update = await db(
-      env,
-      `user_profiles?id=eq.${encodeURIComponent(userId)}&user_data->>user_balance=eq.${encodeURIComponent(oldValue)}`,
-      {
-        method: "PATCH",
-        prefer: "return=representation",
-        body: { user_data: { ...userData, user_balance: newBalance } }
-      }
-    );
-    if (update.ok && Array.isArray(update.data) && update.data.length > 0) {
-      return { ok: true, balance: newBalance };
-    }
-  }
-  return { ok: false, message: "Wallet changed during processing. Please try again" };
-}
-
 async function handleAdminComplete(env, body, adminId) {
   const id = body.id;
   if (!isSafeId(id)) return reply({ success: false, message: "Bad Parameters" }, 400);
@@ -384,14 +488,49 @@ async function handleAdminComplete(env, body, adminId) {
   }
 
   const withdrawal = claim.data[0];
-  const deduction = await deductBalance(env, withdrawal.user_id, Number(withdrawal.amount));
-
-  if (!deduction.ok) {
-    await db(env, `withdrawals?id=eq.${encodeURIComponent(id)}&status=eq.processing`, {
+  const release = () =>
+    db(env, `withdrawals?id=eq.${encodeURIComponent(id)}&status=eq.processing`, {
       method: "PATCH",
       body: { status: "pending" }
     });
-    return reply({ success: false, message: deduction.message });
+
+  const amount = round2(toAmount(withdrawal.amount));
+  const debit = await rpc(env, "wallet_debit", {
+    p_user: withdrawal.user_id,
+    p_amount: amount,
+    p_tx: {
+      type: "withdrawal",
+      direction: "out",
+      title: `Withdrawal to ${withdrawal.bank_name || "bank"}`,
+      amount,
+      status: "success",
+      reference: withdrawal.reference,
+      created_at: new Date().toISOString()
+    }
+  });
+
+  let balanceAfter = null;
+  if (debit.ok) {
+    balanceAfter = round2(Number(debit.data)).toFixed(2);
+  } else {
+    const message = rpcMessage(debit);
+    if (/DUPLICATE_REQUEST/.test(message)) {
+      const found = await getProfile(env, withdrawal.user_id);
+      if (found.profile) {
+        balanceAfter = round2(toAmount((found.profile.user_data || {}).user_balance)).toFixed(2);
+      }
+    }
+    if (balanceAfter === null) {
+      await release();
+      if (/INSUFFICIENT_FUNDS/.test(message)) {
+        return reply({ success: false, message: "User wallet balance is lower than the withdrawal amount" });
+      }
+      if (/USER_NOT_FOUND/.test(message)) {
+        return reply({ success: false, message: "User profile not found" });
+      }
+      console.error("admin wallet_debit failed", withdrawal.reference, debit.status, message.slice(0, 200));
+      return reply({ success: false, message: "Could not debit the wallet. Please try again" });
+    }
   }
 
   let finalRow = null;
@@ -403,7 +542,7 @@ async function handleAdminComplete(env, body, adminId) {
         status: "completed",
         completed_at: new Date().toISOString(),
         completed_by: adminId,
-        balance_after: deduction.balance
+        balance_after: balanceAfter
       }
     });
     if (done.ok && Array.isArray(done.data) && done.data.length > 0) finalRow = done.data[0];
@@ -416,7 +555,7 @@ async function handleAdminComplete(env, body, adminId) {
     });
   }
 
-  return reply({ success: true, message: "Payment completed", withdrawal: finalRow, new_balance: deduction.balance });
+  return reply({ success: true, message: "Payment completed", withdrawal: finalRow, new_balance: balanceAfter });
 }
 
 async function handleAdminDelete(env, body) {
@@ -457,6 +596,8 @@ async function handle(request, env) {
 
   try {
     switch (body.action) {
+      case "banks":
+        return await handleBanks(env);
       case "verify_account":
         return await handleVerifyAccount(env, body);
       case "overview":
@@ -477,7 +618,8 @@ async function handle(request, env) {
       default:
         return reply({ success: false, message: "Unknown action" }, 400);
     }
-  } catch {
+  } catch (err) {
+    console.error(err);
     return reply({ success: false, message: "Internal server error" }, 500);
   }
 }
