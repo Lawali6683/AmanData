@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Admin - AmanData</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --bg: #f4f6fb;
+            --card: #ffffff;
+            --text: #14213d;
+            --muted: #6b7690;
+            --line: #e3e8f2;
+            --brand: #1d4ed8;
+            --brand-soft: #e8efff;
+            --code-bg: #0f172a;
+            --code-text: #e2e8f0;
+            --ok: #15803d;
+            --bad: #b91c1c;
+        }
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #0b1120;
+                --card: #131c31;
+                --text: #e8edf8;
+                --muted: #93a0bd;
+                --line: #243150;
+                --brand: #6d96ff;
+                --brand-soft: #1b2a4d;
+                --code-bg: #060a14;
+            }
+        }
+        * { box-sizing: border-box; }
+        html, body { margin: 0; background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+        body { padding: 16px 14px 60px; max-width: 760px; margin: 0 auto; }
+        h1 { font-size: 20px; margin: 6px 0 4px; }
+        h2 { font-size: 16px; margin: 0 0 10px; display: flex; align-items: center; gap: 8px; }
+        p.sub { color: var(--muted); font-size: 13px; margin: 0 0 16px; line-height: 1.5; }
+        .card { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 16px; margin-bottom: 14px; }
+        .hidden { display: none !important; }
+        label { display: block; font-size: 12px; color: var(--muted); margin: 10px 0 4px; }
+        input, select { width: 100%; padding: 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--bg); color: var(--text); font-size: 15px; }
+        .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        button { font: inherit; cursor: pointer; border: 0; border-radius: 12px; padding: 12px 16px; font-weight: 600; }
+        .btn { background: var(--brand); color: #fff; }
+        .btn-soft { background: var(--brand-soft); color: var(--brand); }
+        .btn-row { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+        .tbl { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+        .tbl th, .tbl td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+        .tbl th { color: var(--muted); font-weight: 600; }
+        .tbl code { color: var(--brand); }
+        .wrap { overflow-x: auto; }
+        .code-box { position: relative; margin-top: 10px; }
+        pre { margin: 0; background: var(--code-bg); color: var(--code-text); padding: 14px; border-radius: 14px; font-size: 12px; line-height: 1.55; overflow-x: auto; white-space: pre; }
+        .copy { position: absolute; top: 8px; right: 8px; padding: 6px 10px; font-size: 12px; background: rgba(255,255,255,.14); color: #fff; }
+        .copy.done { background: var(--ok); }
+        .steps { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.7; color: var(--muted); }
+        .steps b { color: var(--text); }
+        .err { color: var(--bad); font-size: 13px; min-height: 18px; margin-top: 8px; }
+        .tag { display: inline-block; font-size: 11px; padding: 3px 8px; border-radius: 999px; background: var(--brand-soft); color: var(--brand); margin-left: auto; }
+        .pending { font-size: 12.5px; color: var(--muted); margin-top: 8px; }
+        .lock { min-height: 80vh; display: flex; align-items: center; justify-content: center; }
+        .lock .card { width: 100%; max-width: 360px; text-align: center; }
+        .lock i { font-size: 30px; color: var(--brand); margin-bottom: 8px; }
+    </style>
+</head>
+<body>
+    <div class="lock" id="lockView">
+        <div class="card">
+            <i class="fa-solid fa-lock"></i>
+            <h1>Admin</h1>
+            <p class="sub">Shigar da password domin buɗe shafin.</p>
+            <input id="pass" type="password" inputmode="numeric" placeholder="Password" autocomplete="off">
+            <div class="err" id="passErr"></div>
+            <div class="btn-row"><button class="btn" id="btnOpen" style="width:100%">Buɗe</button></div>
+        </div>
+    </div>
+
+    <div id="appView" class="hidden">
+        <h1>AmanData Admin</h1>
+        <p class="sub">Daga nan ne zaka ƙara sabon tab na data (plan4, plan5 ...) ba tare da canza app ɗin ba. Duk SQL da ka samar a nan, kwafi ka saka a Supabase SQL Editor.</p>
+
+        <section class="card">
+            <h2><i class="fa-solid fa-diagram-project"></i> Tsarin Tables <span class="tag">2 tables</span></h2>
+            <p class="sub" style="margin-bottom:8px"><b>data_sources</b> — kowane API/tab (plan4, plan5 ...)</p>
+            <div class="wrap"><table class="tbl">
+                <tr><th>Column</th><th>Type</th><th>Ma'ana</th></tr>
+                <tr><td><code>source_key</code></td><td>text, unique</td><td>plan4, plan5 ...</td></tr>
+                <tr><td><code>label</code></td><td>text</td><td>Sunan da zai fito a tab</td></tr>
+                <tr><td><code>icon</code></td><td>text</td><td>Font Awesome, misali fa-wifi</td></tr>
+                <tr><td><code>endpoint</code></td><td>text</td><td>Misali /api/plan4</td></tr>
+                <tr><td><code>sort_order</code></td><td>int</td><td>Jerin tab</td></tr>
+                <tr><td><code>active</code></td><td>boolean</td><td>false = tab ya ɓace</td></tr>
+            </table></div>
+            <p class="sub" style="margin:14px 0 8px"><b>data_plans</b> — plans na kowane source</p>
+            <div class="wrap"><table class="tbl">
+                <tr><th>Column</th><th>Type</th><th>Ma'ana</th></tr>
+                <tr><td><code>source_key</code></td><td>text</td><td>Na data_sources</td></tr>
+                <tr><td><code>network_key</code></td><td>text</td><td>mtn_plan, itel_data, glo_data, 9mobile_data</td></tr>
+                <tr><td><code>plan_id</code></td><td>text</td><td>ID da API ɗin ke karɓa</td></tr>
+                <tr><td><code>plan_name</code></td><td>text</td><td>Misali 1GB</td></tr>
+                <tr><td><code>plan_type</code></td><td>text</td><td>SME, Gifting ...</td></tr>
+                <tr><td><code>plan_day</code></td><td>text</td><td>30 days</td></tr>
+                <tr><td><code>price</code></td><td>numeric</td><td>Farashi</td></tr>
+                <tr><td><code>active</code></td><td>boolean</td><td>false = plan ya ɓace</td></tr>
+            </table></div>
+        </section>
+
+        <section class="card">
+            <h2><i class="fa-solid fa-database"></i> 1. Ƙirƙirar Tables (sau ɗaya)</h2>
+            <ol class="steps">
+                <li>Kwafi SQL ɗin ƙasa</li>
+                <li>Buɗe <b>Supabase → SQL Editor → New query</b></li>
+                <li>Saka, danna <b>Run</b></li>
+            </ol>
+            <div class="code-box"><button class="copy" data-target="sqlSetup">Copy</button><pre id="sqlSetup"></pre></div>
+        </section>
+
+        <section class="card">
+            <h2><i class="fa-solid fa-plus"></i> 2. Ƙara Sabon API (Tab)</h2>
+            <div class="row2">
+                <div><label>source_key</label><input id="sKey" placeholder="plan4" autocapitalize="off"></div>
+                <div><label>Suna a tab</label><input id="sLabel" placeholder="Plan 4"></div>
+            </div>
+            <div class="row2">
+                <div><label>Icon</label><input id="sIcon" value="fa-wifi" autocapitalize="off"></div>
+                <div><label>Endpoint</label><input id="sEndpoint" placeholder="/api/plan4" autocapitalize="off"></div>
+            </div>
+            <div class="row2">
+                <div><label>Jeri (sort_order)</label><input id="sSort" type="number" value="4"></div>
+                <div></div>
+            </div>
+            <div class="err" id="sErr"></div>
+            <div class="btn-row"><button class="btn" id="btnSource">Samar da SQL</button></div>
+            <div class="code-box hidden" id="sourceBox"><button class="copy" data-target="sqlSource">Copy</button><pre id="sqlSource"></pre></div>
+        </section>
+
+        <section class="card">
+            <h2><i class="fa-solid fa-list"></i> 3. Ƙara Plans a Tab</h2>
+            <div class="row2">
+                <div><label>source_key</label><input id="pSource" placeholder="plan4" autocapitalize="off"></div>
+                <div><label>Network</label>
+                    <select id="pNet">
+                        <option value="mtn_plan">MTN</option>
+                        <option value="itel_data">AIRTEL</option>
+                        <option value="glo_data">GLO</option>
+                        <option value="9mobile_data">9MOBILE</option>
+                    </select>
+                </div>
+            </div>
+            <div class="row2">
+                <div><label>plan_id</label><input id="pId" placeholder="101" autocapitalize="off"></div>
+                <div><label>plan_name</label><input id="pName" placeholder="1GB"></div>
+            </div>
+            <div class="row2">
+                <div><label>plan_type</label><input id="pType" placeholder="SME"></div>
+                <div><label>plan_day</label><input id="pDay" placeholder="30 days"></div>
+            </div>
+            <div class="row2">
+                <div><label>price</label><input id="pPrice" type="number" step="0.01" placeholder="250"></div>
+                <div></div>
+            </div>
+            <div class="err" id="pErr"></div>
+            <div class="btn-row">
+                <button class="btn" id="btnAddPlan">Ƙara cikin jeri</button>
+                <button class="btn-soft" id="btnClearPlans">Share jeri</button>
+            </div>
+            <div class="pending" id="pendingInfo">Babu plan a jeri tukuna.</div>
+            <div class="code-box hidden" id="planBox"><button class="copy" data-target="sqlPlans">Copy</button><pre id="sqlPlans"></pre></div>
+        </section>
+
+        <section class="card">
+            <h2><i class="fa-solid fa-plug"></i> 4. Yadda API ɗin /api/planN zai yi aiki</h2>
+            <p class="sub">App ɗin yana tura POST zuwa endpoint ɗin da ka saka, da wannan JSON:</p>
+            <div class="code-box"><button class="copy" data-target="sqlApi">Copy</button><pre id="sqlApi"></pre></div>
+        </section>
+
+        <section class="card">
+            <h2><i class="fa-solid fa-eye-slash"></i> Kashe ko Share</h2>
+            <div class="code-box"><button class="copy" data-target="sqlManage">Copy</button><pre id="sqlManage"></pre></div>
+        </section>
+    </div>
+
+    <script src="newplan.js"></script>
+</body>
+</html>
