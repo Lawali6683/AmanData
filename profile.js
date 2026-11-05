@@ -1,14 +1,14 @@
 import { supabase } from './supabase.js';
 
 (function () {
-    const API_ENDPOINT = '/api/pin';
+    const API_ENDPOINT = '/api/changepin';
     const REQ_PASS = '@haruna66';
     const SESSION_KEY = 'puredata_user_session';
     const LOAD_TIMEOUT = 15000;
+    const LOGIN_TIMEOUT = 20000;
     const API_TIMEOUT = 25000;
     const LOADER_SAFETY = 9000;
     const LOADER_DELAY = 1200;
-    const MIN_PASSWORD = 6;
 
     const $ = (id) => document.getElementById(id);
 
@@ -25,9 +25,8 @@ import { supabase } from './supabase.js';
     const profileJoined = $('profileJoined');
     const profileReferredBy = $('profileReferredBy');
 
+    const btnBack = $('btnBack');
     const btnTriggerPin = $('btnTriggerPin');
-    const btnTriggerPassword = $('btnTriggerPassword');
-
     const pinOverlay = $('pinVerificationOverlay');
     const pinFormCard = $('pinFormCard');
     const btnClosePinForm = $('btnClosePinForm');
@@ -36,34 +35,15 @@ import { supabase } from './supabase.js';
     const btnSubmitPinVerify = $('btnSubmitPinVerify');
     const togglePinPass = $('togglePinPass');
 
-    const passOverlay = $('passwordVerificationOverlay');
-    const passFormCard = $('passwordFormCard');
-    const btnClosePassForm = $('btnClosePassForm');
-    const passEmailInput = $('passEmailInput');
-    const passOldInput = $('passOldInput');
-    const btnSubmitPassVerify = $('btnSubmitPassVerify');
-    const togglePassOld = $('togglePassOld');
-
-    const passwordStep1Fields = $('passwordStep1Fields');
-    const passwordStep2Fields = $('passwordStep2Fields');
-    const passNewInput = $('passNewInput');
-    const passConfirmInput = $('passConfirmInput');
-    const btnSubmitPassChange = $('btnSubmitPassChange');
-    const togglePassNew = $('togglePassNew');
-    const togglePassConfirm = $('togglePassConfirm');
-
     const toastContainer = $('toastContainer');
     const toastIcon = $('toastIcon');
     const toastMessage = $('toastMessage');
 
     let userId = null;
-    let profile = null;
     let loaderHidden = false;
     let toastTimer = null;
-    let pinCreds = null;
-    let passCreds = null;
+    let accessToken = null;
     let pinBusy = false;
-    let passBusy = false;
     let pinRun = 0;
 
     function on(el, type, handler) {
@@ -155,7 +135,6 @@ import { supabase } from './supabase.js';
             const row = Array.isArray(data) ? data[0] : null;
             if (!row || !row.user_data) throw new Error('missing');
 
-            profile = row;
             const info = row.user_data;
             setText(profileName, info.full_name || 'Anonymous User');
             setText(profileEmail, info.email || 'N/A');
@@ -212,21 +191,32 @@ import { supabase } from './supabase.js';
     }
 
     const pinFlow = createFlow(pinFormCard);
-    const passFlow = createFlow(passFormCard);
 
     function loaderHtml(text) {
         return '<div class="inner-loader"><div class="inner-loader-spinner"></div>' +
             '<span style="font-size: 13px; color: var(--text-muted);">' + text + '</span></div>';
     }
 
-    async function postPin(payload) {
+    function loginErrorMessage(error) {
+        const text = String((error && error.message) || '').toLowerCase();
+        if (text.includes('invalid login credentials')) return 'Incorrect email or password. Try again!';
+        if (text.includes('email not confirmed')) return 'Please confirm your email address first.';
+        if (text.includes('rate limit') || text.includes('too many')) return 'Too many attempts. Please wait a moment and try again.';
+        if (text.includes('failed to fetch') || text.includes('network')) return 'Network error! Please check your internet connection.';
+        return text ? 'Login failed: ' + text : 'Login failed. Please try again.';
+    }
+
+    async function postChange(payload) {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), API_TIMEOUT);
         try {
             const res = await fetch(API_ENDPOINT, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(Object.assign({ password: REQ_PASS, uuid: userId }, payload)),
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + (accessToken || '')
+                },
+                body: JSON.stringify(Object.assign({ req_pass: REQ_PASS, uuid: userId }, payload)),
                 signal: controller.signal
             });
             let data = null;
@@ -248,27 +238,12 @@ import { supabase } from './supabase.js';
 
     function closePin() {
         pinRun++;
-        pinCreds = null;
+        accessToken = null;
         pinBusy = false;
         pinFlow.end();
+        if (btnSubmitPinVerify) btnSubmitPinVerify.disabled = false;
         if (pinPassInput) pinPassInput.value = '';
         if (pinOverlay) pinOverlay.classList.remove('active');
-    }
-
-    function closePass() {
-        passCreds = null;
-        passBusy = false;
-        passFlow.end();
-        showPassStep(1);
-        if (passOldInput) passOldInput.value = '';
-        if (passNewInput) passNewInput.value = '';
-        if (passConfirmInput) passConfirmInput.value = '';
-        if (passOverlay) passOverlay.classList.remove('active');
-    }
-
-    function showPassStep(step) {
-        if (passwordStep1Fields) passwordStep1Fields.style.display = step === 1 ? 'flex' : 'none';
-        if (passwordStep2Fields) passwordStep2Fields.style.display = step === 2 ? 'flex' : 'none';
     }
 
     function pinScreen(title, text, prefix, onComplete) {
@@ -306,18 +281,13 @@ import { supabase } from './supabase.js';
     }
 
     function renderPinSetup() {
-        pinScreen('Enter New PIN', 'Set up a secure 4-digit transaction authority code.', 'pin', (first) => {
-            pinFlow.show(loaderHtml('Verifying configuration...'));
-            const run = pinRun;
-            setTimeout(() => {
-                if (run !== pinRun) return;
-                renderPinConfirm(first);
-            }, 600);
+        pinScreen('Enter New PIN', 'Set up a secure 4-digit transaction PIN.', 'pin', (first) => {
+            renderPinConfirm(first);
         });
     }
 
     function renderPinConfirm(first) {
-        pinScreen('Confirm New PIN', 'Confirm your 4-digit transaction authority code.', 'cpin', (second) => {
+        pinScreen('Confirm New PIN', 'Enter the same 4-digit PIN again.', 'cpin', (second) => {
             if (second !== first) {
                 showToast('PINs do not match. Try again.', false);
                 renderPinSetup();
@@ -333,12 +303,7 @@ import { supabase } from './supabase.js';
         const run = pinRun;
         pinFlow.show(loaderHtml('Saving your PIN...'));
 
-        const res = await postPin({
-            type: 'pin',
-            email: pinCreds ? pinCreds.email : '',
-            current_password: pinCreds ? pinCreds.password : '',
-            pin: newPin
-        });
+        const res = await postChange({ pin: newPin });
 
         pinBusy = false;
         if (run !== pinRun) return;
@@ -359,9 +324,108 @@ import { supabase } from './supabase.js';
         closePin();
     }
 
-    async function verifyCredentials(email, password) {
-        return postPin({ type: 'verify', email: email, current_password: password });
+    async function loginForPin() {
+        if (pinBusy) return;
+        const email = pinEmailInput ? pinEmailInput.value.trim().toLowerCase() : '';
+        const password = pinPassInput ? pinPassInput.value : '';
+
+        if (!email || !password) return showToast('All fields are required.', false);
+
+        pinBusy = true;
+        const run = pinRun;
+        btnSubmitPinVerify.disabled = true;
+
+        let result = null;
+        let failure = null;
+        try {
+            result = await withTimeout(supabase.auth.signInWithPassword({ email: email, password: password }), LOGIN_TIMEOUT);
+        } catch (err) {
+            failure = err && err.message === 'timeout' ? 'Connection is slow. Please try again.' : 'Network failure. Please try again.';
+        }
+
+        btnSubmitPinVerify.disabled = false;
+        pinBusy = false;
+        if (run !== pinRun) return;
+
+        if (failure) return showToast(failure, false);
+
+        const data = result && result.data;
+        if (result && result.error) return showToast(loginErrorMessage(result.error), false);
+        if (!data || !data.user || !data.session) return showToast('Login failed. Please try again.', false);
+
+        if (String(data.user.id).toLowerCase() !== String(userId).toLowerCase()) {
+            showToast('This email does not belong to the account you are using now.', false);
+            return;
+        }
+
+        accessToken = data.session.access_token;
+        if (pinPassInput) pinPassInput.value = '';
+        renderPinSetup();
     }
+
+    function setupWidget() {
+        const widget = $('pd-whatsapp-widget');
+        const link = $('pd-wa-link');
+        if (!widget || !link) return;
+
+        let dragging = false;
+        let moved = false;
+        let startX = 0;
+        let startY = 0;
+        let initialX = 0;
+        let initialY = 0;
+
+        function point(event) {
+            const source = event.touches && event.touches.length ? event.touches[0] : event;
+            return { x: source.clientX, y: source.clientY };
+        }
+
+        function dragStart(event) {
+            moved = false;
+            dragging = true;
+            const p = point(event);
+            const rect = widget.getBoundingClientRect();
+            initialX = rect.left;
+            initialY = rect.top;
+            startX = p.x;
+            startY = p.y;
+        }
+
+        function drag(event) {
+            if (!dragging) return;
+            if (event.cancelable) event.preventDefault();
+            const p = point(event);
+            const dx = p.x - startX;
+            const dy = p.y - startY;
+            if (Math.abs(dx) > 5 || Math.abs(dy) > 5) moved = true;
+
+            const maxX = window.innerWidth - widget.offsetWidth - 10;
+            const maxY = window.innerHeight - widget.offsetHeight - 10;
+            const x = Math.max(10, Math.min(initialX + dx, maxX));
+            const y = Math.max(10, Math.min(initialY + dy, maxY));
+
+            widget.style.left = x + 'px';
+            widget.style.top = y + 'px';
+            widget.style.bottom = 'auto';
+            widget.style.right = 'auto';
+        }
+
+        function dragEnd() {
+            dragging = false;
+        }
+
+        widget.addEventListener('mousedown', dragStart);
+        document.addEventListener('mousemove', drag);
+        document.addEventListener('mouseup', dragEnd);
+        widget.addEventListener('touchstart', dragStart, { passive: false });
+        document.addEventListener('touchmove', drag, { passive: false });
+        document.addEventListener('touchend', dragEnd);
+        link.addEventListener('click', (event) => {
+            if (moved) event.preventDefault();
+        });
+    }
+
+    on(btnBack, 'click', () => { window.location.href = 'dashboard.html'; });
 
     on(btnTriggerPin, 'click', () => {
         closePin();
@@ -371,99 +435,24 @@ import { supabase } from './supabase.js';
     });
 
     on(btnClosePinForm, 'click', closePin);
-
-    on(btnSubmitPinVerify, 'click', async () => {
-        if (pinBusy) return;
-        const email = pinEmailInput ? pinEmailInput.value.trim() : '';
-        const password = pinPassInput ? pinPassInput.value : '';
-
-        if (!email || !password) return showToast('All fields are required.', false);
-
-        pinBusy = true;
-        const run = pinRun;
-        btnSubmitPinVerify.disabled = true;
-        const res = await verifyCredentials(email, password);
-        btnSubmitPinVerify.disabled = false;
-        pinBusy = false;
-        if (run !== pinRun) return;
-
-        if (!res.success) return showToast(res.message || 'Invalid security credentials.', false);
-
-        pinCreds = { email: email, password: password };
-        renderPinSetup();
-    });
-
-    on(btnTriggerPassword, 'click', () => {
-        closePass();
-        if (passEmailInput) passEmailInput.value = '';
-        showPassStep(1);
-        if (passOverlay) passOverlay.classList.add('active');
-    });
-
-    on(btnClosePassForm, 'click', closePass);
-
-    on(btnSubmitPassVerify, 'click', async () => {
-        if (passBusy) return;
-        const email = passEmailInput ? passEmailInput.value.trim() : '';
-        const current = passOldInput ? passOldInput.value : '';
-
-        if (!email || !current) return showToast('All credentials must be filled.', false);
-
-        passBusy = true;
-        btnSubmitPassVerify.disabled = true;
-        const res = await verifyCredentials(email, current);
-        btnSubmitPassVerify.disabled = false;
-        passBusy = false;
-
-        if (!res.success) return showToast(res.message || 'Invalid credentials.', false);
-
-        passCreds = { email: email, password: current };
-        showPassStep(2);
-    });
-
-    on(btnSubmitPassChange, 'click', async () => {
-        if (passBusy || !passCreds) return;
-        const next = passNewInput ? passNewInput.value : '';
-        const confirm = passConfirmInput ? passConfirmInput.value : '';
-
-        if (!next || !confirm) return showToast('Please fill all password fields.', false);
-        if (next.length < MIN_PASSWORD) return showToast('Password must be at least ' + MIN_PASSWORD + ' characters.', false);
-        if (next !== confirm) return showToast('Passwords do not match.', false);
-        if (next === passCreds.password) return showToast('New password must be different from the current one.', false);
-
-        passBusy = true;
-        passFlow.show(loaderHtml('Updating your password...'));
-
-        const res = await postPin({
-            type: 'password',
-            email: passCreds.email,
-            current_password: passCreds.password,
-            new_password: next
-        });
-
-        passBusy = false;
-        passFlow.end();
-
-        if (res.success) {
-            closePass();
-            showToast('Password changed successfully!');
-            return;
-        }
-
-        showToast(res.message || 'Failed to change your password.', false);
-        if (!(res.unsure || res.retry)) closePass();
-    });
-
+    on(btnSubmitPinVerify, 'click', loginForPin);
     setupPasswordToggle(togglePinPass, pinPassInput);
-    setupPasswordToggle(togglePassOld, passOldInput);
-    setupPasswordToggle(togglePassNew, passNewInput);
-    setupPasswordToggle(togglePassConfirm, passConfirmInput);
+    setupWidget();
 
     async function initialize() {
         startLoader();
         const safety = setTimeout(hideLoader, LOADER_SAFETY);
 
-        const id = sessionId(readSession());
+        let id = sessionId(readSession());
+        if (!id) {
+            try {
+                const { data } = await withTimeout(supabase.auth.getSession(), 8000);
+                const user = data && data.session && data.session.user;
+                id = user && user.id ? String(user.id) : null;
+            } catch (err) {
+                id = null;
+            }
+        }
         if (!id) {
             try {
                 localStorage.removeItem(SESSION_KEY);
