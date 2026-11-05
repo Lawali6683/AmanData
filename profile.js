@@ -1,391 +1,494 @@
 import { supabase } from './supabase.js';
 
-(function() {
-    const scene = document.getElementById('scene');
-    const liquid = document.getElementById('liquid');
-    const brand = document.getElementById('brand');
-    const loaderLogo = document.getElementById('loaderLogo');
-    const bg = document.getElementById('bg');
-    const appContainer = document.getElementById('appContainer');
+(function () {
+    const API_ENDPOINT = '/api/pin';
+    const REQ_PASS = '@haruna66';
+    const SESSION_KEY = 'puredata_user_session';
+    const LOAD_TIMEOUT = 15000;
+    const API_TIMEOUT = 25000;
+    const LOADER_SAFETY = 9000;
+    const LOADER_DELAY = 1200;
+    const MIN_PASSWORD = 6;
 
-    const profileName = document.getElementById('profileName');
-    const profileEmail = document.getElementById('profileEmail');
-    const profilePhone = document.getElementById('profilePhone');
-    const profileJoined = document.getElementById('profileJoined');
-    const profileReferredBy = document.getElementById('profileReferredBy');
+    const $ = (id) => document.getElementById(id);
 
-    const btnTriggerPin = document.getElementById('btnTriggerPin');
-    const btnTriggerPassword = document.getElementById('btnTriggerPassword');
+    const scene = $('scene');
+    const liquid = $('liquid');
+    const brand = $('brand');
+    const loaderLogo = $('loaderLogo');
+    const bg = $('bg');
+    const appContainer = $('appContainer');
 
-    const pinOverlay = document.getElementById('pinVerificationOverlay');
-    const pinFormCard = document.getElementById('pinFormCard');
-    const btnClosePinForm = document.getElementById('btnClosePinForm');
-    const pinEmailInput = document.getElementById('pinEmailInput');
-    const pinPassInput = document.getElementById('pinPassInput');
-    const btnSubmitPinVerify = document.getElementById('btnSubmitPinVerify');
-    const togglePinPass = document.getElementById('togglePinPass');
+    const profileName = $('profileName');
+    const profileEmail = $('profileEmail');
+    const profilePhone = $('profilePhone');
+    const profileJoined = $('profileJoined');
+    const profileReferredBy = $('profileReferredBy');
 
-    const passOverlay = document.getElementById('passwordVerificationOverlay');
-    const passFormCard = document.getElementById('passwordFormCard');
-    const btnClosePassForm = document.getElementById('btnClosePassForm');
-    const passEmailInput = document.getElementById('passEmailInput');
-    const passOldInput = document.getElementById('passOldInput');
-    const btnSubmitPassVerify = document.getElementById('btnSubmitPassVerify');
-    const togglePassOld = document.getElementById('togglePassOld');
+    const btnTriggerPin = $('btnTriggerPin');
+    const btnTriggerPassword = $('btnTriggerPassword');
 
-    const passwordStep1Fields = document.getElementById('passwordStep1Fields');
-    const passwordStep2Fields = document.getElementById('passwordStep2Fields');
-    const passNewInput = document.getElementById('passNewInput');
-    const passConfirmInput = document.getElementById('passConfirmInput');
-    const btnSubmitPassChange = document.getElementById('btnSubmitPassChange');
-    const togglePassNew = document.getElementById('togglePassNew');
-    const togglePassConfirm = document.getElementById('togglePassConfirm');
+    const pinOverlay = $('pinVerificationOverlay');
+    const pinFormCard = $('pinFormCard');
+    const btnClosePinForm = $('btnClosePinForm');
+    const pinEmailInput = $('pinEmailInput');
+    const pinPassInput = $('pinPassInput');
+    const btnSubmitPinVerify = $('btnSubmitPinVerify');
+    const togglePinPass = $('togglePinPass');
 
-    const toastContainer = document.getElementById('toastContainer');
-    const toastIcon = document.getElementById('toastIcon');
-    const toastMessage = document.getElementById('toastMessage');
+    const passOverlay = $('passwordVerificationOverlay');
+    const passFormCard = $('passwordFormCard');
+    const btnClosePassForm = $('btnClosePassForm');
+    const passEmailInput = $('passEmailInput');
+    const passOldInput = $('passOldInput');
+    const btnSubmitPassVerify = $('btnSubmitPassVerify');
+    const togglePassOld = $('togglePassOld');
 
-    const sessionTokenString = localStorage.getItem('puredata_user_session');
-    let cachedProfile = null;
+    const passwordStep1Fields = $('passwordStep1Fields');
+    const passwordStep2Fields = $('passwordStep2Fields');
+    const passNewInput = $('passNewInput');
+    const passConfirmInput = $('passConfirmInput');
+    const btnSubmitPassChange = $('btnSubmitPassChange');
+    const togglePassNew = $('togglePassNew');
+    const togglePassConfirm = $('togglePassConfirm');
 
-    setTimeout(() => {
-        liquid.classList.add('fill');
-    }, 400);
+    const toastContainer = $('toastContainer');
+    const toastIcon = $('toastIcon');
+    const toastMessage = $('toastMessage');
+
+    let userId = null;
+    let profile = null;
+    let loaderHidden = false;
+    let toastTimer = null;
+    let pinCreds = null;
+    let passCreds = null;
+    let pinBusy = false;
+    let passBusy = false;
+    let pinRun = 0;
+
+    function on(el, type, handler) {
+        if (el) el.addEventListener(type, handler);
+    }
+
+    function readSession() {
+        try {
+            const raw = localStorage.getItem(SESSION_KEY);
+            return raw ? JSON.parse(raw) : null;
+        } catch (err) {
+            return null;
+        }
+    }
+
+    function sessionId(session) {
+        if (!session || typeof session !== 'object') return null;
+        const id = session.userId || session.id || (session.user && session.user.id);
+        return id ? String(id) : null;
+    }
+
+    function withTimeout(promise, ms) {
+        return new Promise((resolve, reject) => {
+            const timer = setTimeout(() => reject(new Error('timeout')), ms);
+            Promise.resolve(promise).then(
+                (value) => { clearTimeout(timer); resolve(value); },
+                (error) => { clearTimeout(timer); reject(error); }
+            );
+        });
+    }
 
     function showToast(message, isSuccess = true) {
-        toastMessage.textContent = message;
-        if (isSuccess) {
-            toastIcon.className = "fa-solid fa-circle-check toast-icon success";
-        } else {
-            toastIcon.className = "fa-solid fa-circle-exclamation toast-icon error";
+        if (!toastContainer) return;
+        if (toastMessage) toastMessage.textContent = message;
+        if (toastIcon) {
+            toastIcon.className = isSuccess
+                ? 'fa-solid fa-circle-check toast-icon success'
+                : 'fa-solid fa-circle-exclamation toast-icon error';
         }
         toastContainer.classList.add('active');
-        setTimeout(() => {
-            toastContainer.classList.remove('active');
-        }, 3000);
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => toastContainer.classList.remove('active'), 3200);
+    }
+
+    function startLoader() {
+        setTimeout(() => { if (liquid) liquid.classList.add('fill'); }, 400);
     }
 
     function hideLoader() {
-        liquid.style.transition = 'height 1.8s cubic-bezier(0.4, 0, 0.2, 1)';
-        liquid.style.height = '0%';
-        brand.classList.add('hide');
-        loaderLogo.classList.add('hide');
-        bg.classList.add('show');
+        if (loaderHidden) return;
+        loaderHidden = true;
+        if (liquid) {
+            liquid.style.transition = 'height 1.2s cubic-bezier(0.4, 0, 0.2, 1)';
+            liquid.style.height = '0%';
+        }
+        if (brand) brand.classList.add('hide');
+        if (loaderLogo) loaderLogo.classList.add('hide');
+        if (bg) bg.classList.add('show');
         setTimeout(() => {
-            scene.classList.add('hidden');
-            appContainer.classList.add('ready');
+            if (scene) {
+                scene.classList.add('hidden');
+                scene.style.display = 'none';
+            }
+            if (appContainer) {
+                appContainer.classList.add('ready');
+                appContainer.style.opacity = '1';
+                appContainer.style.visibility = 'visible';
+            }
         }, 600);
     }
 
+    function formatDate(value) {
+        if (!value) return 'N/A';
+        const date = new Date(value);
+        return isNaN(date.getTime()) ? 'N/A' : date.toLocaleDateString();
+    }
+
+    function setText(el, value) {
+        if (el) el.textContent = value;
+    }
+
     async function loadUserProfile() {
-        if (!sessionTokenString) {
-            window.location.replace('register.html');
-            return;
-        }
-
-        const activeSession = JSON.parse(sessionTokenString);
-        const userUUID = activeSession.id;
-
         try {
-            const { data, error } = await supabase
-                .from('user_profiles')
-                .select('*')
-                .eq('id', userUUID)
-                .single();
-
+            const { data, error } = await withTimeout(
+                supabase.from('user_profiles').select('id, user_data').eq('id', userId),
+                LOAD_TIMEOUT
+            );
             if (error) throw error;
+            const row = Array.isArray(data) ? data[0] : null;
+            if (!row || !row.user_data) throw new Error('missing');
 
-            cachedProfile = data;
-            const profileData = data.user_data;
-            const fullName = profileData.full_name || "Anonymous User";
-
-            profileName.textContent = fullName;
-            profileEmail.textContent = profileData.email || "N/A";
-            profilePhone.textContent = profileData.phone_number || "N/A";
-            profileJoined.textContent = profileData.register_date ? new Date(profileData.register_date).toLocaleDateString() : "N/A";
-            profileReferredBy.textContent = profileData.referred_by || "None";
+            profile = row;
+            const info = row.user_data;
+            setText(profileName, info.full_name || 'Anonymous User');
+            setText(profileEmail, info.email || 'N/A');
+            setText(profilePhone, info.phone_number || 'N/A');
+            setText(profileJoined, formatDate(info.register_date));
+            setText(profileReferredBy, info.referred_by || 'None');
         } catch (err) {
-            showToast("Failed to fetch profile. Loaded offline state.", false);
-        } finally {
-            setTimeout(hideLoader, 2200);
+            showToast('Failed to load your profile. Please refresh the page.', false);
         }
     }
 
     function setupPasswordToggle(trigger, field) {
-        trigger.addEventListener('click', () => {
-            if (field.type === "password") {
-                field.type = "text";
-                trigger.className = "fa-regular fa-eye-slash toggle-password";
-            } else {
-                field.type = "password";
-                trigger.className = "fa-regular fa-eye toggle-password";
-            }
+        on(trigger, 'click', () => {
+            if (!field) return;
+            const hidden = field.type === 'password';
+            field.type = hidden ? 'text' : 'password';
+            trigger.className = (hidden ? 'fa-regular fa-eye-slash' : 'fa-regular fa-eye') + ' toggle-password';
         });
     }
+
+    const hiddenChildren = new WeakMap();
+
+    function createFlow(card) {
+        let host = null;
+
+        function show(html) {
+            if (!card) return null;
+            if (!host) {
+                host = document.createElement('div');
+                card.appendChild(host);
+            }
+            Array.from(card.children).forEach((child) => {
+                if (child === host) return;
+                if (!hiddenChildren.has(child)) hiddenChildren.set(child, child.style.display);
+                child.style.display = 'none';
+            });
+            host.innerHTML = html;
+            return host;
+        }
+
+        function end() {
+            if (!card) return;
+            if (host && host.parentNode) host.parentNode.removeChild(host);
+            host = null;
+            Array.from(card.children).forEach((child) => {
+                if (hiddenChildren.has(child)) {
+                    child.style.display = hiddenChildren.get(child);
+                    hiddenChildren.delete(child);
+                }
+            });
+        }
+
+        return { show, end };
+    }
+
+    const pinFlow = createFlow(pinFormCard);
+    const passFlow = createFlow(passFormCard);
+
+    function loaderHtml(text) {
+        return '<div class="inner-loader"><div class="inner-loader-spinner"></div>' +
+            '<span style="font-size: 13px; color: var(--text-muted);">' + text + '</span></div>';
+    }
+
+    async function postPin(payload) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), API_TIMEOUT);
+        try {
+            const res = await fetch(API_ENDPOINT, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(Object.assign({ password: REQ_PASS, uuid: userId }, payload)),
+                signal: controller.signal
+            });
+            let data = null;
+            try {
+                data = await res.json();
+            } catch (err) {
+                data = null;
+            }
+            if (!data || typeof data !== 'object') {
+                return { success: false, unsure: true, message: 'The server did not answer properly. Please try again.' };
+            }
+            return data;
+        } catch (err) {
+            return { success: false, unsure: true, message: 'Network problem. Please check your connection and try again.' };
+        } finally {
+            clearTimeout(timer);
+        }
+    }
+
+    function closePin() {
+        pinRun++;
+        pinCreds = null;
+        pinBusy = false;
+        pinFlow.end();
+        if (pinPassInput) pinPassInput.value = '';
+        if (pinOverlay) pinOverlay.classList.remove('active');
+    }
+
+    function closePass() {
+        passCreds = null;
+        passBusy = false;
+        passFlow.end();
+        showPassStep(1);
+        if (passOldInput) passOldInput.value = '';
+        if (passNewInput) passNewInput.value = '';
+        if (passConfirmInput) passConfirmInput.value = '';
+        if (passOverlay) passOverlay.classList.remove('active');
+    }
+
+    function showPassStep(step) {
+        if (passwordStep1Fields) passwordStep1Fields.style.display = step === 1 ? 'flex' : 'none';
+        if (passwordStep2Fields) passwordStep2Fields.style.display = step === 2 ? 'flex' : 'none';
+    }
+
+    function pinScreen(title, text, prefix, onComplete) {
+        const run = pinRun;
+        const host = pinFlow.show(
+            '<div class="form-header"><h3 class="form-title">' + title + '</h3>' +
+            '<button type="button" class="btn-close-form" id="' + prefix + 'Close"><i class="fa-solid fa-xmark"></i></button></div>' +
+            '<p style="font-size: 13px; color: var(--text-muted); text-align: center;">' + text + '</p>' +
+            '<div class="pin-box-container">' +
+            [1, 2, 3, 4].map((n) => '<input type="password" maxlength="1" inputmode="numeric" autocomplete="off" class="pin-input-field" id="' + prefix + '_' + n + '">').join('') +
+            '</div>'
+        );
+        if (!host) return;
+
+        on($(prefix + 'Close'), 'click', closePin);
+
+        const inputs = [1, 2, 3, 4].map((n) => $(prefix + '_' + n));
+        let done = false;
+
+        inputs.forEach((input, index) => {
+            on(input, 'input', () => {
+                input.value = input.value.replace(/\D/g, '').slice(0, 1);
+                if (input.value && index < inputs.length - 1) inputs[index + 1].focus();
+                if (!done && run === pinRun && inputs.every((item) => item.value.length === 1)) {
+                    done = true;
+                    onComplete(inputs.map((item) => item.value).join(''));
+                }
+            });
+            on(input, 'keydown', (event) => {
+                if (event.key === 'Backspace' && !input.value && index > 0) inputs[index - 1].focus();
+            });
+        });
+
+        if (inputs[0]) inputs[0].focus();
+    }
+
+    function renderPinSetup() {
+        pinScreen('Enter New PIN', 'Set up a secure 4-digit transaction authority code.', 'pin', (first) => {
+            pinFlow.show(loaderHtml('Verifying configuration...'));
+            const run = pinRun;
+            setTimeout(() => {
+                if (run !== pinRun) return;
+                renderPinConfirm(first);
+            }, 600);
+        });
+    }
+
+    function renderPinConfirm(first) {
+        pinScreen('Confirm New PIN', 'Confirm your 4-digit transaction authority code.', 'cpin', (second) => {
+            if (second !== first) {
+                showToast('PINs do not match. Try again.', false);
+                renderPinSetup();
+                return;
+            }
+            submitPin(second);
+        });
+    }
+
+    async function submitPin(newPin) {
+        if (pinBusy) return;
+        pinBusy = true;
+        const run = pinRun;
+        pinFlow.show(loaderHtml('Saving your PIN...'));
+
+        const res = await postPin({
+            type: 'pin',
+            email: pinCreds ? pinCreds.email : '',
+            current_password: pinCreds ? pinCreds.password : '',
+            pin: newPin
+        });
+
+        pinBusy = false;
+        if (run !== pinRun) return;
+
+        if (res.success) {
+            closePin();
+            showToast('Transaction PIN updated successfully!');
+            return;
+        }
+
+        if (res.unsure || res.retry) {
+            showToast(res.message || 'Could not save your PIN. Please try again.', false);
+            renderPinSetup();
+            return;
+        }
+
+        showToast(res.message || 'Could not update your PIN.', false);
+        closePin();
+    }
+
+    async function verifyCredentials(email, password) {
+        return postPin({ type: 'verify', email: email, current_password: password });
+    }
+
+    on(btnTriggerPin, 'click', () => {
+        closePin();
+        if (pinEmailInput) pinEmailInput.value = '';
+        if (pinPassInput) pinPassInput.value = '';
+        if (pinOverlay) pinOverlay.classList.add('active');
+    });
+
+    on(btnClosePinForm, 'click', closePin);
+
+    on(btnSubmitPinVerify, 'click', async () => {
+        if (pinBusy) return;
+        const email = pinEmailInput ? pinEmailInput.value.trim() : '';
+        const password = pinPassInput ? pinPassInput.value : '';
+
+        if (!email || !password) return showToast('All fields are required.', false);
+
+        pinBusy = true;
+        const run = pinRun;
+        btnSubmitPinVerify.disabled = true;
+        const res = await verifyCredentials(email, password);
+        btnSubmitPinVerify.disabled = false;
+        pinBusy = false;
+        if (run !== pinRun) return;
+
+        if (!res.success) return showToast(res.message || 'Invalid security credentials.', false);
+
+        pinCreds = { email: email, password: password };
+        renderPinSetup();
+    });
+
+    on(btnTriggerPassword, 'click', () => {
+        closePass();
+        if (passEmailInput) passEmailInput.value = '';
+        showPassStep(1);
+        if (passOverlay) passOverlay.classList.add('active');
+    });
+
+    on(btnClosePassForm, 'click', closePass);
+
+    on(btnSubmitPassVerify, 'click', async () => {
+        if (passBusy) return;
+        const email = passEmailInput ? passEmailInput.value.trim() : '';
+        const current = passOldInput ? passOldInput.value : '';
+
+        if (!email || !current) return showToast('All credentials must be filled.', false);
+
+        passBusy = true;
+        btnSubmitPassVerify.disabled = true;
+        const res = await verifyCredentials(email, current);
+        btnSubmitPassVerify.disabled = false;
+        passBusy = false;
+
+        if (!res.success) return showToast(res.message || 'Invalid credentials.', false);
+
+        passCreds = { email: email, password: current };
+        showPassStep(2);
+    });
+
+    on(btnSubmitPassChange, 'click', async () => {
+        if (passBusy || !passCreds) return;
+        const next = passNewInput ? passNewInput.value : '';
+        const confirm = passConfirmInput ? passConfirmInput.value : '';
+
+        if (!next || !confirm) return showToast('Please fill all password fields.', false);
+        if (next.length < MIN_PASSWORD) return showToast('Password must be at least ' + MIN_PASSWORD + ' characters.', false);
+        if (next !== confirm) return showToast('Passwords do not match.', false);
+        if (next === passCreds.password) return showToast('New password must be different from the current one.', false);
+
+        passBusy = true;
+        passFlow.show(loaderHtml('Updating your password...'));
+
+        const res = await postPin({
+            type: 'password',
+            email: passCreds.email,
+            current_password: passCreds.password,
+            new_password: next
+        });
+
+        passBusy = false;
+        passFlow.end();
+
+        if (res.success) {
+            closePass();
+            showToast('Password changed successfully!');
+            return;
+        }
+
+        showToast(res.message || 'Failed to change your password.', false);
+        if (!(res.unsure || res.retry)) closePass();
+    });
 
     setupPasswordToggle(togglePinPass, pinPassInput);
     setupPasswordToggle(togglePassOld, passOldInput);
     setupPasswordToggle(togglePassNew, passNewInput);
     setupPasswordToggle(togglePassConfirm, passConfirmInput);
 
-    btnTriggerPin.addEventListener('click', () => {
-        pinEmailInput.value = "";
-        pinPassInput.value = "";
-        pinOverlay.classList.add('active');
-    });
+    async function initialize() {
+        startLoader();
+        const safety = setTimeout(hideLoader, LOADER_SAFETY);
 
-    btnClosePinForm.addEventListener('click', () => {
-        pinOverlay.classList.remove('active');
-    });
-
-    btnTriggerPassword.addEventListener('click', () => {
-        passEmailInput.value = "";
-        passOldInput.value = "";
-        passNewInput.value = "";
-        passConfirmInput.value = "";
-        passwordStep1Fields.style.display = "flex";
-        passwordStep2Fields.style.display = "none";
-        passOverlay.classList.add('active');
-    });
-
-    btnClosePassForm.addEventListener('click', () => {
-        passOverlay.classList.remove('active');
-    });
-
-    async function triggerEmailNotification(fullName, email, actionType) {
-        try {
-            fetch('https://amandata.pages.dev/api/email', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    full_name: fullName,
-                    email: email,
-                    action: actionType
-                })
-            });
-        } catch (e) {}
-    }
-
-    btnSubmitPinVerify.addEventListener('click', async () => {
-        const email = pinEmailInput.value.trim();
-        const password = pinPassInput.value;
-
-        if (!email || !password) {
-            showToast("All fields are required.", false);
+        const id = sessionId(readSession());
+        if (!id) {
+            try {
+                localStorage.removeItem(SESSION_KEY);
+            } catch (err) {}
+            window.location.replace('register.html');
             return;
         }
 
-        if (!cachedProfile || cachedProfile.user_data.email !== email || cachedProfile.password !== password) {
-            showToast("Invalid security credentials.", false);
-            return;
-        }
-
-        renderPinSetupScreen();
-    });
-
-    function renderPinSetupScreen() {
-        pinFormCard.innerHTML = `
-            <div class="form-header">
-                <h3 class="form-title">Enter New PIN</h3>
-                <button class="btn-close-form" onclick="document.getElementById('pinVerificationOverlay').classList.remove('active')"><i class="fa-solid fa-xmark"></i></button>
-            </div>
-            <p style="font-size: 13px; color: var(--text-muted); text-align: center;">Set up a secure 4-digit transaction authority code.</p>
-            <div class="pin-box-container">
-                <input type="password" maxlength="1" class="pin-input-field" id="pin_1">
-                <input type="password" maxlength="1" class="pin-input-field" id="pin_2">
-                <input type="password" maxlength="1" class="pin-input-field" id="pin_3">
-                <input type="password" maxlength="1" class="pin-input-field" id="pin_4">
-            </div>
-        `;
-
-        const inputs = [
-            document.getElementById('pin_1'),
-            document.getElementById('pin_2'),
-            document.getElementById('pin_3'),
-            document.getElementById('pin_4')
-        ];
-
-        inputs.forEach((input, index) => {
-            input.addEventListener('input', (e) => {
-                if (e.target.value.length === 1 && index < 3) {
-                    inputs[index + 1].focus();
-                }
-
-                if (inputs.every(inp => inp.value.length === 1)) {
-                    const finalPin = inputs.map(inp => inp.value).join('');
-                    renderConfirmPinScreen(finalPin);
-                }
-            });
-
-            input.addEventListener('keydown', (e) => {
-                if (e.key === "Backspace" && e.target.value.length === 0 && index > 0) {
-                    inputs[index - 1].focus();
-                }
-            });
-        });
-
-        inputs[0].focus();
-    }
-
-    function renderConfirmPinScreen(firstPin) {
-        pinFormCard.innerHTML = `
-            <div class="inner-loader">
-                <div class="inner-loader-spinner"></div>
-                <span style="font-size: 13px; color: var(--text-muted);">Verifying configuration...</span>
-            </div>
-        `;
-
-        setTimeout(() => {
-            pinFormCard.innerHTML = `
-                <div class="form-header">
-                    <h3 class="form-title">Confirm New PIN</h3>
-                    <button class="btn-close-form" onclick="document.getElementById('pinVerificationOverlay').classList.remove('active')"><i class="fa-solid fa-xmark"></i></button>
-                </div>
-                <p style="font-size: 13px; color: var(--text-muted); text-align: center;">Confirm your 4-digit transaction authority code.</p>
-                <div class="pin-box-container">
-                    <input type="password" maxlength="1" class="pin-input-field" id="cpin_1">
-                    <input type="password" maxlength="1" class="pin-input-field" id="cpin_2">
-                    <input type="password" maxlength="1" class="pin-input-field" id="cpin_3">
-                    <input type="password" maxlength="1" class="pin-input-field" id="cpin_4">
-                </div>
-            `;
-
-            const inputs = [
-                document.getElementById('cpin_1'),
-                document.getElementById('cpin_2'),
-                document.getElementById('cpin_3'),
-                document.getElementById('cpin_4')
-            ];
-
-            inputs.forEach((input, index) => {
-                input.addEventListener('input', (e) => {
-                    if (e.target.value.length === 1 && index < 3) {
-                        inputs[index + 1].focus();
-                    }
-
-                    if (inputs.every(inp => inp.value.length === 1)) {
-                        const confirmPin = inputs.map(inp => inp.value).join('');
-                        if (firstPin === confirmPin) {
-                            submitPinToAPI(confirmPin);
-                        } else {
-                            showToast("PIN matching error. Retrying.", false);
-                            renderPinSetupScreen();
-                        }
-                    }
-                });
-
-                input.addEventListener('keydown', (e) => {
-                    if (e.key === "Backspace" && e.target.value.length === 0 && index > 0) {
-                        inputs[index - 1].focus();
-                    }
-                });
-            });
-
-            inputs[0].focus();
-        }, 1200);
-    }
-
-    async function submitPinToAPI(pinValue) {
-        pinFormCard.innerHTML = `
-            <div class="inner-loader">
-                <div class="inner-loader-spinner"></div>
-                <span style="font-size: 13px; color: var(--text-muted);">Syncing secure pin...</span>
-            </div>
-        `;
+        userId = id;
 
         try {
-            const response = await fetch('https://amandata.pages.dev/api/pin', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    password: '@haruna66',
-                    uuid: cachedProfile.id,
-                    pin: pinValue,
-                    type: 'pin'
-                })
-            });
-
-            const result = await response.json();
-
-            if (response.ok && result.success) {
-                pinOverlay.classList.remove('active');
-                showToast("Transaction PIN updated successfully!");
-                triggerEmailNotification(cachedProfile.user_data.full_name, cachedProfile.user_data.email, "Transaction PIN");
-            } else {
-                throw new Error(result.message || "Endpoint error response");
-            }
-        } catch (error) {
-            showToast("Transmission failure. Re-verify configuration.", false);
-            pinOverlay.classList.remove('active');
+            await loadUserProfile();
+        } finally {
+            clearTimeout(safety);
+            setTimeout(hideLoader, LOADER_DELAY);
         }
     }
 
-    btnSubmitPassVerify.addEventListener('click', () => {
-        const email = passEmailInput.value.trim();
-        const currentPass = passOldInput.value;
+    function start() {
+        initialize().catch(() => { hideLoader(); });
+    }
 
-        if (!email || !currentPass) {
-            showToast("All credentials must be populated.", false);
-            return;
-        }
-
-        if (!cachedProfile || cachedProfile.user_data.email !== email || cachedProfile.password !== currentPass) {
-            showToast("Invalid credentials configuration.", false);
-            return;
-        }
-
-        passwordStep1Fields.style.display = "none";
-        passwordStep2Fields.style.display = "flex";
-    });
-
-    btnSubmitPassChange.addEventListener('click', async () => {
-        const newPass = passNewInput.value;
-        const confirmPass = passConfirmInput.value;
-
-        if (!newPass || !confirmPass) {
-            showToast("Please fill all password fields.", false);
-            return;
-        }
-
-        if (newPass !== confirmPass) {
-            showToast("Passwords mismatch.", false);
-            return;
-        }
-
-        passwordStep2Fields.innerHTML = `
-            <div class="inner-loader">
-                <div class="inner-loader-spinner"></div>
-                <span style="font-size: 13px; color: var(--text-muted);">Updating encryption data...</span>
-            </div>
-        `;
-
-        try {
-            const response = await fetch('https://amandata.pages.dev/api/pin', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    password: '@haruna66',
-                    uuid: cachedProfile.id,
-                    new_password: newPass,
-                    type: 'password'
-                })
-            });
-
-            const result = await response.json();
-
-            if (response.ok && result.success) {
-                passOverlay.classList.remove('active');
-                showToast("Password changed successfully!");
-                cachedProfile.password = newPass;
-                triggerEmailNotification(cachedProfile.user_data.full_name, cachedProfile.user_data.email, "Login Password");
-            } else {
-                throw new Error(result.message || "Endpoint authentication issue");
-            }
-        } catch (error) {
-            showToast("Failed to change password. Retrying.", false);
-            passOverlay.classList.remove('active');
-        }
-    });
-
-    window.addEventListener('DOMContentLoaded', loadUserProfile);
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', start);
+    } else {
+        start();
+    }
 })();
