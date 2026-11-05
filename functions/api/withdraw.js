@@ -1,807 +1,660 @@
-import { supabase } from './supabase.js';
+const HEADERS = { "Content-Type": "application/json", "Cache-Control": "no-store" };
+const FEE_RATE = 0.01;
+const TOKEN_TTL_MS = 12 * 60 * 60 * 1000;
+const MAX_PIN_ATTEMPTS = 5;
+const PIN_LOCK_SECONDS = 600;
+const DB_TIMEOUT = 12000;
+const PAYSTACK_BASE = "https://api.paystack.co";
+const PAYSTACK_TIMEOUT = 10000;
+const MAX_BANK_PAGES = 10;
+const BANKS_TTL_MS = 6 * 60 * 60 * 1000;
+const textEncoder = new TextEncoder();
 
-(function () {
-    const API_ENDPOINT = '/api/withdraw';
-    const REQ_PASS = '@haruna66';
-    const SESSION_KEY = 'puredata_user_session';
-    const PIN_FIELD = 'pin';
-    const FEE_RATE = 0.01;
-    const LOAD_TIMEOUT = 15000;
-    const VERIFY_TIMEOUT = 20000;
-    const SUBMIT_TIMEOUT = 40000;
-    const LOADER_SAFETY = 12000;
-    const LOADER_DELAY = 400;
-    const BANKS_TIMEOUT = 10000;
-    const PRIORITY_BANKS = [/opay/i, /palmpay/i, /moniepoint/i, /kuda/i, /guaranty|gtbank/i, /^access/i, /zenith/i, /united bank for africa|^uba$/i, /first bank/i];
-    const SHOW_CLASSES = ['show', 'visible', 'active', 'open'];
+const banksCache = { list: null, expires: 0, loading: null };
 
-    const $ = (id) => document.getElementById(id);
-    const scene = $('loadingScene');
-    const liquid = $('liquid');
-    const brand = $('brand');
-    const loaderLogo = $('loaderLogo');
-    const bg = $('bg');
-    const pageContainer = document.querySelector('.page-container');
-    const balanceEl = $('user_balance');
-    const noFundsBox = $('noFundsBox');
-    const pendingBox = $('pendingBox');
-    const pendingTitle = $('pendingTitle');
-    const pendingMessage = $('pendingMessage');
-    const pendingDetails = $('pendingDetails');
-    const formArea = $('formArea');
-    const amountInput = $('amount');
-    const feeEl = $('fee_calc');
-    const bankSelect = $('bank_code');
-    const accountInput = $('account_number');
-    const verifyLoader = $('verificationLoader');
-    const nameGroup = $('nameGroup');
-    const accountName = $('account_name');
-    const pinBoxes = ['p1', 'p2', 'p3', 'p4'].map((id) => $(id)).filter(Boolean);
-    const pinIcons = ['s1', 's2', 's3', 's4'].map((id) => $(id));
-    const submitBtn = $('submitBtn');
-    const historyBtn = $('historyBtn');
-    const historyOverlay = $('historyOverlay');
-    const historyClose = $('historyClose');
-    const historyBody = $('historyBody');
-    const toastHost = $('toastContainer');
-    const btnBack = $('btnBack');
+const MSG = {
+  invalid: "Invalid Account Details",
+  bank: "This bank is not supported for withdrawal. Please choose another bank.",
+  unavailable: "Account verification is not available right now. Please try again."
+};
 
-    const submitLabel = submitBtn ? submitBtn.textContent : '';
-    const noFundsHtml = noFundsBox ? noFundsBox.innerHTML : '';
+function reply(body, status = 200) {
+  return new Response(JSON.stringify(body), { status, headers: HEADERS });
+}
 
-    const verifyNote = (() => {
-        const host = (verifyLoader && verifyLoader.parentNode) || (accountInput && accountInput.parentNode && accountInput.parentNode.parentNode);
-        if (!host) return null;
-        const el = document.createElement('div');
-        el.style.cssText = 'display:none;margin-top:8px;font-size:13px;line-height:1.4;color:#dc2626';
-        el.setAttribute('role', 'alert');
-        if (verifyLoader && verifyLoader.parentNode === host) host.insertBefore(el, verifyLoader.nextSibling);
-        else host.appendChild(el);
-        return el;
-    })();
+function round2(value) {
+  return Math.round((Number(value) + Number.EPSILON) * 100) / 100;
+}
 
-    let userUUID = null;
-    let balance = 0;
-    let storedPin = '';
-    let balanceError = false;
-    let overviewError = false;
-    let pending = null;
-    let withdrawals = [];
-    let verified = { key: '', name: '' };
-    let verifyToken = 0;
-    let verifyPromise = null;
-    let verifyMessage = '';
-    let busy = false;
-    let pinClearTimer = null;
-    let loaderHidden = false;
+function toAmount(value) {
+  const number = parseFloat(String(value === undefined || value === null ? 0 : value).replace(/,/g, ""));
+  return isFinite(number) ? number : 0;
+}
 
-    function escapeHtml(value) {
-        return String(value === undefined || value === null ? '' : value)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#39;');
+function isSafeId(value) {
+  return typeof value === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(value);
+}
+
+function restBase(env) {
+  let url = String(env.SUPABASE_URL || "").trim().replace(/\/+$/, "");
+  if (!/\/rest\/v1$/.test(url)) url += "/rest/v1";
+  return url + "/";
+}
+
+async function db(env, path, options = {}) {
+  const key = env.SUPABASE_SERVICE_ROLE_KEY;
+  const headers = { apikey: key, Authorization: `Bearer ${key}` };
+  if (options.body !== undefined) headers["Content-Type"] = "application/json";
+  if (options.prefer) headers.Prefer = options.prefer;
+  try {
+    const res = await fetch(restBase(env) + path, {
+      method: options.method || "GET",
+      headers,
+      body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+      signal: AbortSignal.timeout(DB_TIMEOUT)
+    });
+    const text = await res.text();
+    let data = null;
+    if (text) {
+      try {
+        data = JSON.parse(text);
+      } catch {
+        data = text;
+      }
+    }
+    return { ok: res.ok, status: res.status, data };
+  } catch (err) {
+    console.error("db error", path.split("?")[0], err && err.message);
+    return { ok: false, status: 0, data: null };
+  }
+}
+
+function rpc(env, name, args) {
+  return db(env, `rpc/${name}`, { method: "POST", body: args, prefer: "return=representation" });
+}
+
+function rpcMessage(res) {
+  return res.data && res.data.message ? String(res.data.message) : "";
+}
+
+function toBase64Url(bytes) {
+  let binary = "";
+  bytes.forEach((b) => {
+    binary += String.fromCharCode(b);
+  });
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+async function hmac(secret, data) {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    textEncoder.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  const signature = await crypto.subtle.sign("HMAC", key, textEncoder.encode(data));
+  return toBase64Url(new Uint8Array(signature));
+}
+
+function safeEqual(a, b) {
+  const x = String(a);
+  const y = String(b);
+  if (x.length !== y.length) return false;
+  let diff = 0;
+  for (let i = 0; i < x.length; i++) diff |= x.charCodeAt(i) ^ y.charCodeAt(i);
+  return diff === 0;
+}
+
+async function signToken(env, userId) {
+  const payload = `${userId}.${Date.now() + TOKEN_TTL_MS}`;
+  const signature = await hmac(env.ADMIN_SECRET, payload);
+  return `${payload}.${signature}`;
+}
+
+async function verifyToken(env, token) {
+  if (!token || !env.ADMIN_SECRET) return null;
+  const parts = String(token).split(".");
+  if (parts.length !== 3) return null;
+  const [userId, expiry, signature] = parts;
+  if (!Number(expiry) || Number(expiry) < Date.now()) return null;
+  const expected = await hmac(env.ADMIN_SECRET, `${userId}.${expiry}`);
+  if (!safeEqual(signature, expected)) return null;
+  return userId;
+}
+
+function paystackKey(env) {
+  return String(env.PAYSTACK_API_KEY || env.PAYSTACK_SECRET_KEY || "").trim();
+}
+
+async function paystackGet(env, path) {
+  const key = paystackKey(env);
+  if (!key) return { status: 0, data: null, missing: true };
+  const res = await fetch(`${PAYSTACK_BASE}${path}`, {
+    method: "GET",
+    headers: { Authorization: `Bearer ${key}` },
+    signal: AbortSignal.timeout(PAYSTACK_TIMEOUT)
+  });
+  let data = null;
+  try {
+    data = await res.json();
+  } catch {
+    data = null;
+  }
+  return { status: res.status, data };
+}
+
+function loadBanks(env) {
+  if (banksCache.list && Date.now() < banksCache.expires) return Promise.resolve(banksCache.list);
+  if (!banksCache.loading) {
+    banksCache.loading = fetchBanks(env).finally(() => {
+      banksCache.loading = null;
+    });
+  }
+  return banksCache.loading;
+}
+
+async function fetchBanks(env) {
+  try {
+    const found = new Map();
+    let cursor = "";
+    let complete = false;
+    for (let page = 0; page < MAX_BANK_PAGES; page++) {
+      const next = cursor ? `&next=${encodeURIComponent(cursor)}` : "";
+      const res = await paystackGet(env, `/bank?country=nigeria&use_cursor=true&perPage=100${next}`);
+      const items = res.data && res.data.data;
+      if (res.status !== 200 || !res.data.status || !Array.isArray(items)) break;
+      items.forEach((item) => {
+        if (!item || !item.code || !item.name) return;
+        if (item.active === false || item.is_deleted === true) return;
+        if (item.currency && item.currency !== "NGN") return;
+        const code = String(item.code);
+        if (!found.has(code)) found.set(code, { code, name: String(item.name) });
+      });
+      cursor = res.data.meta && res.data.meta.next ? String(res.data.meta.next) : "";
+      if (!cursor) {
+        complete = true;
+        break;
+      }
+    }
+    if (complete && found.size > 0) {
+      banksCache.list = Array.from(found.values());
+      banksCache.expires = Date.now() + BANKS_TTL_MS;
+      return banksCache.list;
+    }
+  } catch (err) {
+    console.error("paystack banks error", err && err.message);
+  }
+  return banksCache.list;
+}
+
+async function resolveAccount(env, bankCode, accountNumber) {
+  try {
+    const banks = await loadBanks(env);
+    if (banks && !banks.some((item) => item.code === bankCode)) return { error: "bank" };
+
+    const path = `/bank/resolve?account_number=${encodeURIComponent(accountNumber)}&bank_code=${encodeURIComponent(bankCode)}`;
+    const res = await paystackGet(env, path);
+    if (res.missing) {
+      console.error("paystack key is not set");
+      return { error: "unavailable" };
     }
 
-    function toAmount(value) {
-        const number = parseFloat(String(value === undefined || value === null ? 0 : value).replace(/,/g, ''));
-        return isFinite(number) ? number : 0;
+    const body = res.data && res.data.data;
+    if (res.status === 200 && res.data.status === true && body && body.account_name) {
+      return { name: String(body.account_name) };
     }
-
-    function round2(value) {
-        return Math.round((Number(value) + Number.EPSILON) * 100) / 100;
+    if (res.status === 401 || res.status === 403) {
+      console.error("paystack rejected the request", res.status, String((res.data && res.data.message) || "").slice(0, 160));
+      return { error: "unavailable" };
     }
-
-    function money(value) {
-        return (Number(value) || 0).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    if (!res.data || res.status === 0 || res.status === 429 || res.status >= 500) {
+      return { error: "unavailable" };
     }
+    if (/bank code/i.test(String(res.data.message || ""))) return { error: "bank" };
+    return { error: "invalid" };
+  } catch (err) {
+    console.error("paystack error", err && err.message);
+    return { error: "unavailable" };
+  }
+}
 
-    function formatDate(value) {
-        const date = new Date(value);
-        if (!value || isNaN(date.getTime())) return '-';
-        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + ', ' +
-            date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+function accountFailure(result) {
+  if (result.error === "bank") return reply({ success: false, message: MSG.bank });
+  if (result.error === "unavailable") return reply({ success: false, message: MSG.unavailable, retry: true });
+  return reply({ success: false, message: MSG.invalid });
+}
+
+async function getProfile(env, uuid) {
+  const res = await db(env, `user_profiles?id=eq.${encodeURIComponent(uuid)}&select=id,user_data&limit=1`);
+  if (!res.ok) return { busy: true };
+  if (!Array.isArray(res.data) || res.data.length === 0) return { profile: null };
+  return { profile: res.data[0] };
+}
+
+async function findOpenWithdrawal(env, uuid) {
+  const res = await db(
+    env,
+    `withdrawals?user_id=eq.${encodeURIComponent(uuid)}&status=in.(pending,processing)&order=created_at.desc&limit=1`
+  );
+  if (!res.ok || !Array.isArray(res.data) || res.data.length === 0) return null;
+  return res.data[0];
+}
+
+async function handleBanks(env) {
+  const banks = await loadBanks(env);
+  if (!banks) return reply({ success: false, message: "The bank list is not available right now" });
+  const sorted = banks.slice().sort((a, b) => a.name.localeCompare(b.name));
+  return reply({ success: true, banks: sorted });
+}
+
+async function handleVerifyAccount(env, body) {
+  const accountNumber = String(body.account_number || "");
+  const bankCode = String(body.bank_code || "");
+  if (!/^\d{10}$/.test(accountNumber) || !bankCode) {
+    return reply({ success: false, message: MSG.invalid });
+  }
+  const result = await resolveAccount(env, bankCode, accountNumber);
+  if (result.name) return reply({ success: true, account_name: result.name });
+  return accountFailure(result);
+}
+
+async function handleOverview(env, body) {
+  const uuid = body.uuid;
+  if (!isSafeId(uuid)) return reply({ success: false, message: "Bad Parameters" }, 400);
+  const res = await db(env, `withdrawals?user_id=eq.${encodeURIComponent(uuid)}&order=created_at.desc&limit=100`);
+  if (!res.ok || !Array.isArray(res.data)) {
+    return reply({ success: false, message: "Unable to load withdrawal history" });
+  }
+  const pending = res.data.find((item) => item.status === "pending" || item.status === "processing") || null;
+  return reply({ success: true, pending, history: res.data });
+}
+
+async function readAttempts(env, key) {
+  if (!env.LOCK_KV) return 0;
+  return parseInt((await env.LOCK_KV.get(key)) || "0", 10) || 0;
+}
+
+async function authorizePin(env, uuid, pin) {
+  const attemptsKey = `pin-attempts:${uuid}`;
+  if ((await readAttempts(env, attemptsKey)) >= MAX_PIN_ATTEMPTS) {
+    return { response: reply({ success: false, message: "Too many wrong PIN attempts. Try again in 10 minutes" }, 429) };
+  }
+
+  const found = await getProfile(env, uuid);
+  if (found.busy) {
+    return { response: reply({ success: false, message: "Service is busy right now. Please try again.", retry: true }) };
+  }
+  if (!found.profile) return { response: reply({ success: false, message: "User profile not found" }) };
+
+  const userData = found.profile.user_data || {};
+  if (String(userData.pin || "") === "" || String(userData.pin) !== String(pin || "")) {
+    if (env.LOCK_KV) {
+      const attempts = await readAttempts(env, attemptsKey);
+      await env.LOCK_KV.put(attemptsKey, String(attempts + 1), { expirationTtl: PIN_LOCK_SECONDS });
     }
+    return { response: reply({ success: false, message: "Incorrect transaction PIN" }) };
+  }
+  if (env.LOCK_KV) await env.LOCK_KV.delete(attemptsKey);
+  return { userData };
+}
 
-    function setText(el, value) {
-        if (el) el.textContent = value;
+async function handleVerifyPin(env, body) {
+  const { uuid, pin } = body;
+  if (!isSafeId(uuid)) return reply({ success: false, message: "Bad Parameters" }, 400);
+  if (!/^\d{4}$/.test(String(pin || ""))) {
+    return reply({ success: false, message: "Enter your 4 digit transaction PIN" });
+  }
+  const auth = await authorizePin(env, uuid, pin);
+  if (auth.response) return auth.response;
+  return reply({ success: true });
+}
+
+async function handleRequestWithdraw(env, body) {
+  const { uuid, pin, bank_code, bank_name, account_number } = body;
+  if (!isSafeId(uuid)) return reply({ success: false, message: "Bad Parameters" }, 400);
+
+  const amount = round2(toAmount(body.amount));
+  if (!(amount > 0)) {
+    return reply({ success: false, message: "Enter a valid amount" });
+  }
+  if (!/^\d{10}$/.test(String(account_number || ""))) {
+    return reply({ success: false, message: "Enter a valid 10 digit account number" });
+  }
+  if (!bank_code || !bank_name) {
+    return reply({ success: false, message: "Select a destination bank" });
+  }
+
+  const auth = await authorizePin(env, uuid, pin);
+  if (auth.response) return auth.response;
+  const userData = auth.userData;
+
+  const balance = round2(toAmount(userData.user_balance));
+  if (balance <= 0) {
+    return reply({ success: false, message: "You do not have any funds in your wallet" });
+  }
+  if (balance < amount) {
+    return reply({ success: false, message: "Insufficient wallet balance" });
+  }
+
+  const open = await findOpenWithdrawal(env, uuid);
+  if (open) {
+    return reply({ success: false, message: "You already have a pending withdrawal", pending: open });
+  }
+
+  const resolved = await resolveAccount(env, String(bank_code), String(account_number));
+  if (!resolved.name) return accountFailure(resolved);
+
+  const banks = await loadBanks(env);
+  const known = banks ? banks.find((item) => item.code === String(bank_code)) : null;
+  const bankLabel = known ? known.name : String(bank_name);
+
+  const fee = round2(amount * FEE_RATE);
+  const net = round2(amount - fee);
+  if (!(net > 0)) {
+    return reply({ success: false, message: "Enter a valid amount" });
+  }
+  const reference = `WD-${Date.now()}-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
+
+  const insert = await db(env, "withdrawals", {
+    method: "POST",
+    prefer: "return=representation",
+    body: {
+      reference,
+      user_id: uuid,
+      full_name: String(userData.full_name || "").slice(0, 120),
+      email: String(userData.email || "").slice(0, 160),
+      amount,
+      fee,
+      net_amount: net,
+      bank_name: bankLabel.slice(0, 80),
+      bank_code: String(bank_code).slice(0, 12),
+      account_number: String(account_number),
+      account_name: resolved.name.slice(0, 160),
+      status: "pending"
     }
+  });
 
-    function withTimeout(promise, ms) {
-        return new Promise((resolve, reject) => {
-            const timer = setTimeout(() => reject(new Error('timeout')), ms);
-            Promise.resolve(promise).then(
-                (value) => { clearTimeout(timer); resolve(value); },
-                (error) => { clearTimeout(timer); reject(error); }
-            );
-        });
-    }
+  if (insert.status === 409 || (insert.data && insert.data.code === "23505")) {
+    return reply({ success: false, message: "You already have a pending withdrawal" });
+  }
+  if (!insert.ok || !Array.isArray(insert.data) || insert.data.length === 0) {
+    return reply({ success: false, message: "Unable to save withdrawal request" });
+  }
 
-    function reveal(el, display) {
-        if (!el) return;
-        el.style.display = '';
-        el.style.visibility = '';
-        el.style.opacity = '';
-        SHOW_CLASSES.forEach((name) => el.classList.add(name));
-        const style = window.getComputedStyle(el);
-        if (style.display === 'none') el.style.display = display || 'block';
-        if (style.visibility === 'hidden') el.style.visibility = 'visible';
-        if (parseFloat(style.opacity) === 0) el.style.opacity = '1';
-    }
+  return reply({ success: true, message: "Withdrawal request submitted", withdrawal: insert.data[0] });
+}
 
-    function conceal(el) {
-        if (!el) return;
-        SHOW_CLASSES.forEach((name) => el.classList.remove(name));
-        el.style.display = 'none';
-    }
+async function handleAdminLogin(env, request, body) {
+  if (!env.ADMIN_SECRET || !env.ADMIN_EMAILS) {
+    return reply({ success: false, message: "Admin access is not configured" });
+  }
 
-    function toast(message, kind) {
-        if (!toastHost) return;
-        toastHost.innerHTML = '';
-        const el = document.createElement('div');
-        el.textContent = message;
-        el.setAttribute('role', 'alert');
-        el.style.cssText = 'position:fixed;top:16px;left:50%;transform:translateX(-50%);max-width:90%;padding:12px 16px;border-radius:12px;color:#fff;z-index:99999;font-size:14px;text-align:center;box-shadow:0 6px 20px rgba(0,0,0,.25);background:' +
-            (kind === 'ok' ? '#16a34a' : '#dc2626');
-        toastHost.appendChild(el);
-        setTimeout(() => { if (el.parentNode) el.parentNode.removeChild(el); }, 3800);
-    }
+  const email = String(body.email || "").trim();
+  const password = String(body.password || "");
+  if (!email || !password) {
+    return reply({ success: false, message: "Enter your email and password" });
+  }
 
-    function startLoader() {
-        setTimeout(() => { if (liquid) liquid.classList.add('fill'); }, 300);
-    }
+  const ip = request.headers.get("CF-Connecting-IP") || "unknown";
+  const attemptsKey = `admin-attempts:${ip}`;
+  if ((await readAttempts(env, attemptsKey)) >= 8) {
+    return reply({ success: false, message: "Too many attempts. Try again in 10 minutes" }, 429);
+  }
 
-    function hideLoader() {
-        if (loaderHidden) return;
-        loaderHidden = true;
-        if (liquid) {
-            liquid.style.transition = 'height 0.8s ease';
-            liquid.style.height = '0%';
+  const admins = String(env.ADMIN_EMAILS)
+    .split(",")
+    .map((item) => item.trim().toLowerCase())
+    .filter(Boolean);
+
+  let matched = null;
+
+  if (admins.includes(email.toLowerCase())) {
+    const candidates = Array.from(new Set([email, email.toLowerCase()]));
+    for (const candidate of candidates) {
+      const res = await db(
+        env,
+        `user_profiles?user_data->>email=eq.${encodeURIComponent(candidate)}&select=id,user_data&limit=5`
+      );
+      if (res.ok && Array.isArray(res.data)) {
+        const row = res.data.find((item) => item.user_data && safeEqual(String(item.user_data.password || ""), password));
+        if (row) {
+          matched = row;
+          break;
         }
-        if (brand) brand.classList.add('hide');
-        if (loaderLogo) loaderLogo.classList.add('hide');
-        if (bg) bg.classList.add('show');
-        setTimeout(() => {
-            [scene, brand, loaderLogo].forEach((el) => {
-                if (!el) return;
-                el.classList.add('hidden');
-                el.style.display = 'none';
-            });
-            if (pageContainer) {
-                pageContainer.classList.add('ready');
-                pageContainer.style.opacity = '1';
-                pageContainer.style.visibility = 'visible';
-            }
-        }, 600);
+      }
     }
+  }
 
-    async function postApi(payload, timeoutMs) {
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), timeoutMs);
-        try {
-            const res = await fetch(API_ENDPOINT, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(Object.assign({ req_pass: REQ_PASS }, payload)),
-                signal: controller.signal
-            });
-            let data = null;
-            try {
-                data = await res.json();
-            } catch (err) {
-                data = null;
-            }
-            if (!data || typeof data !== 'object') {
-                return { success: false, unsure: true, message: 'The server did not answer properly. Please try again.' };
-            }
-            return data;
-        } catch (err) {
-            return { success: false, unsure: true, message: 'Network problem. Please check your connection and try again.' };
-        } finally {
-            clearTimeout(timer);
-        }
+  if (!matched) {
+    if (env.LOCK_KV) {
+      const attempts = await readAttempts(env, attemptsKey);
+      await env.LOCK_KV.put(attemptsKey, String(attempts + 1), { expirationTtl: PIN_LOCK_SECONDS });
     }
+    return reply({ success: false, message: "Invalid email or password" }, 401);
+  }
 
-    function readSession() {
-        try {
-            const raw = localStorage.getItem(SESSION_KEY);
-            return raw ? JSON.parse(raw) : null;
-        } catch (err) {
-            return null;
-        }
+  if (env.LOCK_KV) await env.LOCK_KV.delete(attemptsKey);
+
+  const token = await signToken(env, matched.id);
+  return reply({ success: true, token, name: matched.user_data.full_name || "Admin" });
+}
+
+async function loadWalletStats(env) {
+  const size = 1000;
+  let offset = 0;
+  let totalUsers = 0;
+  let totalWallet = 0;
+  let usersWithFunds = 0;
+
+  for (;;) {
+    const res = await db(
+      env,
+      `user_profiles?select=id,balance:user_data->>user_balance&order=id.asc&limit=${size}&offset=${offset}`
+    );
+    if (!res.ok || !Array.isArray(res.data)) throw new Error("Unable to read users");
+    res.data.forEach((row) => {
+      const value = toAmount(row.balance);
+      totalUsers += 1;
+      totalWallet += value;
+      if (value > 0) usersWithFunds += 1;
+    });
+    if (res.data.length < size) break;
+    offset += size;
+  }
+
+  return { total_users: totalUsers, total_wallet: round2(totalWallet), users_with_funds: usersWithFunds };
+}
+
+async function loadBalances(env, ids) {
+  const map = {};
+  const clean = Array.from(new Set(ids.filter(isSafeId)));
+  for (let i = 0; i < clean.length; i += 40) {
+    const chunk = clean.slice(i, i + 40);
+    const res = await db(env, `user_profiles?id=in.(${chunk.join(",")})&select=id,balance:user_data->>user_balance`);
+    if (res.ok && Array.isArray(res.data)) {
+      res.data.forEach((row) => {
+        map[row.id] = toAmount(row.balance);
+      });
     }
-
-    function isPendingStatus(status) {
-        return /^(pending|processing|queued|initiated)$/.test(String(status || '').toLowerCase());
-    }
-
-    function statusInfo(item) {
-        const status = String(item && item.status || '').toLowerCase();
-        if (/^(completed|paid|success|successful)$/.test(status)) return { text: 'Paid', color: '#16a34a' };
-        if (isPendingStatus(status)) return { text: 'Pending', color: '#d97706' };
-        return { text: 'Declined', color: '#dc2626' };
-    }
-
-    async function loadBalance() {
-        balanceError = false;
-        try {
-            const { data, error } = await withTimeout(
-                supabase.from('user_profiles').select('user_data').eq('id', userUUID),
-                LOAD_TIMEOUT
-            );
-            if (error) throw error;
-            const userData = data && data[0] && data[0].user_data ? data[0].user_data : null;
-            if (!userData) throw new Error('missing');
-            balance = round2(toAmount(userData.user_balance));
-            const rawPin = String(userData[PIN_FIELD] === undefined || userData[PIN_FIELD] === null ? '' : userData[PIN_FIELD]).trim();
-            storedPin = /^\d{4}$/.test(rawPin) ? rawPin : '';
-        } catch (err) {
-            balanceError = true;
-        }
-    }
-
-    async function loadOverview() {
-        const res = await postApi({ action: 'overview', uuid: userUUID }, LOAD_TIMEOUT);
-        if (res.success && Array.isArray(res.history)) {
-            overviewError = false;
-            withdrawals = res.history;
-            pending = res.pending || withdrawals.find((item) => isPendingStatus(item.status)) || null;
-        } else {
-            overviewError = true;
-        }
-    }
-
-    function detailRow(label, value) {
-        return '<div style="display:flex;justify-content:space-between;gap:12px;padding:6px 0;font-size:14px">' +
-            '<span style="opacity:.7">' + escapeHtml(label) + '</span>' +
-            '<strong style="text-align:right;word-break:break-all">' + escapeHtml(value) + '</strong></div>';
-    }
-
-    function setForm(visible) {
-        if (formArea) formArea.style.display = visible ? '' : 'none';
-    }
-
-    function render() {
-        setText(balanceEl, money(balance));
-
-        if (balanceError) {
-            if (noFundsBox) {
-                noFundsBox.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i><strong>Unable to load your balance</strong><span>Please check your connection and refresh the page.</span>';
-            }
-            reveal(noFundsBox, 'block');
-            conceal(pendingBox);
-            setForm(false);
-            return;
-        }
-
-        if (noFundsBox) noFundsBox.innerHTML = noFundsHtml;
-
-        if (pending) {
-            const processing = String(pending.status || '').toLowerCase() === 'processing';
-            setText(pendingTitle, processing ? 'Withdrawal is being processed' : 'Withdrawal request pending');
-            setText(pendingMessage, 'Your withdrawal is waiting to be paid. You can make a new withdrawal once this one is completed.');
-            if (pendingDetails) {
-                pendingDetails.innerHTML =
-                    detailRow('Amount', '₦' + money(pending.amount)) +
-                    detailRow('Fee (1%)', '₦' + money(pending.fee)) +
-                    detailRow('You will receive', '₦' + money(pending.net_amount)) +
-                    detailRow('Bank', pending.bank_name || '-') +
-                    detailRow('Account', (pending.account_number || '-') + (pending.account_name ? ' - ' + pending.account_name : '')) +
-                    detailRow('Reference', pending.reference || '-') +
-                    detailRow('Requested', formatDate(pending.created_at));
-            }
-            reveal(pendingBox, 'block');
-            conceal(noFundsBox);
-            setForm(false);
-            return;
-        }
-
-        conceal(pendingBox);
-
-        if (balance <= 0) {
-            reveal(noFundsBox, 'block');
-            setForm(false);
-            return;
-        }
-
-        conceal(noFundsBox);
-        setForm(true);
-        updateFee();
-        updateSubmit();
-    }
-
-    function updateFee() {
-        const amount = round2(toAmount(amountInput ? amountInput.value : 0));
-        const fee = round2(amount * FEE_RATE);
-        const net = Math.max(round2(amount - fee), 0);
-        setText(feeEl, 'You will receive: ₦' + money(net) + ' (Withdrawal Fee 1%: ₦' + money(fee) + ')');
-    }
-
-    function setVerifying(flag) {
-        if (flag) reveal(verifyLoader, 'block');
-        else conceal(verifyLoader);
-    }
-
-    function clearNote() {
-        if (!verifyNote) return;
-        verifyNote.style.display = 'none';
-        verifyNote.textContent = '';
-    }
-
-    function showNote(message, retryable) {
-        if (!verifyNote) return;
-        verifyNote.textContent = message;
-        if (retryable) {
-            const retry = document.createElement('button');
-            retry.type = 'button';
-            retry.textContent = 'Try again';
-            retry.style.cssText = 'margin-left:8px;background:none;border:0;padding:0;color:inherit;font:inherit;font-weight:700;text-decoration:underline;cursor:pointer';
-            retry.addEventListener('click', () => { verifyAccount(); });
-            verifyNote.appendChild(retry);
-        }
-        verifyNote.style.display = 'block';
-    }
-
-    function resetVerification() {
-        verified = { key: '', name: '' };
-        updateSubmit();
-        verifyToken++;
-        verifyMessage = '';
-        if (nameGroup) nameGroup.style.display = 'none';
-        if (accountName) accountName.value = '';
-        clearNote();
-        setVerifying(false);
-    }
-
-    function accountKey() {
-        return (bankSelect ? bankSelect.value : '') + ':' + (accountInput ? accountInput.value : '');
-    }
-
-    function verifyAccount() {
-        const bank = bankSelect ? bankSelect.value : '';
-        const number = accountInput ? accountInput.value : '';
-        if (!bank || !/^\d{10}$/.test(number)) return Promise.resolve(false);
-
-        const key = bank + ':' + number;
-        if (verified.key === key) return Promise.resolve(true);
-
-        const token = ++verifyToken;
-        verifyMessage = '';
-        clearNote();
-        setVerifying(true);
-
-        const run = (async () => {
-            const payload = { action: 'verify_account', bank_code: bank, account_number: number };
-            const started = Date.now();
-            let res = await postApi(payload, VERIFY_TIMEOUT);
-            if (token !== verifyToken) return false;
-            if (res.unsure && Date.now() - started < VERIFY_TIMEOUT / 2) {
-                res = await postApi(payload, VERIFY_TIMEOUT);
-                if (token !== verifyToken) return false;
-            }
-            setVerifying(false);
-
-            if (res.success && res.account_name) {
-                verified = { key: key, name: String(res.account_name) };
-                if (accountName) accountName.value = verified.name;
-                if (nameGroup) nameGroup.style.display = 'block';
-                clearNote();
-                updateSubmit();
-                return true;
-            }
-
-            verified = { key: '', name: '' };
-            updateSubmit();
-            if (nameGroup) nameGroup.style.display = 'none';
-            verifyMessage = res.message || 'Could not verify this account. Please check the details.';
-            showNote(verifyMessage, Boolean(res.unsure || res.retry));
-            return false;
-        })();
-
-        verifyPromise = run;
-        run.finally(() => {
-            if (verifyPromise === run) verifyPromise = null;
-        });
-        return run;
-    }
-
-    async function ensureVerified() {
-        let current = verifyPromise || verifyAccount();
-        for (let i = 0; i < 4; i++) {
-            await current;
-            if (verified.key === accountKey()) return true;
-            if (!verifyPromise || verifyPromise === current) return false;
-            current = verifyPromise;
-        }
-        return false;
-    }
-
-    function rankBank(name) {
-        const index = PRIORITY_BANKS.findIndex((pattern) => pattern.test(name));
-        return index === -1 ? PRIORITY_BANKS.length : index;
-    }
-
-    function populateBanks(list) {
-        const current = bankSelect.value;
-        const sorted = list.slice().sort((a, b) => rankBank(a.name) - rankBank(b.name) || a.name.localeCompare(b.name));
-        const fragment = document.createDocumentFragment();
-        const placeholder = document.createElement('option');
-        placeholder.value = '';
-        placeholder.textContent = '-- Choose Bank --';
-        fragment.appendChild(placeholder);
-        const seen = new Set();
-        sorted.forEach((bank) => {
-            if (seen.has(bank.code)) return;
-            seen.add(bank.code);
-            const option = document.createElement('option');
-            option.value = bank.code;
-            option.textContent = bank.name;
-            fragment.appendChild(option);
-        });
-        bankSelect.innerHTML = '';
-        bankSelect.appendChild(fragment);
-        if (current && seen.has(current)) bankSelect.value = current;
-        else if (current) resetVerification();
-    }
-
-    async function loadBanks() {
-        if (!bankSelect) return;
-        const res = await postApi({ action: 'banks' }, BANKS_TIMEOUT);
-        if (res.success && Array.isArray(res.banks) && res.banks.length > 0) populateBanks(res.banks);
-    }
-
-    function pinValue() {
-        return pinBoxes.map((box) => box.value).join('');
-    }
-
-    function pinMatches() {
-        return storedPin !== '' && pinValue() === storedPin;
-    }
-
-    function paintPin() {
-        pinBoxes.forEach((box, index) => {
-            const icon = pinIcons[index];
-            if (!icon) return;
-            const digit = box.value;
-            if (!digit || !storedPin) {
-                icon.textContent = '';
-                return;
-            }
-            const right = digit === storedPin.charAt(index);
-            icon.textContent = right ? '✔️' : '❌';
-            icon.style.color = right ? '#16a34a' : '#dc2626';
-            icon.style.fontWeight = '700';
-            icon.style.textAlign = 'center';
-        });
-    }
-
-    function clearPin() {
-        clearTimeout(pinClearTimer);
-        pinBoxes.forEach((box) => {
-            box.value = '';
-            box.classList.remove('filled');
-        });
-        paintPin();
-        updateSubmit();
-        if (pinBoxes[0]) pinBoxes[0].focus();
-    }
-
-    function formReady() {
-        const amount = round2(toAmount(amountInput ? amountInput.value : 0));
-        const bank = bankSelect ? bankSelect.value : '';
-        return amount > 0 && amount <= balance && Boolean(bank) && verified.key !== '' && verified.key === accountKey() && pinMatches();
-    }
-
-    function updateSubmit() {
-        if (!submitBtn) return;
-        if (formReady() || busy) {
-            submitBtn.hidden = false;
-            submitBtn.removeAttribute('hidden');
-            submitBtn.classList.remove('hidden', 'hide');
-            submitBtn.style.setProperty('display', 'block', 'important');
-            submitBtn.style.setProperty('visibility', 'visible', 'important');
-            submitBtn.style.setProperty('opacity', '1', 'important');
-        } else {
-            submitBtn.style.setProperty('display', 'none', 'important');
-        }
-    }
-
-    function checkPin() {
-        clearTimeout(pinClearTimer);
-        paintPin();
-        updateSubmit();
-        const pin = pinValue();
-        if (!/^\d{4}$/.test(pin)) return;
-        if (!storedPin) {
-            toast('Your transaction PIN was not found. Please set it from your profile.');
-            return;
-        }
-        if (pin !== storedPin) {
-            toast('Incorrect transaction PIN');
-            pinClearTimer = setTimeout(clearPin, 700);
-        }
-    }
-
-    function clearForm() {
-        if (amountInput) amountInput.value = '';
-        if (bankSelect) bankSelect.value = '';
-        if (accountInput) accountInput.value = '';
-        resetVerification();
-        pinBoxes.forEach((box) => {
-            box.value = '';
-            box.classList.remove('filled');
-        });
-        paintPin();
-        updateFee();
-        updateSubmit();
-    }
-
-    async function refresh() {
-        await Promise.allSettled([loadBalance(), loadOverview()]);
-        render();
-    }
-
-    function setBusy(flag, label) {
-        busy = flag;
-        if (!submitBtn) return;
-        submitBtn.disabled = flag;
-        submitBtn.textContent = flag ? label : submitLabel;
-        updateSubmit();
-    }
-
-    async function submit() {
-        if (busy) return;
-
-        const amount = round2(toAmount(amountInput ? amountInput.value : 0));
-        const bank = bankSelect ? bankSelect.value : '';
-        const number = accountInput ? accountInput.value : '';
-        const pin = pinValue();
-
-        if (!(amount > 0)) return toast('Enter a valid amount.');
-        if (amount > balance) return toast('Insufficient wallet balance.');
-        if (!bank) return toast('Select a destination bank.');
-        if (!/^\d{10}$/.test(number)) return toast('Enter a valid 10 digit account number.');
-        if (!/^\d{4}$/.test(pin)) return toast('Enter your 4 digit transaction PIN.');
-        if (!pinMatches()) return toast('Incorrect transaction PIN');
-
-        const submitted = bank + ':' + number;
-        if (verified.key !== submitted) {
-            setBusy(true, 'Verifying...');
-            const ok = await ensureVerified();
-            setBusy(false);
-            if (!ok) return toast(verifyMessage || 'Could not verify this account. Please check the details.');
-            if (accountKey() !== submitted) return toast('Account details changed. Please check them and try again.');
-        }
-
-        setBusy(true, 'Processing...');
-
-        const bankName = bankSelect.options[bankSelect.selectedIndex].text;
-        const res = await postApi({
-            action: 'request_withdraw',
-            uuid: userUUID,
-            pin: pin,
-            bank_code: bank,
-            bank_name: bankName,
-            account_number: number,
-            amount: amount
-        }, SUBMIT_TIMEOUT);
-
-        setBusy(false);
-
-        if (res.success) {
-            toast('Withdrawal request submitted.', 'ok');
-            clearForm();
-        } else if (res.unsure) {
-            toast('We could not confirm your request. Please check below before trying again.');
-        } else {
-            toast(res.message || 'Something went wrong. Please try again.');
-            if (/PIN/i.test(res.message || '')) clearPin();
-        }
-
-        await refresh();
-    }
-
-    function renderHistory() {
-        if (!historyBody) return;
-        if (!withdrawals.length) {
-            historyBody.innerHTML = '<div style="padding:24px 0;text-align:center;opacity:.7">' +
-                (overviewError ? 'Unable to load your withdrawals right now.' : 'No withdrawals yet.') + '</div>';
-            return;
-        }
-        historyBody.innerHTML = withdrawals.map((item) => {
-            const info = statusInfo(item);
-            return '<div style="display:flex;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid rgba(128,128,128,.2)">' +
-                '<div><strong>Withdrawal to ' + escapeHtml(item.bank_name || 'Bank') + '</strong><br>' +
-                '<small style="opacity:.7">' + escapeHtml(formatDate(item.created_at)) + '</small><br>' +
-                '<small style="opacity:.7">' + escapeHtml(item.reference || '') + '</small></div>' +
-                '<div style="text-align:right"><strong>₦' + escapeHtml(money(item.net_amount)) + '</strong><br>' +
-                '<small style="color:' + info.color + '">' + escapeHtml(info.text) + '</small></div></div>';
-        }).join('');
-    }
-
-    async function openHistory() {
-        renderHistory();
-        reveal(historyOverlay, 'flex');
-        await loadOverview();
-        renderHistory();
-        render();
-    }
-
-    function closeHistory() {
-        conceal(historyOverlay);
-    }
-
-    function setupWidget() {
-        const widget = $('pd-whatsapp-widget');
-        const link = $('pd-wa-link');
-        if (!widget || !link) return;
-
-        let dragging = false;
-        let moved = false;
-        let startX = 0;
-        let startY = 0;
-        let initialX = 0;
-        let initialY = 0;
-
-        function point(event) {
-            const source = event.touches && event.touches.length ? event.touches[0] : event;
-            return { x: source.clientX, y: source.clientY };
-        }
-
-        function dragStart(event) {
-            moved = false;
-            dragging = true;
-            const p = point(event);
-            const rect = widget.getBoundingClientRect();
-            initialX = rect.left;
-            initialY = rect.top;
-            startX = p.x;
-            startY = p.y;
-        }
-
-        function drag(event) {
-            if (!dragging) return;
-            if (event.cancelable) event.preventDefault();
-            const p = point(event);
-            const dx = p.x - startX;
-            const dy = p.y - startY;
-            if (Math.abs(dx) > 5 || Math.abs(dy) > 5) moved = true;
-
-            const maxX = window.innerWidth - widget.offsetWidth - 10;
-            const maxY = window.innerHeight - widget.offsetHeight - 10;
-            const x = Math.max(10, Math.min(initialX + dx, maxX));
-            const y = Math.max(10, Math.min(initialY + dy, maxY));
-
-            widget.style.left = x + 'px';
-            widget.style.top = y + 'px';
-            widget.style.bottom = 'auto';
-            widget.style.right = 'auto';
-        }
-
-        function dragEnd() {
-            dragging = false;
-        }
-
-        widget.addEventListener('mousedown', dragStart);
-        document.addEventListener('mousemove', drag);
-        document.addEventListener('mouseup', dragEnd);
-        widget.addEventListener('touchstart', dragStart, { passive: false });
-        document.addEventListener('touchmove', drag, { passive: false });
-        document.addEventListener('touchend', dragEnd);
-        link.addEventListener('click', (event) => {
-            if (moved) event.preventDefault();
-        });
-    }
-
-    if (btnBack) btnBack.addEventListener('click', () => { window.location.href = 'dashboard.html'; });
-
-    if (amountInput) {
-        amountInput.addEventListener('input', () => {
-            updateFee();
-            updateSubmit();
-        });
-    }
-
-    if (bankSelect) {
-        bankSelect.addEventListener('change', () => {
-            resetVerification();
-            verifyAccount();
-        });
-    }
-
-    if (accountInput) {
-        accountInput.addEventListener('input', () => {
-            accountInput.value = accountInput.value.replace(/\D/g, '').slice(0, 10);
-            resetVerification();
-            verifyAccount();
-        });
-    }
-
-    pinBoxes.forEach((box, index) => {
-        box.addEventListener('input', () => {
-            box.value = box.value.replace(/\D/g, '').slice(0, 1);
-            box.classList.toggle('filled', box.value !== '');
-            if (box.value && index < pinBoxes.length - 1) pinBoxes[index + 1].focus();
-            checkPin();
-        });
-        box.addEventListener('keydown', (event) => {
-            if (event.key === 'Backspace' && !box.value && index > 0) pinBoxes[index - 1].focus();
-        });
+  }
+  return map;
+}
+
+async function handleAdminDashboard(env) {
+  const stats = await loadWalletStats(env);
+  const pendingRes = await db(env, "withdrawals?status=eq.pending&order=created_at.asc&limit=500");
+  if (!pendingRes.ok || !Array.isArray(pendingRes.data)) {
+    return reply({ success: false, message: "Unable to load pending withdrawals" });
+  }
+  const balances = await loadBalances(env, pendingRes.data.map((item) => item.user_id));
+  const now = Date.now();
+  const pending = pendingRes.data.map((item) => ({
+    ...item,
+    current_balance: balances[item.user_id] !== undefined ? balances[item.user_id] : 0,
+    overdue: now - new Date(item.created_at).getTime() > 24 * 60 * 60 * 1000
+  }));
+  return reply({ success: true, stats, pending });
+}
+
+async function handleAdminComplete(env, body, adminId) {
+  const id = body.id;
+  if (!isSafeId(id)) return reply({ success: false, message: "Bad Parameters" }, 400);
+
+  const claim = await db(env, `withdrawals?id=eq.${encodeURIComponent(id)}&status=eq.pending`, {
+    method: "PATCH",
+    prefer: "return=representation",
+    body: { status: "processing" }
+  });
+  if (!claim.ok || !Array.isArray(claim.data) || claim.data.length === 0) {
+    return reply({ success: false, message: "This request is no longer pending" });
+  }
+
+  const withdrawal = claim.data[0];
+  const release = () =>
+    db(env, `withdrawals?id=eq.${encodeURIComponent(id)}&status=eq.processing`, {
+      method: "PATCH",
+      body: { status: "pending" }
     });
 
-    if (submitBtn) {
-        submitBtn.style.display = 'none';
-        submitBtn.addEventListener('click', submit);
+  const amount = round2(toAmount(withdrawal.amount));
+  const debit = await rpc(env, "wallet_debit", {
+    p_user: withdrawal.user_id,
+    p_amount: amount,
+    p_tx: {
+      type: "withdrawal",
+      direction: "out",
+      title: `Withdrawal to ${withdrawal.bank_name || "bank"}`,
+      amount,
+      status: "success",
+      reference: withdrawal.reference,
+      created_at: new Date().toISOString()
     }
-    if (historyBtn) historyBtn.addEventListener('click', openHistory);
-    if (historyClose) historyClose.addEventListener('click', closeHistory);
-    if (historyOverlay) {
-        historyOverlay.addEventListener('click', (event) => {
-            if (event.target === historyOverlay) closeHistory();
-        });
+  });
+
+  let balanceAfter = null;
+  if (debit.ok) {
+    balanceAfter = round2(Number(debit.data)).toFixed(2);
+  } else {
+    const message = rpcMessage(debit);
+    if (/DUPLICATE_REQUEST/.test(message)) {
+      const found = await getProfile(env, withdrawal.user_id);
+      if (found.profile) {
+        balanceAfter = round2(toAmount((found.profile.user_data || {}).user_balance)).toFixed(2);
+      }
     }
-    document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape') closeHistory();
+    if (balanceAfter === null) {
+      await release();
+      if (/INSUFFICIENT_FUNDS/.test(message)) {
+        return reply({ success: false, message: "User wallet balance is lower than the withdrawal amount" });
+      }
+      if (/USER_NOT_FOUND/.test(message)) {
+        return reply({ success: false, message: "User profile not found" });
+      }
+      console.error("admin wallet_debit failed", withdrawal.reference, debit.status, message.slice(0, 200));
+      return reply({ success: false, message: "Could not debit the wallet. Please try again" });
+    }
+  }
+
+  let finalRow = null;
+  for (let attempt = 0; attempt < 3 && !finalRow; attempt++) {
+    const done = await db(env, `withdrawals?id=eq.${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      prefer: "return=representation",
+      body: {
+        status: "completed",
+        completed_at: new Date().toISOString(),
+        completed_by: adminId,
+        balance_after: balanceAfter
+      }
     });
+    if (done.ok && Array.isArray(done.data) && done.data.length > 0) finalRow = done.data[0];
+  }
 
-    setupWidget();
+  if (!finalRow) {
+    return reply({
+      success: false,
+      message: `Wallet was debited but the status could not be saved. Reference: ${withdrawal.reference}`
+    });
+  }
 
-    async function resolveUserId() {
-        const session = readSession();
-        const local = session ? (session.userId || session.id || (session.user && session.user.id)) : null;
-        if (local) return String(local);
-        try {
-            const { data } = await withTimeout(supabase.auth.getSession(), 8000);
-            const user = data && data.session && data.session.user;
-            return user && user.id ? String(user.id) : null;
-        } catch (err) {
-            return null;
-        }
+  return reply({ success: true, message: "Payment completed", withdrawal: finalRow, new_balance: balanceAfter });
+}
+
+async function handleAdminDelete(env, body) {
+  const id = body.id;
+  if (!isSafeId(id)) return reply({ success: false, message: "Bad Parameters" }, 400);
+
+  const res = await db(env, `withdrawals?id=eq.${encodeURIComponent(id)}&status=eq.pending`, {
+    method: "PATCH",
+    prefer: "return=representation",
+    body: { status: "cancelled" }
+  });
+  if (!res.ok || !Array.isArray(res.data) || res.data.length === 0) {
+    return reply({ success: false, message: "This request is no longer pending" });
+  }
+  return reply({ success: true, message: "Withdrawal request deleted" });
+}
+
+async function handle(request, env) {
+  if (request.method !== "POST") {
+    return reply({ success: false, message: "Method Not Allowed" }, 405);
+  }
+
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return reply({ success: false, message: "Bad Request" }, 400);
+  }
+
+  const requiredPass = env.REQ_PASS || "@haruna66";
+  if (!body || body.req_pass !== requiredPass) {
+    return reply({ success: false, message: "Unauthorized Access" }, 401);
+  }
+
+  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
+    return reply({ success: false, message: "Server is not configured" }, 500);
+  }
+
+  try {
+    switch (body.action) {
+      case "banks":
+        return await handleBanks(env);
+      case "verify_account":
+        return await handleVerifyAccount(env, body);
+      case "overview":
+        return await handleOverview(env, body);
+      case "verify_pin":
+        return await handleVerifyPin(env, body);
+      case "request_withdraw":
+        return await handleRequestWithdraw(env, body);
+      case "admin_login":
+        return await handleAdminLogin(env, request, body);
+      case "admin_dashboard":
+      case "admin_complete":
+      case "admin_delete": {
+        const adminId = await verifyToken(env, body.token);
+        if (!adminId) return reply({ success: false, message: "Session expired. Please login again" }, 401);
+        if (body.action === "admin_dashboard") return await handleAdminDashboard(env);
+        if (body.action === "admin_complete") return await handleAdminComplete(env, body, adminId);
+        return await handleAdminDelete(env, body);
+      }
+      default:
+        return reply({ success: false, message: "Unknown action" }, 400);
     }
+  } catch (err) {
+    console.error(err);
+    return reply({ success: false, message: "Internal server error" }, 500);
+  }
+}
 
-    setInterval(updateSubmit, 400);
+export async function onRequest(context) {
+  return handle(context.request, context.env);
+}
 
-    async function initialize() {
-        startLoader();
-        const safety = setTimeout(hideLoader, LOADER_SAFETY);
-
-        const id = await resolveUserId();
-
-        if (!id) {
-            try {
-                localStorage.removeItem(SESSION_KEY);
-            } catch (err) {}
-            window.location.replace('register.html');
-            return;
-        }
-
-        userUUID = String(id);
-        loadBanks().catch(() => {});
-        conceal(historyOverlay);
-        conceal(verifyLoader);
-        conceal(pendingBox);
-        conceal(noFundsBox);
-
-        try {
-            await Promise.allSettled([loadBalance(), loadOverview()]);
-            render();
-            if (overviewError && !balanceError) toast('Could not check for pending withdrawals. Please refresh if you have one.');
-        } catch (err) {
-            toast('Something went wrong. Please refresh the page.');
-        } finally {
-            clearTimeout(safety);
-            setTimeout(hideLoader, LOADER_DELAY);
-        }
-    }
-
-    function start() {
-        initialize().catch(() => { hideLoader(); });
-    }
-
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', start);
-    } else {
-        start();
-    }
-})();
+export default {
+  async fetch(request, env) {
+    return handle(request, env);
+  }
+};
