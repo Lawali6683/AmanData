@@ -4,6 +4,7 @@ import { supabase } from './supabase.js';
     const API_ENDPOINT = '/api/withdraw';
     const REQ_PASS = '@haruna66';
     const SESSION_KEY = 'puredata_user_session';
+    const PIN_FIELD = 'pin';
     const FEE_RATE = 0.01;
     const LOAD_TIMEOUT = 15000;
     const VERIFY_TIMEOUT = 20000;
@@ -43,6 +44,7 @@ import { supabase } from './supabase.js';
     const historyClose = $('historyClose');
     const historyBody = $('historyBody');
     const toastHost = $('toastContainer');
+    const btnBack = $('btnBack');
 
     const submitLabel = submitBtn ? submitBtn.textContent : '';
     const noFundsHtml = noFundsBox ? noFundsBox.innerHTML : '';
@@ -60,6 +62,7 @@ import { supabase } from './supabase.js';
 
     let userUUID = null;
     let balance = 0;
+    let storedPin = '';
     let balanceError = false;
     let overviewError = false;
     let pending = null;
@@ -69,9 +72,7 @@ import { supabase } from './supabase.js';
     let verifyPromise = null;
     let verifyMessage = '';
     let busy = false;
-    let pinState = { value: '', ok: false, checking: false };
-    let pinToken = 0;
-    let pinPromise = null;
+    let pinClearTimer = null;
     let loaderHidden = false;
 
     function escapeHtml(value) {
@@ -233,6 +234,8 @@ import { supabase } from './supabase.js';
             const userData = data && data[0] && data[0].user_data ? data[0].user_data : null;
             if (!userData) throw new Error('missing');
             balance = round2(toAmount(userData.user_balance));
+            const rawPin = String(userData[PIN_FIELD] === undefined || userData[PIN_FIELD] === null ? '' : userData[PIN_FIELD]).trim();
+            storedPin = /^\d{4}$/.test(rawPin) ? rawPin : '';
         } catch (err) {
             balanceError = true;
         }
@@ -452,29 +455,34 @@ import { supabase } from './supabase.js';
         return pinBoxes.map((box) => box.value).join('');
     }
 
-    function setPinIcons(kind) {
-        pinIcons.forEach((icon) => {
+    function pinMatches() {
+        return storedPin !== '' && pinValue() === storedPin;
+    }
+
+    function paintPin() {
+        pinBoxes.forEach((box, index) => {
+            const icon = pinIcons[index];
             if (!icon) return;
-            icon.textContent = kind === 'ok' ? '\u2713' : kind === 'bad' ? '\u2715' : kind === 'wait' ? '\u2026' : '';
-            icon.style.color = kind === 'ok' ? '#16a34a' : kind === 'bad' ? '#dc2626' : '#9ca3af';
+            const digit = box.value;
+            if (!digit || !storedPin) {
+                icon.textContent = '';
+                return;
+            }
+            const right = digit === storedPin.charAt(index);
+            icon.textContent = right ? '✔️' : '❌';
+            icon.style.color = right ? '#16a34a' : '#dc2626';
             icon.style.fontWeight = '700';
             icon.style.textAlign = 'center';
         });
     }
 
-    function resetPinState() {
-        pinToken++;
-        pinPromise = null;
-        pinState = { value: '', ok: false, checking: false };
-        setPinIcons('');
-    }
-
     function clearPin() {
+        clearTimeout(pinClearTimer);
         pinBoxes.forEach((box) => {
             box.value = '';
             box.classList.remove('filled');
         });
-        resetPinState();
+        paintPin();
         updateSubmit();
         if (pinBoxes[0]) pinBoxes[0].focus();
     }
@@ -482,7 +490,7 @@ import { supabase } from './supabase.js';
     function formReady() {
         const amount = round2(toAmount(amountInput ? amountInput.value : 0));
         const bank = bankSelect ? bankSelect.value : '';
-        return amount > 0 && amount <= balance && Boolean(bank) && verified.key !== '' && verified.key === accountKey() && pinState.ok && pinState.value === pinValue();
+        return amount > 0 && amount <= balance && Boolean(bank) && verified.key !== '' && verified.key === accountKey() && pinMatches();
     }
 
     function updateSubmit() {
@@ -490,44 +498,20 @@ import { supabase } from './supabase.js';
         submitBtn.style.display = formReady() || busy ? '' : 'none';
     }
 
-    function verifyPin() {
-        const pin = pinValue();
-        if (!/^\d{4}$/.test(pin)) return Promise.resolve(false);
-        if (pinState.ok && pinState.value === pin) return Promise.resolve(true);
-        if (pinState.checking && pinState.value === pin && pinPromise) return pinPromise;
-
-        const token = ++pinToken;
-        pinState = { value: pin, ok: false, checking: true };
-        setPinIcons('wait');
+    function checkPin() {
+        clearTimeout(pinClearTimer);
+        paintPin();
         updateSubmit();
-
-        const run = (async () => {
-            const res = await postApi({ action: 'verify_pin', uuid: userUUID, pin: pin }, VERIFY_TIMEOUT);
-            if (token !== pinToken) return false;
-            if (res.success) {
-                pinState = { value: pin, ok: true, checking: false };
-                setPinIcons('ok');
-                updateSubmit();
-                return true;
-            }
-            pinState = { value: '', ok: false, checking: false };
-            updateSubmit();
-            if (res.unsure) {
-                setPinIcons('');
-                toast(res.message || 'Could not check your PIN. Please try again.');
-                return false;
-            }
-            setPinIcons('bad');
-            toast(res.message || 'Incorrect transaction PIN');
-            setTimeout(() => { if (token === pinToken) clearPin(); }, 700);
-            return false;
-        })();
-
-        pinPromise = run;
-        run.finally(() => {
-            if (pinPromise === run) pinPromise = null;
-        });
-        return run;
+        const pin = pinValue();
+        if (!/^\d{4}$/.test(pin)) return;
+        if (!storedPin) {
+            toast('Your transaction PIN was not found. Please set it from your profile.');
+            return;
+        }
+        if (pin !== storedPin) {
+            toast('Incorrect transaction PIN');
+            pinClearTimer = setTimeout(clearPin, 700);
+        }
     }
 
     function clearForm() {
@@ -539,7 +523,7 @@ import { supabase } from './supabase.js';
             box.value = '';
             box.classList.remove('filled');
         });
-        resetPinState();
+        paintPin();
         updateFee();
         updateSubmit();
     }
@@ -570,13 +554,7 @@ import { supabase } from './supabase.js';
         if (!bank) return toast('Select a destination bank.');
         if (!/^\d{10}$/.test(number)) return toast('Enter a valid 10 digit account number.');
         if (!/^\d{4}$/.test(pin)) return toast('Enter your 4 digit transaction PIN.');
-
-        if (!(pinState.ok && pinState.value === pin)) {
-            setBusy(true, 'Checking PIN...');
-            const pinOk = await verifyPin();
-            setBusy(false);
-            if (!pinOk) return;
-        }
+        if (!pinMatches()) return toast('Incorrect transaction PIN');
 
         const submitted = bank + ':' + number;
         if (verified.key !== submitted) {
@@ -645,6 +623,70 @@ import { supabase } from './supabase.js';
         conceal(historyOverlay);
     }
 
+    function setupWidget() {
+        const widget = $('pd-whatsapp-widget');
+        const link = $('pd-wa-link');
+        if (!widget || !link) return;
+
+        let dragging = false;
+        let moved = false;
+        let startX = 0;
+        let startY = 0;
+        let initialX = 0;
+        let initialY = 0;
+
+        function point(event) {
+            const source = event.touches && event.touches.length ? event.touches[0] : event;
+            return { x: source.clientX, y: source.clientY };
+        }
+
+        function dragStart(event) {
+            moved = false;
+            dragging = true;
+            const p = point(event);
+            const rect = widget.getBoundingClientRect();
+            initialX = rect.left;
+            initialY = rect.top;
+            startX = p.x;
+            startY = p.y;
+        }
+
+        function drag(event) {
+            if (!dragging) return;
+            if (event.cancelable) event.preventDefault();
+            const p = point(event);
+            const dx = p.x - startX;
+            const dy = p.y - startY;
+            if (Math.abs(dx) > 5 || Math.abs(dy) > 5) moved = true;
+
+            const maxX = window.innerWidth - widget.offsetWidth - 10;
+            const maxY = window.innerHeight - widget.offsetHeight - 10;
+            const x = Math.max(10, Math.min(initialX + dx, maxX));
+            const y = Math.max(10, Math.min(initialY + dy, maxY));
+
+            widget.style.left = x + 'px';
+            widget.style.top = y + 'px';
+            widget.style.bottom = 'auto';
+            widget.style.right = 'auto';
+        }
+
+        function dragEnd() {
+            dragging = false;
+        }
+
+        widget.addEventListener('mousedown', dragStart);
+        document.addEventListener('mousemove', drag);
+        document.addEventListener('mouseup', dragEnd);
+        widget.addEventListener('touchstart', dragStart, { passive: false });
+        document.addEventListener('touchmove', drag, { passive: false });
+        document.addEventListener('touchend', dragEnd);
+        link.addEventListener('click', (event) => {
+            if (moved) event.preventDefault();
+        });
+    }
+
+    if (btnBack) btnBack.addEventListener('click', () => { window.location.href = 'dashboard.html'; });
+
     if (amountInput) {
         amountInput.addEventListener('input', () => {
             updateFee();
@@ -671,22 +713,18 @@ import { supabase } from './supabase.js';
         box.addEventListener('input', () => {
             box.value = box.value.replace(/\D/g, '').slice(0, 1);
             box.classList.toggle('filled', box.value !== '');
-            if (pinState.ok || pinState.checking || pinState.value) {
-                pinToken++;
-                pinPromise = null;
-                pinState = { value: '', ok: false, checking: false };
-                setPinIcons('');
-                updateSubmit();
-            }
             if (box.value && index < pinBoxes.length - 1) pinBoxes[index + 1].focus();
-            if (/^\d{4}$/.test(pinValue())) verifyPin();
+            checkPin();
         });
         box.addEventListener('keydown', (event) => {
             if (event.key === 'Backspace' && !box.value && index > 0) pinBoxes[index - 1].focus();
         });
     });
 
-    if (submitBtn) submitBtn.addEventListener('click', submit);
+    if (submitBtn) {
+        submitBtn.style.display = 'none';
+        submitBtn.addEventListener('click', submit);
+    }
     if (historyBtn) historyBtn.addEventListener('click', openHistory);
     if (historyClose) historyClose.addEventListener('click', closeHistory);
     if (historyOverlay) {
@@ -697,6 +735,8 @@ import { supabase } from './supabase.js';
     document.addEventListener('keydown', (event) => {
         if (event.key === 'Escape') closeHistory();
     });
+
+    setupWidget();
 
     async function initialize() {
         startLoader();
