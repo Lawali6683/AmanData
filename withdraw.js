@@ -495,7 +495,16 @@ import { supabase } from './supabase.js';
 
     function updateSubmit() {
         if (!submitBtn) return;
-        submitBtn.style.display = formReady() || busy ? '' : 'none';
+        if (formReady() || busy) {
+            submitBtn.hidden = false;
+            submitBtn.removeAttribute('hidden');
+            submitBtn.classList.remove('hidden', 'hide');
+            submitBtn.style.setProperty('display', 'block', 'important');
+            submitBtn.style.setProperty('visibility', 'visible', 'important');
+            submitBtn.style.setProperty('opacity', '1', 'important');
+        } else {
+            submitBtn.style.setProperty('display', 'none', 'important');
+        }
     }
 
     function checkPin() {
@@ -738,12 +747,26 @@ import { supabase } from './supabase.js';
 
     setupWidget();
 
+    async function resolveUserId() {
+        const session = readSession();
+        const local = session ? (session.userId || session.id || (session.user && session.user.id)) : null;
+        if (local) return String(local);
+        try {
+            const { data } = await withTimeout(supabase.auth.getSession(), 8000);
+            const user = data && data.session && data.session.user;
+            return user && user.id ? String(user.id) : null;
+        } catch (err) {
+            return null;
+        }
+    }
+
+    setInterval(updateSubmit, 400);
+
     async function initialize() {
         startLoader();
         const safety = setTimeout(hideLoader, LOADER_SAFETY);
 
-        const session = readSession();
-        const id = session ? (session.userId || session.id || (session.user && session.user.id)) : null;
+        const id = await resolveUserId();
 
         if (!id) {
             try {
