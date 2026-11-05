@@ -35,6 +35,7 @@ const LOGOS = {
     const appContainer = $('appContainer');
     const planList = $('planList');
     const netRow = $('netRow');
+    const tabsBox = $('filterTabs');
     const buyForm = $('buyForm');
     const phoneInput = $('phone');
     const buyBtn = $('btnBuy');
@@ -43,6 +44,7 @@ const LOGOS = {
     let uuid = null;
     let balance = 0;
     let sources = { easy: {}, simple: {} };
+    let extraTabs = [];
     let activeTab = 'easy';
     let activeNet = null;
     let selectedPlan = null;
@@ -90,6 +92,27 @@ const LOGOS = {
         }
     }
 
+    async function loadExtras() {
+        try {
+            const [srcRes, planRes] = await Promise.all([
+                supabase.from('data_sources').select('source_key,label,icon,endpoint,sort_order').eq('active', true).order('sort_order', { ascending: true }),
+                supabase.from('data_plans').select('source_key,network_key,plan_id,plan_name,plan_type,plan_day,price').eq('active', true)
+            ]);
+            if (srcRes.error || planRes.error) return [];
+            const grouped = {};
+            (planRes.data || []).forEach((p) => {
+                if (!grouped[p.source_key]) grouped[p.source_key] = {};
+                if (!grouped[p.source_key][p.network_key]) grouped[p.source_key][p.network_key] = [];
+                grouped[p.source_key][p.network_key].push(p);
+            });
+            return (srcRes.data || [])
+                .filter((s) => grouped[s.source_key] && s.endpoint)
+                .map((s) => ({ key: s.source_key, label: s.label, icon: s.icon || 'fa-wifi', endpoint: s.endpoint, plans: grouped[s.source_key] }));
+        } catch (err) {
+            return [];
+        }
+    }
+
     async function loadProfile() {
         try {
             const { data, error } = await supabase.from('user_profiles').select('user_data').eq('id', uuid);
@@ -103,13 +126,40 @@ const LOGOS = {
         $('sumBalance').textContent = money(balance);
     }
 
+    function endpointFor(tab) {
+        if (tab === 'easy') return EASY_ENDPOINT;
+        if (tab === 'simple') return API_ENDPOINT;
+        const found = extraTabs.find((t) => t.key === tab);
+        return found ? found.endpoint : API_ENDPOINT;
+    }
+
+    function hasAnyPlans() {
+        return Object.keys(sources).some((k) => Object.keys(sources[k] || {}).length);
+    }
+
+    function renderTabs() {
+        tabsBox.innerHTML = '';
+        const all = [
+            { key: 'easy', label: 'Easy Power Plan', icon: 'fa-bolt' },
+            { key: 'simple', label: 'Simple Plan', icon: 'fa-layer-group' }
+        ].concat(extraTabs.map((t) => ({ key: t.key, label: t.label, icon: t.icon })));
+        all.forEach((t) => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'tab-btn' + (t.key === activeTab ? ' active' : '');
+            btn.innerHTML = '<i class="fa-solid ' + escapeHtml(t.icon) + '"></i> ' + escapeHtml(t.label);
+            btn.addEventListener('click', () => setTab(t.key));
+            tabsBox.appendChild(btn);
+        });
+    }
+
     function renderEmpty(icon, title, desc) {
         planList.innerHTML = '<div class="empty-state"><i class="fa-solid ' + icon + ' empty-icon"></i>' +
             '<h3 class="empty-title">' + escapeHtml(title) + '</h3><p class="empty-desc">' + escapeHtml(desc) + '</p></div>';
     }
 
     function renderNets() {
-        const available = NETWORKS.filter((n) => sources[activeTab][n.key]);
+        const available = NETWORKS.filter((n) => sources[activeTab] && sources[activeTab][n.key]);
         netRow.innerHTML = '';
         available.forEach((n) => {
             const chip = document.createElement('button');
@@ -133,10 +183,10 @@ const LOGOS = {
         if (!activeNet) {
             if (loadFailed) {
                 renderEmpty('fa-triangle-exclamation', 'Plans not loaded', 'We could not load the data plans. Please check your connection and refresh the page.');
-            } else if (!Object.keys(sources.easy).length && !Object.keys(sources.simple).length) {
+            } else if (!hasAnyPlans()) {
                 renderEmpty('fa-box-open', 'No plans yet', 'No data plan is on sale right now. Please check again later.');
             } else {
-                renderEmpty('fa-circle-xmark', 'Not Available', 'This plan type is not available right now. Please try the other plan.');
+                renderEmpty('fa-circle-xmark', 'Not Available', 'This plan type is not available right now. Please try another plan.');
             }
             return;
         }
@@ -171,15 +221,16 @@ const LOGOS = {
 
     function setTab(tab) {
         activeTab = tab;
-        $('tabEasy').classList.toggle('active', tab === 'easy');
-        $('tabSimple').classList.toggle('active', tab === 'simple');
-        const first = NETWORKS.find((n) => sources[tab][n.key]);
+        const first = NETWORKS.find((n) => sources[tab] && sources[tab][n.key]);
         activeNet = first ? first.key : null;
         selectedPlan = null;
         attemptId = null;
         buyForm.classList.add('hidden');
+        renderTabs();
         renderNets();
         renderPlans();
+        const current = tabsBox.querySelector('.tab-btn.active');
+        if (current && current.scrollIntoView) current.scrollIntoView({ block: 'nearest', inline: 'center' });
     }
 
     function phoneValid() {
@@ -205,7 +256,7 @@ const LOGOS = {
 
         let result;
         try {
-            result = await postJson(activeTab === 'easy' ? EASY_ENDPOINT : API_ENDPOINT, {
+            result = await postJson(endpointFor(activeTab), {
                 uuid: uuid,
                 source: activeTab,
                 network_key: activeNet,
@@ -250,10 +301,11 @@ const LOGOS = {
             return;
         }
         try {
-            const [, catalog] = await Promise.all([loadProfile(), loadCatalog()]);
+            const [, catalog, extras] = await Promise.all([loadProfile(), loadCatalog(), loadExtras()]);
+            extraTabs = extras;
             if (!catalog) {
-                loadFailed = true;
-                toast('Data plans could not be loaded. Please check your connection.', 'err');
+                loadFailed = extraTabs.length === 0;
+                if (loadFailed) toast('Data plans could not be loaded. Please check your connection.', 'err');
                 sources = { easy: {}, simple: {} };
             } else {
                 sources = { easy: catalog.easy || {}, simple: catalog.simple || {} };
@@ -261,15 +313,16 @@ const LOGOS = {
                     Object.keys(sources.easy).forEach((k) => { if (!catalog.online[SIM_NETWORKS[k]]) delete sources.easy[k]; });
                 }
             }
-            setTab(Object.keys(sources.easy).length ? 'easy' : 'simple');
+            extraTabs.forEach((t) => { sources[t.key] = t.plans; });
+            let start = 'easy';
+            if (!Object.keys(sources.easy).length) start = Object.keys(sources.simple).length ? 'simple' : (extraTabs[0] ? extraTabs[0].key : 'simple');
+            setTab(start);
         } finally {
             setTimeout(() => hideLoader(() => appContainer.classList.add('ready')), 1600);
         }
     }
 
     $('btnBack').addEventListener('click', () => { if (window.history.length > 1) window.history.back(); else window.location.href = 'dashboard.html'; });
-    $('tabEasy').addEventListener('click', () => setTab('easy'));
-    $('tabSimple').addEventListener('click', () => setTab('simple'));
     phoneInput.addEventListener('input', () => { phoneInput.value = phoneInput.value.replace(/\D/g, ''); attemptId = null; checkForm(); });
     $('pinRow').addEventListener('input', checkForm);
     buyBtn.addEventListener('click', submit);
