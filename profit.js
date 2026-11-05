@@ -1,177 +1,481 @@
-import { mountShell, showLoader, hideLoader, reveal, toast, escapeHtml, money, apiPost } from './uix.js';
-import { requireSession, accessToken } from './auth.js';
+import { supabase } from './supabase.js';
 
 (function () {
-    const API_ENDPOINT = '/api/profit';
-    const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-    const VIEWS = { daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly' };
-
-    mountShell();
-    showLoader();
+    const API_ENDPOINT = '/api/changepin';
+    const REQ_PASS = '@haruna66';
+    const SESSION_KEY = 'puredata_user_session';
+    const LOAD_TIMEOUT = 15000;
+    const LOGIN_TIMEOUT = 20000;
+    const API_TIMEOUT = 25000;
+    const LOADER_SAFETY = 9000;
+    const LOADER_DELAY = 1200;
 
     const $ = (id) => document.getElementById(id);
-    const container = $('appContainer');
-    const rowList = $('rowList');
 
-    let report = null;
-    let view = 'daily';
-    let busy = false;
+    const scene = $('scene');
+    const liquid = $('liquid');
+    const brand = $('brand');
+    const loaderLogo = $('loaderLogo');
+    const bg = $('bg');
+    const appContainer = $('appContainer');
 
-    function currentMonth() {
-        const d = new Date(Date.now() + 3600000);
-        return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0');
+    const profileName = $('profileName');
+    const profileEmail = $('profileEmail');
+    const profilePhone = $('profilePhone');
+    const profileJoined = $('profileJoined');
+    const profileReferredBy = $('profileReferredBy');
+
+    const btnBack = $('btnBack');
+    const btnTriggerPin = $('btnTriggerPin');
+    const pinOverlay = $('pinVerificationOverlay');
+    const pinFormCard = $('pinFormCard');
+    const btnClosePinForm = $('btnClosePinForm');
+    const pinEmailInput = $('pinEmailInput');
+    const pinPassInput = $('pinPassInput');
+    const btnSubmitPinVerify = $('btnSubmitPinVerify');
+    const togglePinPass = $('togglePinPass');
+
+    const toastContainer = $('toastContainer');
+    const toastIcon = $('toastIcon');
+    const toastMessage = $('toastMessage');
+
+    let userId = null;
+    let loaderHidden = false;
+    let toastTimer = null;
+    let accessToken = null;
+    let pinBusy = false;
+    let pinRun = 0;
+
+    function on(el, type, handler) {
+        if (el) el.addEventListener(type, handler);
     }
 
-    let month = currentMonth();
-
-    function monthName(key) {
-        const parts = key.split('-');
-        return MONTHS[Number(parts[1]) - 1] + ' ' + parts[0];
-    }
-
-    function shiftMonth(key, step) {
-        const parts = key.split('-');
-        const d = new Date(Date.UTC(Number(parts[0]), Number(parts[1]) - 1 + step, 1));
-        return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0');
-    }
-
-    function dayLabel(date) {
-        return new Date(date + 'T00:00:00Z').toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', timeZone: 'UTC' });
-    }
-
-    function rowsForView() {
-        if (!report) return [];
-        if (view === 'daily') {
-            return report.days.slice().reverse().map((r) => ({ label: dayLabel(r.date), count: r.count, sales: r.sales, profit: r.profit }));
+    function readSession() {
+        try {
+            const raw = localStorage.getItem(SESSION_KEY);
+            return raw ? JSON.parse(raw) : null;
+        } catch (err) {
+            return null;
         }
-        if (view === 'weekly') {
-            const short = MONTHS[Number(month.split('-')[1]) - 1].slice(0, 3);
-            return report.weeks.slice().reverse().map((r) => ({ label: 'Week ' + r.week + ' (' + r.from + '-' + r.to + ' ' + short + ')', count: r.count, sales: r.sales, profit: r.profit }));
-        }
-        return report.months.slice().reverse().map((r) => ({ label: monthName(r.month), count: r.count, sales: r.sales, profit: r.profit }));
     }
 
-    function render() {
-        $('monthLabel').textContent = monthName(month);
-        $('btnNext').disabled = month >= currentMonth();
-        const total = report ? report.total : { count: 0, sales: 0, profit: 0 };
-        $('sumProfit').textContent = money(total.profit);
-        $('sumCount').textContent = String(total.count);
-        $('sumSales').textContent = money(total.sales);
+    function sessionId(session) {
+        if (!session || typeof session !== 'object') return null;
+        const id = session.userId || session.id || (session.user && session.user.id);
+        return id ? String(id) : null;
+    }
 
-        const rows = rowsForView();
-        rowList.innerHTML = '';
-        if (!rows.length) {
-            rowList.innerHTML = '<div class="empty-state"><i class="fa-solid fa-chart-line empty-icon"></i><h3 class="empty-title">No sales yet</h3><p class="empty-desc">Profit will appear here after the first sale in this period.</p></div>';
-            return;
-        }
-        rows.forEach((r) => {
-            const card = document.createElement('div');
-            card.className = 'transaction-card';
-            card.innerHTML =
-                '<div class="tx-left"><div class="tx-icon-frame"><i class="fa-solid fa-coins"></i></div>' +
-                '<div class="tx-meta"><span class="tx-title">' + escapeHtml(r.label) + '</span>' +
-                '<span class="tx-date">' + r.count + ' sold • ₦' + escapeHtml(money(r.sales)) + '</span></div></div>' +
-                '<div class="tx-right"><span class="tx-amount good">₦' + escapeHtml(money(r.profit)) + '</span></div>';
-            rowList.appendChild(card);
+    function withTimeout(promise, ms) {
+        return new Promise((resolve, reject) => {
+            const timer = setTimeout(() => reject(new Error('timeout')), ms);
+            Promise.resolve(promise).then(
+                (value) => { clearTimeout(timer); resolve(value); },
+                (error) => { clearTimeout(timer); reject(error); }
+            );
         });
     }
 
-    async function load() {
-        const token = await accessToken();
-        if (!token) {
-            window.location.reload();
-            return;
+    function showToast(message, isSuccess = true) {
+        if (!toastContainer) return;
+        if (toastMessage) toastMessage.textContent = message;
+        if (toastIcon) {
+            toastIcon.className = isSuccess
+                ? 'fa-solid fa-circle-check toast-icon success'
+                : 'fa-solid fa-circle-exclamation toast-icon error';
         }
-        const r = await apiPost(API_ENDPOINT, token, { action: 'report', month: month });
-        if (r.status === 401) setTimeout(() => window.location.reload(), 2200);
-        if (!r.data.success) {
-            toast(r.data.message || 'Could not load the report. Try again.', 'err');
-            return;
-        }
-        report = r.data;
-        render();
+        toastContainer.classList.add('active');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => toastContainer.classList.remove('active'), 3200);
     }
 
-    async function changeMonth(step) {
-        if (busy) return;
-        const next = shiftMonth(month, step);
-        if (next > currentMonth()) return;
-        busy = true;
-        month = next;
-        showLoader();
-        await load();
-        hideLoader();
-        busy = false;
+    function startLoader() {
+        setTimeout(() => { if (liquid) liquid.classList.add('fill'); }, 400);
     }
 
-    function setView(v) {
-        view = v;
-        $('tabDaily').classList.toggle('active', v === 'daily');
-        $('tabWeekly').classList.toggle('active', v === 'weekly');
-        $('tabMonthly').classList.toggle('active', v === 'monthly');
-        render();
-    }
-
-    function downloadPdf() {
-        const rows = rowsForView();
-        if (!rows.length) {
-            toast('There is no data to put in the PDF yet.', 'err');
-            return;
+    function hideLoader() {
+        if (loaderHidden) return;
+        loaderHidden = true;
+        if (liquid) {
+            liquid.style.transition = 'height 1.2s cubic-bezier(0.4, 0, 0.2, 1)';
+            liquid.style.height = '0%';
         }
-        if (!window.jspdf) {
-            toast('The PDF tool could not load. Check your connection.', 'err');
-            return;
-        }
-        showLoader();
+        if (brand) brand.classList.add('hide');
+        if (loaderLogo) loaderLogo.classList.add('hide');
+        if (bg) bg.classList.add('show');
         setTimeout(() => {
-            try {
-                const doc = new window.jspdf.jsPDF();
-                const first = view === 'daily' ? 'Day' : (view === 'weekly' ? 'Week' : 'Month');
-                let count = 0;
-                let sales = 0;
-                let profit = 0;
-                rows.forEach((r) => { count += r.count; sales += r.sales; profit += r.profit; });
-                doc.setFontSize(18);
-                doc.text('AmanData Profit Report', 14, 18);
-                doc.setFontSize(11);
-                doc.text('Report: ' + VIEWS[view] + (view === 'monthly' ? '' : ' - ' + monthName(month)), 14, 26);
-                doc.text('Generated: ' + new Date().toLocaleString('en-GB'), 14, 32);
-                doc.autoTable({
-                    startY: 38,
-                    head: [[first, 'Items Sold', 'Sales (NGN)', 'Profit (NGN)']],
-                    body: rows.map((r) => [r.label, String(r.count), money(r.sales), money(r.profit)]),
-                    foot: [['Total', String(count), money(sales), money(profit)]],
-                    headStyles: { fillColor: [108, 92, 231] },
-                    footStyles: { fillColor: [72, 52, 212] }
-                });
-                doc.save('amandata-profit-' + view + '-' + month + '.pdf');
-                hideLoader();
-                toast('Your PDF has been downloaded.', 'ok');
-            } catch (err) {
-                hideLoader();
-                toast('Could not create the PDF. Try again.', 'err');
+            if (scene) {
+                scene.classList.add('hidden');
+                scene.style.display = 'none';
             }
-        }, 700);
+            if (appContainer) {
+                appContainer.classList.add('ready');
+                appContainer.style.opacity = '1';
+                appContainer.style.visibility = 'visible';
+            }
+        }, 600);
     }
+
+    function formatDate(value) {
+        if (!value) return 'N/A';
+        const date = new Date(value);
+        return isNaN(date.getTime()) ? 'N/A' : date.toLocaleDateString();
+    }
+
+    function setText(el, value) {
+        if (el) el.textContent = value;
+    }
+
+    async function loadUserProfile() {
+        try {
+            const { data, error } = await withTimeout(
+                supabase.from('user_profiles').select('id, user_data').eq('id', userId),
+                LOAD_TIMEOUT
+            );
+            if (error) throw error;
+            const row = Array.isArray(data) ? data[0] : null;
+            if (!row || !row.user_data) throw new Error('missing');
+
+            const info = row.user_data;
+            setText(profileName, info.full_name || 'Anonymous User');
+            setText(profileEmail, info.email || 'N/A');
+            setText(profilePhone, info.phone_number || 'N/A');
+            setText(profileJoined, formatDate(info.register_date));
+            setText(profileReferredBy, info.referred_by || 'None');
+        } catch (err) {
+            showToast('Failed to load your profile. Please refresh the page.', false);
+        }
+    }
+
+    function setupPasswordToggle(trigger, field) {
+        on(trigger, 'click', () => {
+            if (!field) return;
+            const hidden = field.type === 'password';
+            field.type = hidden ? 'text' : 'password';
+            trigger.className = (hidden ? 'fa-regular fa-eye-slash' : 'fa-regular fa-eye') + ' toggle-password';
+        });
+    }
+
+    const hiddenChildren = new WeakMap();
+
+    function createFlow(card) {
+        let host = null;
+
+        function show(html) {
+            if (!card) return null;
+            if (!host) {
+                host = document.createElement('div');
+                card.appendChild(host);
+            }
+            Array.from(card.children).forEach((child) => {
+                if (child === host) return;
+                if (!hiddenChildren.has(child)) hiddenChildren.set(child, child.style.display);
+                child.style.display = 'none';
+            });
+            host.innerHTML = html;
+            return host;
+        }
+
+        function end() {
+            if (!card) return;
+            if (host && host.parentNode) host.parentNode.removeChild(host);
+            host = null;
+            Array.from(card.children).forEach((child) => {
+                if (hiddenChildren.has(child)) {
+                    child.style.display = hiddenChildren.get(child);
+                    hiddenChildren.delete(child);
+                }
+            });
+        }
+
+        return { show, end };
+    }
+
+    const pinFlow = createFlow(pinFormCard);
+
+    function loaderHtml(text) {
+        return '<div class="inner-loader"><div class="inner-loader-spinner"></div>' +
+            '<span style="font-size: 13px; color: var(--text-muted);">' + text + '</span></div>';
+    }
+
+    function loginErrorMessage(error) {
+        const text = String((error && error.message) || '').toLowerCase();
+        if (text.includes('invalid login credentials')) return 'Incorrect email or password. Try again!';
+        if (text.includes('email not confirmed')) return 'Please confirm your email address first.';
+        if (text.includes('rate limit') || text.includes('too many')) return 'Too many attempts. Please wait a moment and try again.';
+        if (text.includes('failed to fetch') || text.includes('network')) return 'Network error! Please check your internet connection.';
+        return 'Login failed. Please try again.';
+    }
+
+    async function postChange(payload) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), API_TIMEOUT);
+        try {
+            const res = await fetch(API_ENDPOINT, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + (accessToken || '')
+                },
+                body: JSON.stringify(Object.assign({ req_pass: REQ_PASS, uuid: userId }, payload)),
+                signal: controller.signal
+            });
+            let data = null;
+            try {
+                data = await res.json();
+            } catch (err) {
+                data = null;
+            }
+            if (!data || typeof data !== 'object') {
+                return { success: false, unsure: true, message: 'The server did not answer properly. Please try again.' };
+            }
+            return data;
+        } catch (err) {
+            return { success: false, unsure: true, message: 'Network problem. Please check your connection and try again.' };
+        } finally {
+            clearTimeout(timer);
+        }
+    }
+
+    function closePin() {
+        pinRun++;
+        accessToken = null;
+        pinBusy = false;
+        pinFlow.end();
+        if (btnSubmitPinVerify) btnSubmitPinVerify.disabled = false;
+        if (pinPassInput) pinPassInput.value = '';
+        if (pinOverlay) pinOverlay.classList.remove('active');
+    }
+
+    function pinScreen(title, text, prefix, onComplete) {
+        const run = pinRun;
+        const host = pinFlow.show(
+            '<div class="form-header"><h3 class="form-title">' + title + '</h3>' +
+            '<button type="button" class="btn-close-form" id="' + prefix + 'Close"><i class="fa-solid fa-xmark"></i></button></div>' +
+            '<p style="font-size: 13px; color: var(--text-muted); text-align: center;">' + text + '</p>' +
+            '<div class="pin-box-container">' +
+            [1, 2, 3, 4].map((n) => '<input type="password" maxlength="1" inputmode="numeric" autocomplete="off" class="pin-input-field" id="' + prefix + '_' + n + '">').join('') +
+            '</div>'
+        );
+        if (!host) return;
+
+        on($(prefix + 'Close'), 'click', closePin);
+
+        const inputs = [1, 2, 3, 4].map((n) => $(prefix + '_' + n));
+        let done = false;
+
+        inputs.forEach((input, index) => {
+            on(input, 'input', () => {
+                input.value = input.value.replace(/\D/g, '').slice(0, 1);
+                if (input.value && index < inputs.length - 1) inputs[index + 1].focus();
+                if (!done && run === pinRun && inputs.every((item) => item.value.length === 1)) {
+                    done = true;
+                    onComplete(inputs.map((item) => item.value).join(''));
+                }
+            });
+            on(input, 'keydown', (event) => {
+                if (event.key === 'Backspace' && !input.value && index > 0) inputs[index - 1].focus();
+            });
+        });
+
+        if (inputs[0]) inputs[0].focus();
+    }
+
+    function renderPinSetup() {
+        pinScreen('Enter New PIN', 'Set up a secure 4-digit transaction PIN.', 'pin', (first) => {
+            renderPinConfirm(first);
+        });
+    }
+
+    function renderPinConfirm(first) {
+        pinScreen('Confirm New PIN', 'Enter the same 4-digit PIN again.', 'cpin', (second) => {
+            if (second !== first) {
+                showToast('PINs do not match. Try again.', false);
+                renderPinSetup();
+                return;
+            }
+            submitPin(second);
+        });
+    }
+
+    async function submitPin(newPin) {
+        if (pinBusy) return;
+        pinBusy = true;
+        const run = pinRun;
+        pinFlow.show(loaderHtml('Saving your PIN...'));
+
+        const res = await postChange({ pin: newPin });
+
+        pinBusy = false;
+        if (run !== pinRun) return;
+
+        if (res.success) {
+            closePin();
+            showToast('Transaction PIN updated successfully!');
+            return;
+        }
+
+        if (res.unsure || res.retry) {
+            showToast(res.message || 'Could not save your PIN. Please try again.', false);
+            renderPinSetup();
+            return;
+        }
+
+        showToast(res.message || 'Could not update your PIN.', false);
+        closePin();
+    }
+
+    async function loginForPin() {
+        if (pinBusy) return;
+        const email = pinEmailInput ? pinEmailInput.value.trim().toLowerCase() : '';
+        const password = pinPassInput ? pinPassInput.value : '';
+
+        if (!email || !password) return showToast('All fields are required.', false);
+
+        pinBusy = true;
+        const run = pinRun;
+        btnSubmitPinVerify.disabled = true;
+
+        let result = null;
+        let failure = null;
+        try {
+            result = await withTimeout(supabase.auth.signInWithPassword({ email: email, password: password }), LOGIN_TIMEOUT);
+        } catch (err) {
+            failure = err && err.message === 'timeout' ? 'Connection is slow. Please try again.' : 'Network failure. Please try again.';
+        }
+
+        btnSubmitPinVerify.disabled = false;
+        pinBusy = false;
+        if (run !== pinRun) return;
+
+        if (failure) return showToast(failure, false);
+
+        const data = result && result.data;
+        if (result && result.error) return showToast(loginErrorMessage(result.error), false);
+        if (!data || !data.user || !data.session) return showToast('Login failed. Please try again.', false);
+
+        if (String(data.user.id).toLowerCase() !== String(userId).toLowerCase()) {
+            showToast('This email does not belong to the logged in account.', false);
+            try {
+                await supabase.auth.signOut();
+            } catch (err) {}
+            try {
+                localStorage.removeItem(SESSION_KEY);
+            } catch (err) {}
+            setTimeout(() => window.location.replace('register.html'), 1500);
+            return;
+        }
+
+        accessToken = data.session.access_token;
+        if (pinPassInput) pinPassInput.value = '';
+        renderPinSetup();
+    }
+
+    function setupWidget() {
+        const widget = $('pd-whatsapp-widget');
+        const link = $('pd-wa-link');
+        if (!widget || !link) return;
+
+        let dragging = false;
+        let moved = false;
+        let startX = 0;
+        let startY = 0;
+        let initialX = 0;
+        let initialY = 0;
+
+        function point(event) {
+            const source = event.touches && event.touches.length ? event.touches[0] : event;
+            return { x: source.clientX, y: source.clientY };
+        }
+
+        function dragStart(event) {
+            moved = false;
+            dragging = true;
+            const p = point(event);
+            const rect = widget.getBoundingClientRect();
+            initialX = rect.left;
+            initialY = rect.top;
+            startX = p.x;
+            startY = p.y;
+        }
+
+        function drag(event) {
+            if (!dragging) return;
+            if (event.cancelable) event.preventDefault();
+            const p = point(event);
+            const dx = p.x - startX;
+            const dy = p.y - startY;
+            if (Math.abs(dx) > 5 || Math.abs(dy) > 5) moved = true;
+
+            const maxX = window.innerWidth - widget.offsetWidth - 10;
+            const maxY = window.innerHeight - widget.offsetHeight - 10;
+            const x = Math.max(10, Math.min(initialX + dx, maxX));
+            const y = Math.max(10, Math.min(initialY + dy, maxY));
+
+            widget.style.left = x + 'px';
+            widget.style.top = y + 'px';
+            widget.style.bottom = 'auto';
+            widget.style.right = 'auto';
+        }
+
+        function dragEnd() {
+            dragging = false;
+        }
+
+        widget.addEventListener('mousedown', dragStart);
+        document.addEventListener('mousemove', drag);
+        document.addEventListener('mouseup', dragEnd);
+        widget.addEventListener('touchstart', dragStart, { passive: false });
+        document.addEventListener('touchmove', drag, { passive: false });
+        document.addEventListener('touchend', dragEnd);
+        link.addEventListener('click', (event) => {
+            if (moved) event.preventDefault();
+        });
+    }
+
+    on(btnBack, 'click', () => { window.location.href = 'dashboard.html'; });
+
+    on(btnTriggerPin, 'click', () => {
+        closePin();
+        if (pinEmailInput) pinEmailInput.value = '';
+        if (pinPassInput) pinPassInput.value = '';
+        if (pinOverlay) pinOverlay.classList.add('active');
+    });
+
+    on(btnClosePinForm, 'click', closePin);
+    on(btnSubmitPinVerify, 'click', loginForPin);
+    setupPasswordToggle(togglePinPass, pinPassInput);
+    setupWidget();
 
     async function initialize() {
+        startLoader();
+        const safety = setTimeout(hideLoader, LOADER_SAFETY);
+
+        const id = sessionId(readSession());
+        if (!id) {
+            try {
+                localStorage.removeItem(SESSION_KEY);
+            } catch (err) {}
+            window.location.replace('register.html');
+            return;
+        }
+
+        userId = id;
+
         try {
-            const session = await requireSession();
-            if (!session) return;
-            await load();
+            await loadUserProfile();
         } finally {
-            reveal(container, 1200);
+            clearTimeout(safety);
+            setTimeout(hideLoader, LOADER_DELAY);
         }
     }
 
-    $('btnBack').addEventListener('click', () => { window.location.href = 'admin.html'; });
-    $('btnPrev').addEventListener('click', () => changeMonth(-1));
-    $('btnNext').addEventListener('click', () => changeMonth(1));
-    $('tabDaily').addEventListener('click', () => setView('daily'));
-    $('tabWeekly').addEventListener('click', () => setView('weekly'));
-    $('tabMonthly').addEventListener('click', () => setView('monthly'));
-    $('btnPdf').addEventListener('click', downloadPdf);
+    function start() {
+        initialize().catch(() => { hideLoader(); });
+    }
 
-    initialize();
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', start);
+    } else {
+        start();
+    }
 })();
