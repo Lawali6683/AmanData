@@ -1,8 +1,11 @@
+const SUPABASE_URL = "https://pzyxknmysydjbszumptt.supabase.co";
+
 const HEADERS = { "Content-Type": "application/json", "Cache-Control": "no-store" };
 const MAX_ATTEMPTS = 5;
 const LOCK_SECONDS = 600;
 const DB_TIMEOUT = 12000;
 const AUTH_TIMEOUT = 12000;
+const NOTIFY_TIMEOUT = 10000;
 const MIN_PASSWORD = 6;
 const MAX_PASSWORD = 72;
 
@@ -12,10 +15,6 @@ function reply(body, status = 200) {
 
 function isUuid(value) {
   return typeof value === "string" && /^[0-9a-fA-F-]{36}$/.test(value);
-}
-
-function baseUrl(env) {
-  return String(env.SUPABASE_URL || "").trim().replace(/\/rest\/v1\/?$/, "").replace(/\/+$/, "");
 }
 
 function serviceHeaders(env, json) {
@@ -45,9 +44,8 @@ async function call(url, options) {
 }
 
 async function getProfile(env, uuid) {
-  const res = await call(`${baseUrl(env)}/rest/v1/user_profiles?id=eq.${encodeURIComponent(uuid)}&select=id,user_data&limit=1`, {
-    headers: serviceHeaders(env, false)
-  });
+  const url = `${SUPABASE_URL}/rest/v1/user_profiles?id=eq.${encodeURIComponent(uuid)}&select=id,user_data&limit=1`;
+  const res = await call(url, { headers: serviceHeaders(env, false) });
   if (!res.ok) return { busy: true };
   if (!Array.isArray(res.data) || res.data.length === 0) return { profile: null };
   return { profile: res.data[0] };
@@ -55,7 +53,7 @@ async function getProfile(env, uuid) {
 
 async function checkCredentials(env, email, password) {
   try {
-    const res = await fetch(`${baseUrl(env)}/auth/v1/token?grant_type=password`, {
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
       method: "POST",
       headers: serviceHeaders(env, true),
       body: JSON.stringify({ email, password }),
@@ -84,6 +82,7 @@ async function authorize(env, body) {
   const uuid = body.uuid;
   const email = String(body.email || "").trim();
   const current = String(body.current_password || "");
+
   if (!isUuid(uuid)) return { response: reply({ success: false, message: "Bad Parameters" }, 400) };
   if (!email || !current) return { response: reply({ success: false, message: "Email and current password are required" }) };
 
@@ -102,7 +101,8 @@ async function authorize(env, body) {
     return { response: reply({ success: false, message: "Could not check your credentials right now. Please try again.", retry: true }) };
   }
 
-  const matches = checked.ok &&
+  const matches =
+    checked.ok &&
     String(checked.id || "").toLowerCase() === String(uuid).toLowerCase() &&
     (storedEmail === "" || storedEmail === email.toLowerCase());
 
@@ -124,7 +124,7 @@ function notify(context, request, profile, action) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ full_name: data.full_name || "", email: data.email || "", action }),
-    signal: AbortSignal.timeout(10000)
+    signal: AbortSignal.timeout(NOTIFY_TIMEOUT)
   }).catch(() => {});
   if (context && typeof context.waitUntil === "function") context.waitUntil(task);
 }
@@ -136,7 +136,7 @@ async function handlePin(env, context, request, body) {
   const auth = await authorize(env, body);
   if (auth.response) return auth.response;
 
-  const res = await call(`${baseUrl(env)}/rest/v1/rpc/set_user_pin`, {
+  const res = await call(`${SUPABASE_URL}/rest/v1/rpc/set_user_pin`, {
     method: "POST",
     headers: serviceHeaders(env, true),
     body: JSON.stringify({ p_user: body.uuid, p_pin: pin })
@@ -157,7 +157,7 @@ async function handlePassword(env, context, request, body) {
   const auth = await authorize(env, body);
   if (auth.response) return auth.response;
 
-  const res = await call(`${baseUrl(env)}/auth/v1/admin/users/${encodeURIComponent(body.uuid)}`, {
+  const res = await call(`${SUPABASE_URL}/auth/v1/admin/users/${encodeURIComponent(body.uuid)}`, {
     method: "PUT",
     headers: serviceHeaders(env, true),
     body: JSON.stringify({ password: next })
@@ -189,7 +189,8 @@ async function handle(context, request, env) {
   if (!body || (body.password !== required && body.req_pass !== required)) {
     return reply({ success: false, message: "Unauthorized Access" }, 401);
   }
-  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
+
+  if (!env.SUPABASE_SERVICE_ROLE_KEY) {
     return reply({ success: false, message: "Server is not configured" }, 500);
   }
 
