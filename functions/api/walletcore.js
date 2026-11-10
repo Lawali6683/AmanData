@@ -30,7 +30,7 @@ export const fail = (message, status = 400) => json({ success: false, message: m
 const pendingResponse = () => json({ success: false, pending: true, message: MSG.pending });
 
 export const snippet = (text) => String(text === undefined || text === null ? '' : text).replace(/\s+/g, ' ').slice(0, 200);
-const cleanRoot = (url) => String(url || '').trim().replace(/\/rest\/v1\/?$/, '').replace(/\/+$/, '');
+const SUPABASE_ROOT = 'https://pzyxknmysydjbszumptt.supabase.co';
 export const toNumber = (v) => parseFloat(String(v === undefined || v === null ? 0 : v).replace(/,/g, '')) || 0;
 export const round2 = (n) => Math.round(n * 100) / 100;
 
@@ -72,7 +72,7 @@ export function parseList(value) {
 export async function rest(env, path, options) {
     const o = options || {};
     const key = env.SUPABASE_SERVICE_ROLE_KEY;
-    const res = await fetch(cleanRoot(env.SUPABASE_URL) + '/rest/v1/' + path, {
+    const res = await fetch(SUPABASE_ROOT + '/rest/v1/' + path, {
         method: o.method || 'GET',
         body: o.body,
         headers: { apikey: key, Authorization: 'Bearer ' + key, 'Content-Type': 'application/json', Prefer: o.prefer || 'return=minimal' },
@@ -278,7 +278,7 @@ export async function processPurchase(context, input) {
     const reference = input.reference;
     const service = input.service;
 
-    if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY || !env.BILAL_API_KEY) {
+    if (!env.SUPABASE_SERVICE_ROLE_KEY || !env.BILAL_API_KEY) {
         console.error(service + ': missing environment variables');
         return fail(MSG.server, 500);
     }
