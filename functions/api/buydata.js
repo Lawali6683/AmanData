@@ -7,12 +7,42 @@ const NETWORKS = {
     '9mobile_data': { id: 4, name: 'T2' }
 };
 
-async function liveCost(network, planId) {
+function providerHeaders(env) {
+    const headers = { Accept: 'application/json' };
+    if (env.BILAL_API_KEY) {
+        headers.Authorization = 'Bearer ' + env.BILAL_API_KEY;
+        headers['X-API-Key'] = env.BILAL_API_KEY;
+    }
+    return headers;
+}
+
+async function fetchLiveCost(env, network, planId) {
+    const res = await fetch(PROVIDER + '/api/v1/plans/data?network=' + network, {
+        headers: providerHeaders(env),
+        signal: AbortSignal.timeout(10000)
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const list = data && Array.isArray(data.data) ? data.data : [];
+    const found = list.find((p) => String(p.plan_id) === planId);
+    return found ? positiveOrNull(found.amount) : null;
+}
+
+async function liveCost(env, network, planId) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+            const cost = await fetchLiveCost(env, network, planId);
+            if (cost !== null) return cost;
+        } catch (err) {}
+    }
+    return null;
+}
+
+async function storedCost(env, netKey, planId) {
     try {
-        const res = await fetch(PROVIDER + '/api/v1/plans/data?network=' + network, { signal: AbortSignal.timeout(8000) });
-        const data = await res.json();
-        const found = data && Array.isArray(data.data) ? data.data.find((p) => String(p.plan_id) === planId) : null;
-        return found ? positiveOrNull(found.amount) : null;
+        const row = await firstRow(env, 'aipbuydata');
+        const plan = parseList(row ? row[netKey] : null).find((p) => String(p.plan_id) === planId);
+        return plan ? positiveOrNull(plan.amount) : null;
     } catch (err) {
         return null;
     }
@@ -49,7 +79,8 @@ export async function onRequestPost(context) {
             const price = plan ? round2(Number(plan.price)) : 0;
             if (!plan || !(price > 0)) return fail('This plan is no longer available.', 400);
 
-            const cost = await liveCost(net.name, planId);
+            let cost = await liveCost(env, net.name, planId);
+            if (cost === null) cost = await storedCost(env, netKey, planId);
             if (cost !== null && price < cost) return fail('This plan is temporarily unavailable. Please try again later.', 400);
 
             return {
