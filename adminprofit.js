@@ -324,3 +324,4 @@ import { requireSession, accessToken } from './auth.js';
 
     initialize();
 })();
+
