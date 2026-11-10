@@ -5,6 +5,7 @@ const MAX_PIN_ATTEMPTS = 5;
 const PIN_LOCK_SECONDS = 600;
 const REFERRAL_PERCENT = 1;
 const OWNER_PERCENT = 40;
+const OWNER_EMAIL = 'harunalawali5522@gmail.com';
 const DB_TIMEOUT = 15000;
 const PROVIDER_TIMEOUT = 28000;
 
@@ -196,6 +197,29 @@ async function attempt(times, label, fn) {
     return false;
 }
 
+async function recordPending(env, info, reason) {
+    try {
+        const res = await rest(env, 'pending_profit?on_conflict=reference', {
+            method: 'POST',
+            body: JSON.stringify({
+                reference: info.reference,
+                user_id: info.uuid,
+                service: info.service,
+                description: info.title,
+                cost: info.cost,
+                price: info.price,
+                profit: info.profit,
+                reason: snippet(reason),
+                status: 'pending'
+            }),
+            prefer: 'resolution=ignore-duplicates,return=minimal'
+        });
+        if (!res.ok) console.error('pending_profit failed', info.reference, res.status, snippet(res.data && res.data.message));
+    } catch (err) {
+        console.error('pending_profit error', info.reference, err && err.message);
+    }
+}
+
 async function bookkeeping(env, info) {
     try {
         const res = await rest(env, 'profit_log', {
@@ -215,20 +239,37 @@ async function bookkeeping(env, info) {
         console.error('profit_log error', info.reference, err && err.message);
     }
 
+    if (info.unknown) {
+        await recordPending(env, info, 'Provider cost unknown. Enter the profit by hand.');
+        return;
+    }
+
     if (!(info.profit > 0)) return;
 
-    await attempt(3, 'share_profit ' + info.reference, async () => {
-        const res = await rpc(info.env, 'share_profit', {
+    let lastError = 'share_profit did not answer';
+    const shared = await attempt(3, 'share_profit ' + info.reference, async () => {
+        const res = await rpc(env, 'share_profit', {
             p_user: info.uuid,
             p_reference: info.reference,
             p_profit: info.profit,
-            p_owner_email: String(info.env.OWNER_EMAIL || ''),
+            p_owner_email: OWNER_EMAIL,
             p_referral_percent: REFERRAL_PERCENT,
             p_owner_percent: OWNER_PERCENT
         });
-        if (!res.ok) console.error('share_profit failed', info.reference, res.status, snippet(rpcMessage(res)));
-        return res.ok;
+        if (!res.ok) {
+            lastError = 'share_profit ' + res.status + ' ' + snippet(rpcMessage(res));
+            console.error('share_profit failed', info.reference, lastError);
+            return false;
+        }
+        if (res.data === false) {
+            lastError = 'share_profit returned false';
+            console.error('share_profit refused', info.reference);
+            return false;
+        }
+        return true;
     });
+
+    if (!shared) await recordPending(env, info, lastError);
 }
 
 export async function processPurchase(context, input) {
@@ -300,14 +341,14 @@ export async function processPurchase(context, input) {
             const rawCost = typeof order.cost === 'function' ? order.cost(outcome) : order.cost;
             const known = rawCost !== null && rawCost !== undefined && isFinite(rawCost);
             const task = bookkeeping(env, {
-                env: env,
                 uuid: uuid,
                 service: service,
                 title: order.tx.title,
                 reference: reference,
                 cost: known ? round2(rawCost) : 0,
                 price: order.total,
-                profit: known ? round2(order.total - rawCost) : 0
+                profit: known ? round2(order.total - rawCost) : 0,
+                unknown: !known
             });
             if (typeof context.waitUntil === 'function') context.waitUntil(task);
             else await task;
