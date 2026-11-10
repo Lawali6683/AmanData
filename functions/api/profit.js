@@ -1,13 +1,15 @@
 const json = (body, status = 200) =>
     new Response(JSON.stringify(body), { status: status, headers: { 'Content-Type': 'application/json' } });
 
+const SUPABASE_ROOT = 'https://pzyxknmysydjbszumptt.supabase.co';
 const HOUR = 3600000;
 const pad = (n) => String(n).padStart(2, '0');
 const round2 = (n) => Math.round(n * 100) / 100;
 
 export async function onRequestPost({ request, env }) {
-    const root = String(env.SUPABASE_URL).replace(/\/rest\/v1\/?$/, '').replace(/\/$/, '');
+    const root = SUPABASE_ROOT;
     const key = env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!key) return json({ success: false, message: 'Server setup is incomplete: SUPABASE_SERVICE_ROLE_KEY is missing in Cloudflare.' }, 500);
 
     const token = (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
     if (!token) return json({ success: false, message: 'Please sign in first.' }, 401);
