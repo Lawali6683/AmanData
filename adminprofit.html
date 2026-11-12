@@ -24,11 +24,6 @@ window.addEventListener('error',function(e){var t=e.target;if(t&&t!==window&&t.t
 </section>
 <p class="form-desc" id="ownerLine"></p>
 <div class="badge low hidden" id="ownerWarn"><i class="fa-solid fa-circle-exclamation"></i> The owner account was not found. Crediting will fail until the email is registered.</div>
-<section class="form-card">
-<h3 class="form-title">Add by hand</h3>
-<div class="bulk-row"><input class="input" id="manualAmount" type="number" inputmode="decimal" min="0" step="0.01" placeholder="Profit in ₦"><input class="input" id="manualNote" type="text" maxlength="80" placeholder="Note (optional)"></div>
-<button type="button" class="btn-small" id="btnAddManual"><i class="fa-solid fa-plus"></i> Add</button>
-</section>
 <div class="section-head"><h2>Profit to share</h2><span class="count-pill" id="listCount">0 items</span></div>
 <div class="pending-list" id="profitList"></div>
 <div class="empty-state hidden" id="emptyState"><i class="fa-solid fa-circle-check empty-icon"></i><h3 class="empty-title">Nothing waiting</h3><p class="empty-desc">Profit that could not be shared will appear here.</p></div>
