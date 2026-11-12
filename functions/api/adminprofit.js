@@ -40,7 +40,7 @@ function reason(res) {
         return OWNER_EMAIL + ' was not found in user_profiles. Check that this email is registered.';
     }
     if (/USER_NOT_FOUND/.test(message)) return 'A wallet account needed for this credit was not found.';
-    if (/INVALID_AMOUNT|PROFIT_MUST_BE_ABOVE_ZERO/.test(message)) return 'The profit amount must be above zero.';
+    if (/NO_PROFIT|PROFIT_MUST_BE_ABOVE_ZERO/.test(message)) return 'This item has no profit to share.';
     if (/REFERENCE_REQUIRED/.test(message)) return 'The reference is missing.';
     return snippet(message) || 'Database error ' + (res ? res.status : '');
 }
@@ -134,9 +134,8 @@ export async function onRequestPost({ request, env }) {
 
             for (const raw of list) {
                 const reference = String((raw && raw.reference) || '');
-                const profit = round2(Number(raw && raw.profit));
-                if (!/^[A-Za-z0-9_.:-]{1,120}$/.test(reference) || !isFinite(profit) || profit <= 0 || profit > 10000000) {
-                    results.push({ reference: reference, ok: false, message: 'This item has an invalid reference or amount.' });
+                if (!/^[A-Za-z0-9_.:-]{1,120}$/.test(reference)) {
+                    results.push({ reference: reference, ok: false, message: 'This item has an invalid reference.' });
                     continue;
                 }
                 if (seen[reference]) {
@@ -149,7 +148,6 @@ export async function onRequestPost({ request, env }) {
                 try {
                     res = await rpc(env, 'admin_credit_profit', {
                         p_reference: reference,
-                        p_profit: profit,
                         p_owner_email: OWNER_EMAIL,
                         p_referral_percent: REFERRAL_PERCENT,
                         p_owner_percent: OWNER_PERCENT
