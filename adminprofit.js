@@ -9,7 +9,11 @@ import { requireSession, accessToken } from './auth.js';
     mountShell();
     showLoader();
 
-    const $ = (id) => document.getElementById(id);
+    const $ = (id) => document.getElementById(id) || document.createElement('div');
+    const on = (id, name, fn) => {
+        const node = document.getElementById(id);
+        if (node) node.addEventListener(name, fn);
+    };
     const container = $('appContainer');
     const list = $('profitList');
 
@@ -219,9 +223,9 @@ import { requireSession, accessToken } from './auth.js';
         renderTotals();
     });
 
-    $('btnConfirm').addEventListener('click', confirmCredit);
-    $('btnBack').addEventListener('click', () => { window.location.href = 'admin.html'; });
-    $('btnRefresh').addEventListener('click', async () => {
+    on('btnConfirm', 'click', confirmCredit);
+    on('btnBack', 'click', () => { window.location.href = 'admin.html'; });
+    on('btnRefresh', 'click', async () => {
         if (busy || !pin) return;
         busy = true;
         showLoader();
