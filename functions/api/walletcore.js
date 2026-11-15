@@ -338,7 +338,8 @@ export async function processPurchase(context, input) {
             const settled = await attempt(3, service + ' settle ' + reference, async () => (await rpc(env, 'wallet_settle', settleArgs)).ok);
             if (!settled) console.error(service + ' settle failed', reference);
 
-            const rawCost = typeof order.cost === 'function' ? order.cost(outcome) : order.cost;
+            let rawCost = typeof order.cost === 'function' ? order.cost(outcome) : order.cost;
+            if (rawCost === null || rawCost === undefined || !isFinite(rawCost)) rawCost = providerCost(outcome, null);
             const known = rawCost !== null && rawCost !== undefined && isFinite(rawCost);
             const task = bookkeeping(env, {
                 uuid: uuid,
