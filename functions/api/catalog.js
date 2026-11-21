@@ -61,6 +61,16 @@ function priced(list) {
     return list.filter((p) => p && Number(p.price) > 0);
 }
 
+function usablePlans(list) {
+    const seen = {};
+    return priced(list).filter((p) => {
+        const id = String(p.plan_id === undefined || p.plan_id === null ? '' : p.plan_id).trim();
+        if (!id || !p.plan_name || seen[id]) return false;
+        seen[id] = true;
+        return true;
+    });
+}
+
 async function pricingMap(env, service) {
     const map = {};
     try {
@@ -97,14 +107,14 @@ export async function onRequest({ request, env }) {
             const row = await firstRow(env, 'buydata');
             const simple = {};
             DATA_COLUMNS.forEach((c) => {
-                const list = priced(asList(row[c])).map((p) => ({ plan_id: String(p.plan_id), plan_name: p.plan_name, plan_type: p.plan_type || '', plan_day: p.plan_day || '', price: Number(p.price) }));
+                const list = usablePlans(asList(row[c])).map((p) => ({ plan_id: String(p.plan_id), plan_name: p.plan_name, plan_type: p.plan_type || '', plan_day: p.plan_day || '', price: Number(p.price) }));
                 if (list.length) simple[c] = list;
             });
             const easyRow = await bestEffort(env, 'myapi');
             const easy = {};
             if (easyRow) {
                 DATA_COLUMNS.forEach((c) => {
-                    const list = priced(asList(easyRow[c])).map((p) => ({ plan_id: String(p.plan_id), plan_name: p.plan_name, plan_type: p.plan_type || '', plan_day: p.plan_day || '', price: Number(p.price) }));
+                    const list = usablePlans(asList(easyRow[c])).map((p) => ({ plan_id: String(p.plan_id), plan_name: p.plan_name, plan_type: p.plan_type || '', plan_day: p.plan_day || '', price: Number(p.price) }));
                     if (list.length) easy[c] = list;
                 });
             }
