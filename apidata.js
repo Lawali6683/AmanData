@@ -3,6 +3,7 @@ import { requireSession, accessToken } from './auth.js';
 
 (function () {
     const API_ENDPOINT = '/api/apidata';
+    const DAY_MS = 24 * 60 * 60 * 1000;
     const LOGOS = {
         dstv: 'https://i.imgur.com/XBe4eRi.png',
         gotv: 'https://i.imgur.com/eaTdFAU.png',
@@ -43,12 +44,148 @@ import { requireSession, accessToken } from './auth.js';
     let live = {};
     let saved = {};
     let drafts = {};
+    let snap = {};
+    let changed = {};
+    let stale = {};
     let activeGroup = null;
     let busy = false;
 
     function num(value) {
         const n = parseFloat(String(value === undefined || value === null ? '' : value).replace(/,/g, ''));
         return isFinite(n) ? n : null;
+    }
+
+    function readStore(key) {
+        try { return window.localStorage.getItem(key); } catch (err) { return null; }
+    }
+
+    function writeStore(key, value) {
+        try { window.localStorage.setItem(key, value); } catch (err) { return; }
+    }
+
+    function syncKey() { return 'apidata_sync_' + service; }
+    function snapKey() { return 'apidata_snap_' + service; }
+
+    function readSnap() {
+        const raw = readStore(snapKey());
+        if (!raw) return {};
+        try {
+            const parsed = JSON.parse(raw);
+            return parsed && typeof parsed === 'object' ? parsed : {};
+        } catch (err) {
+            return {};
+        }
+    }
+
+    function writeSnap() {
+        writeStore(snapKey(), JSON.stringify(snap));
+    }
+
+    function lastSync() {
+        const v = parseInt(readStore(syncKey()), 10);
+        return isFinite(v) && v > 0 ? v : 0;
+    }
+
+    function ageText(ms) {
+        const mins = Math.floor(ms / 60000);
+        if (mins < 1) return 'Just now';
+        if (mins < 60) return mins + ' min ago';
+        const hours = Math.floor(mins / 60);
+        if (hours < 24) return hours + 'h ' + (mins % 60) + 'm ago';
+        const days = Math.floor(hours / 24);
+        return days + 'd ' + (hours % 24) + 'h ago';
+    }
+
+    function renderSync() {
+        const card = $('syncCard');
+        const at = lastSync();
+        if (!at) {
+            $('syncAge').textContent = 'Not updated yet';
+            $('syncNote').textContent = 'Press Update to check the provider for changes.';
+            card.classList.add('due');
+            return;
+        }
+        const age = Date.now() - at;
+        $('syncAge').textContent = ageText(age);
+        if (age >= DAY_MS) {
+            $('syncNote').textContent = '24 hours have passed. Press Update to check for new prices.';
+            card.classList.add('due');
+        } else {
+            $('syncNote').textContent = 'You can press Update at any time.';
+            card.classList.remove('due');
+        }
+    }
+
+    function markSynced() {
+        writeStore(syncKey(), String(Date.now()));
+        renderSync();
+    }
+
+    function entryCost(entry) {
+        if (entry && typeof entry === 'object') return entry.c;
+        return entry;
+    }
+
+    function analyze() {
+        snap = readSnap();
+        changed = {};
+        stale = {};
+        groups.forEach((g) => {
+            const key = g.key;
+            if (!snap[key] || typeof snap[key] !== 'object') snap[key] = {};
+            changed[key] = {};
+            stale[key] = [];
+            const list = live[key] || [];
+            const ids = {};
+            const savedMap = saved[key] || {};
+            list.forEach((p) => {
+                ids[p.uid] = true;
+                const onSale = savedMap[p.uid] !== undefined;
+                const prev = entryCost(snap[key][p.uid]);
+                if (!onSale || prev === undefined || prev === null) {
+                    snap[key][p.uid] = { c: p.cost, n: p.name };
+                } else if (Math.abs(Number(prev) - p.cost) > 0.001) {
+                    changed[key][p.uid] = { from: Number(prev), to: p.cost };
+                } else {
+                    snap[key][p.uid] = { c: p.cost, n: p.name };
+                }
+            });
+            if (list.length) {
+                Object.keys(savedMap).forEach((uid) => {
+                    if (!ids[uid]) {
+                        const old = snap[key][uid];
+                        stale[key].push({ uid: uid, price: savedMap[uid], name: old && typeof old === 'object' && old.n ? old.n : '' });
+                    }
+                });
+            }
+        });
+        writeSnap();
+    }
+
+    function attention(key) {
+        return Object.keys(changed[key] || {}).length + (stale[key] || []).length;
+    }
+
+    function renderAlert() {
+        let total = 0;
+        groups.forEach((g) => { total += attention(g.key); });
+        const box = $('alertStrip');
+        if (!total) {
+            box.classList.add('hidden');
+            box.innerHTML = '';
+            return;
+        }
+        box.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i><span>' + total + (total === 1 ? ' plan needs' : ' plans need') + ' your attention. Open the marked networks and update them.</span>';
+        box.classList.remove('hidden');
+    }
+
+    function ack(uids) {
+        uids.forEach((uid) => {
+            const p = (live[activeGroup] || []).find((x) => x.uid === uid);
+            if (p) snap[activeGroup][uid] = { c: p.cost, n: p.name };
+            if (changed[activeGroup]) delete changed[activeGroup][uid];
+        });
+        writeSnap();
     }
 
     async function call(payload) {
@@ -79,7 +216,8 @@ import { requireSession, accessToken } from './auth.js';
             const chip = document.createElement('button');
             chip.type = 'button';
             chip.className = 'net-chip' + (g.key === activeGroup ? ' active' : '');
-            chip.innerHTML = '<img src="' + (GROUP_LOGOS[g.key] || '') + '" alt="">' + escapeHtml(g.label);
+            const n = attention(g.key);
+            chip.innerHTML = '<img src="' + (GROUP_LOGOS[g.key] || '') + '" alt="">' + escapeHtml(g.label) + (n ? '<span class="dot">' + n + '</span>' : '');
             chip.addEventListener('click', () => { activeGroup = g.key; renderGroups(); renderItems(); });
             netRow.appendChild(chip);
         });
@@ -88,25 +226,61 @@ import { requireSession, accessToken } from './auth.js';
         $('planCount').textContent = String(total);
     }
 
+    function renderStale() {
+        const list = stale[activeGroup] || [];
+        if (!list.length) return;
+        const head = document.createElement('div');
+        head.className = 'form-card stale';
+        head.innerHTML =
+            '<div class="stale-head"><h4><i class="fa-solid fa-ban"></i> Not working at provider (' + list.length + ')</h4>' +
+            '<button type="button" class="btn-small danger js-remove-all">Remove all</button></div>' +
+            '<p class="stale-note">These plans are no longer returned by the provider. Customers must not buy them. Remove them from sale.</p>';
+        head.querySelector('.js-remove-all').addEventListener('click', () => removeStale(list.map((s) => s.uid)));
+        planList.appendChild(head);
+        list.forEach((s) => {
+            const card = document.createElement('div');
+            card.className = 'form-card stale';
+            card.innerHTML =
+                '<div class="tx-meta"><span class="tx-title">' + escapeHtml(s.name || ('Plan ' + s.uid)) + '</span>' +
+                '<span class="flag flag-gone"><i class="fa-solid fa-circle-xmark"></i> Removed by provider</span></div>' +
+                '<div class="detail-rows">' +
+                '<div class="detail-row"><span class="detail-row-label">Plan ID</span><span class="detail-row-val">' + escapeHtml(s.uid) + '</span></div>' +
+                '<div class="detail-row"><span class="detail-row-label">Selling price</span><span class="detail-row-val">₦' + escapeHtml(money(s.price)) + '</span></div></div>' +
+                '<button type="button" class="btn-small danger js-remove">Remove from sale</button>';
+            card.querySelector('.js-remove').addEventListener('click', () => removeStale([s.uid]));
+            planList.appendChild(card);
+        });
+    }
+
     function renderItems() {
         planList.innerHTML = '';
-        const list = (live[activeGroup] || []).slice().sort((a, b) => a.cost - b.cost);
+        renderStale();
+        const flagged = changed[activeGroup] || {};
+        const list = (live[activeGroup] || []).slice().sort((a, b) => {
+            const fa = flagged[a.uid] ? 0 : 1;
+            const fb = flagged[b.uid] ? 0 : 1;
+            return fa - fb || a.cost - b.cost;
+        });
         if (!list.length) {
             planList.innerHTML = '<div class="empty-state"><i class="fa-solid fa-circle-xmark empty-icon"></i><h3 class="empty-title">Nothing found</h3><p class="empty-desc">The provider returned no plans for this section. Pull to refresh or try another network.</p></div>';
             return;
         }
         list.forEach((p) => {
             const savedPrice = saved[activeGroup] ? saved[activeGroup][p.uid] : undefined;
+            const change = flagged[p.uid];
             let status = '<span class="muted">Not on sale</span>';
             if (savedPrice !== undefined) {
                 status = savedPrice < p.cost
                     ? '<span class="warn">On sale ₦' + escapeHtml(money(savedPrice)) + ' (below cost)</span>'
                     : '<span class="good">On sale ₦' + escapeHtml(money(savedPrice)) + '</span>';
             }
+            const flag = change
+                ? '<span class="flag flag-change"><i class="fa-solid fa-arrow-trend-' + (change.to > change.from ? 'up' : 'down') + '"></i> Cost changed ₦' + escapeHtml(money(change.from)) + ' → ₦' + escapeHtml(money(change.to)) + '</span>'
+                : '';
             const card = document.createElement('div');
-            card.className = 'form-card';
+            card.className = 'form-card' + (change ? ' changed' : '');
             card.innerHTML =
-                '<div class="tx-meta"><span class="tx-title">' + escapeHtml(p.name) + '</span><span class="tx-date">' + escapeHtml(p.sub) + '</span></div>' +
+                '<div class="tx-meta"><span class="tx-title">' + escapeHtml(p.name) + '</span><span class="tx-date">' + escapeHtml(p.sub) + '</span>' + flag + '</div>' +
                 '<div class="detail-rows">' +
                 '<div class="detail-row"><span class="detail-row-label">Provider cost</span><span class="detail-row-val">₦' + escapeHtml(money(p.cost)) + '</span></div>' +
                 '<div class="detail-row"><span class="detail-row-label">Selling price</span><span class="detail-row-val js-price">-</span></div>' +
@@ -144,37 +318,68 @@ import { requireSession, accessToken } from './auth.js';
         busy = false;
         if (result && result.success) {
             saved[activeGroup] = Object.assign({}, saved[activeGroup], result.prices);
+            ack(items.map((i) => i.uid));
+            renderGroups();
             renderItems();
+            renderAlert();
             toast(result.message || 'Prices saved.', 'ok');
         } else {
             toast((result && result.message) || 'Could not save prices. Try again.', 'err');
         }
     }
 
-    async function load() {
+    async function removeStale(uids) {
+        if (busy || !uids.length) return;
+        busy = true;
+        showLoader();
+        const result = await call({ action: 'remove', group: activeGroup, uids: uids });
+        hideLoader();
+        busy = false;
+        if (result && result.success) {
+            uids.forEach((uid) => {
+                if (saved[activeGroup]) delete saved[activeGroup][uid];
+                if (snap[activeGroup]) delete snap[activeGroup][uid];
+            });
+            stale[activeGroup] = (stale[activeGroup] || []).filter((s) => uids.indexOf(s.uid) === -1);
+            writeSnap();
+            renderGroups();
+            renderItems();
+            renderAlert();
+            toast(result.message || 'Removed from sale.', 'ok');
+        } else {
+            toast((result && result.message) || 'Could not remove. Try again.', 'err');
+        }
+    }
+
+    async function load(manual) {
         const result = await call({ action: 'load' });
         if (!result || !result.success) {
             toast((result && result.message) || 'Could not load provider data.', 'err');
             return false;
         }
         if (result.warning) toast('Warning: ' + result.warning, 'err');
+        const previous = activeGroup;
         groups = result.groups || [];
         live = result.live || {};
         saved = result.saved || {};
-        activeGroup = groups.length ? groups[0].key : null;
+        activeGroup = groups.some((g) => g.key === previous) ? previous : (groups.length ? groups[0].key : null);
         buildDrafts();
+        analyze();
         renderGroups();
         renderItems();
+        renderAlert();
+        if (manual) markSynced();
         return true;
     }
 
-    async function reload() {
+    async function reload(manual) {
         if (busy) return;
         busy = true;
         showLoader();
-        await load();
+        const ok = await load(manual === true);
         hideLoader();
         busy = false;
+        if (manual === true && ok) toast('Plans updated from provider.', 'ok');
     }
 
     async function setService(s) {
@@ -183,14 +388,17 @@ import { requireSession, accessToken } from './auth.js';
         $('tabData').classList.toggle('active', s === 'data');
         $('tabCable').classList.toggle('active', s === 'cable');
         $('tabExam').classList.toggle('active', s === 'exam');
-        await reload();
+        activeGroup = null;
+        renderSync();
+        await reload(false);
     }
 
     async function initialize() {
         try {
             const session = await requireSession();
             if (!session) return;
-            await load();
+            renderSync();
+            await load(false);
         } catch (err) {
             toast('Something went wrong. Try again.', 'err');
         } finally {
@@ -202,7 +410,8 @@ import { requireSession, accessToken } from './auth.js';
     $('tabData').addEventListener('click', () => setService('data'));
     $('tabCable').addEventListener('click', () => setService('cable'));
     $('tabExam').addEventListener('click', () => setService('exam'));
-    $('btnRefresh').addEventListener('click', reload);
+    $('btnRefresh').addEventListener('click', () => reload(true));
+    $('btnSync').addEventListener('click', () => reload(true));
     $('btnDiagnose').addEventListener('click', async () => {
         if (busy) return;
         busy = true;
@@ -226,6 +435,8 @@ import { requireSession, accessToken } from './auth.js';
         toast('Profit added to every plan. Press Save to keep it.', 'ok');
     });
     $('btnSaveAll').addEventListener('click', () => save((live[activeGroup] || []).map((p) => p.uid)));
+
+    setInterval(renderSync, 30000);
 
     initialize();
 })();
