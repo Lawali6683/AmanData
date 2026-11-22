@@ -20,6 +20,7 @@ const LOGOS = {
     const API_ENDPOINT = '/api/buydata';
     const EASY_ENDPOINT = '/api/simbuy';
     const REQUEST_TIMEOUT_MS = 60000;
+    const KEEP_MESSAGE = /pin|balance|insufficient|fund|password|session|sign in|log ?in|too many|limit|duplicate|already|invalid phone|phone number/i;
     const SIM_NETWORKS = { mtn_plan: 'mtn', itel_data: 'airtel', glo_data: 'glo', '9mobile_data': '9mobile' };
     const NETWORKS = [
         { key: 'mtn_plan', name: 'MTN', logo: LOGOS.mtn },
@@ -243,6 +244,14 @@ const LOGOS = {
         buyBtn.hidden = !(selectedPlan && phoneValid() && pin.valid());
     }
 
+    function failureMessage(result) {
+        const raw = String(result && result.message ? result.message : '').trim();
+        if (result && (result.unsure || result.pending) && raw) return raw;
+        if (raw && KEEP_MESSAGE.test(raw)) return raw;
+        const net = NETWORKS.find((n) => n.key === activeNet);
+        return 'This plan is not working for ' + phoneInput.value + (net ? ' on ' + net.name : '') + ' right now. Please try another plan.';
+    }
+
     async function submit() {
         if (busy || !selectedPlan) return;
         if (Number(selectedPlan.price) > balance) {
@@ -290,7 +299,7 @@ const LOGOS = {
             return;
         }
 
-        toast(result.message || 'Something went wrong. Please try again.', 'err');
+        toast(failureMessage(result), 'err');
     }
 
     async function initialize() {
