@@ -358,6 +358,7 @@ import { requireSession, accessToken } from './auth.js';
             return false;
         }
         if (result.warning) toast('Warning: ' + result.warning, 'err');
+        if (result.hidden_now) toast(result.hidden_now + ' plan(s) removed by the provider were hidden from customers.', 'ok');
         const previous = activeGroup;
         groups = result.groups || [];
         live = result.live || {};
