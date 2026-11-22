@@ -7,6 +7,8 @@ import { supabase } from './supabase.js';
     const REQUEST_TIMEOUT = 15000;
     const LOADER_SAFETY = 12000;
     const LOADER_DELAY = 500;
+    const HIDE_FAILED = true;
+    const HIDE_PENDING = false;
 
     const scene = document.getElementById('scene');
     const liquid = document.getElementById('liquid');
@@ -182,6 +184,12 @@ import { supabase } from './supabase.js';
         };
     }
 
+    function isVisibleTransaction(tx) {
+        if (HIDE_FAILED && tx.statusKind === 'bad') return false;
+        if (HIDE_PENDING && tx.statusKind === 'wait') return false;
+        return true;
+    }
+
     async function loadWalletData() {
         walletError = false;
         try {
@@ -198,6 +206,7 @@ import { supabase } from './supabase.js';
 
             walletTransactions = list
                 .map(normalizeTransaction)
+                .filter(isVisibleTransaction)
                 .sort((a, b) => (b.sortKey - a.sortKey) || (a.index - b.index));
 
             setText(sumBalance, money(parseAmount(userData.user_balance)));
@@ -256,7 +265,11 @@ import { supabase } from './supabase.js';
     }
 
     function paidItems() {
-        return withdrawals.filter((item) => !isPendingStatus(item.status));
+        return withdrawals.filter((item) => {
+            if (isPendingStatus(item.status)) return false;
+            if (HIDE_FAILED && withdrawalStatus(item).kind !== 'ok') return false;
+            return true;
+        });
     }
 
     function updatePendingBadge() {
