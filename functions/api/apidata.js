@@ -1,5 +1,5 @@
 const API = 'https://bilalsadasub.com/api/v1/plans/';
-const PROVIDER_TIMEOUT_MS = 15000;
+const PROVIDER_TIMEOUT_MS = 25000;
 const DB_TIMEOUT_MS = 15000;
 const AUTH_TIMEOUT_MS = 10000;
 const MAX_HIDE_RATIO = 0.6;
