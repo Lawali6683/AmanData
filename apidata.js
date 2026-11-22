@@ -216,6 +216,26 @@ import { requireSession, accessToken } from './auth.js';
         return data;
     }
 
+    async function rawProbe() {
+        const token = await accessToken();
+        if (!token) return { success: false, message: 'Please sign in again.' };
+        try {
+            const res = await fetch(API_ENDPOINT, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+                body: JSON.stringify({ service: service, action: 'diagnose' }),
+                cache: 'no-store'
+            });
+            const text = await res.text();
+            let data = null;
+            try { data = JSON.parse(text); } catch (err) { data = null; }
+            if (data && typeof data === 'object') return data;
+            return { success: false, http_status: res.status, not_json: true, body: text.replace(/\s+/g, ' ').slice(0, 400) };
+        } catch (err) {
+            return { success: false, message: 'Could not reach the server.', detail: String(err && err.message) };
+        }
+    }
+
     function buildDrafts() {
         drafts = {};
         groups.forEach((g) => {
@@ -434,7 +454,7 @@ import { requireSession, accessToken } from './auth.js';
         if (busy) return;
         busy = true;
         showLoader();
-        const result = await call({ action: 'diagnose' });
+        const result = await rawProbe();
         hideLoader();
         busy = false;
         const box = $('diagBox');
