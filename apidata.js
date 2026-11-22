@@ -1,4 +1,4 @@
-import { mountShell, showLoader, hideLoader, reveal, toast, escapeHtml, money, apiPost } from './uix.js';
+import { mountShell, showLoader, hideLoader, reveal, toast, escapeHtml, money } from './uix.js';
 import { requireSession, accessToken } from './auth.js';
 
 (function () {
@@ -194,9 +194,26 @@ import { requireSession, accessToken } from './auth.js';
             window.location.reload();
             return { success: false, message: 'Please sign in again.' };
         }
-        const r = await apiPost(API_ENDPOINT, token, Object.assign({ service: service }, payload));
-        if (r.status === 401) setTimeout(() => window.location.reload(), 2200);
-        return r.data;
+        let res;
+        try {
+            res = await fetch(API_ENDPOINT, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+                body: JSON.stringify(Object.assign({ service: service }, payload)),
+                cache: 'no-store'
+            });
+        } catch (err) {
+            return { success: false, message: 'Could not reach the server. Check your network.' };
+        }
+        const text = await res.text();
+        let data = null;
+        try { data = JSON.parse(text); } catch (err) { data = null; }
+        if (res.status === 401) setTimeout(() => window.location.reload(), 2200);
+        if (!data || typeof data !== 'object') {
+            const clean = text.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160);
+            return { success: false, message: 'Server answered ' + res.status + (clean ? ': ' + clean : ' with an empty page.') };
+        }
+        return data;
     }
 
     function buildDrafts() {
