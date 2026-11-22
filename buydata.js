@@ -20,7 +20,6 @@ const LOGOS = {
     const API_ENDPOINT = '/api/buydata';
     const EASY_ENDPOINT = '/api/simbuy';
     const REQUEST_TIMEOUT_MS = 60000;
-    const KEEP_MESSAGE = /pin|balance|insufficient|fund|password|session|sign in|log ?in|too many|limit|duplicate|already|invalid phone|phone number/i;
     const SIM_NETWORKS = { mtn_plan: 'mtn', itel_data: 'airtel', glo_data: 'glo', '9mobile_data': '9mobile' };
     const NETWORKS = [
         { key: 'mtn_plan', name: 'MTN', logo: LOGOS.mtn },
@@ -36,7 +35,7 @@ const LOGOS = {
     const appContainer = $('appContainer');
     const planList = $('planList');
     const netRow = $('netRow');
-    const tabsBox = $('filterTabs');
+    const tabsBox = resolveTabsBox();
     const buyForm = $('buyForm');
     const phoneInput = $('phone');
     const buyBtn = $('btnBuy');
@@ -52,6 +51,21 @@ const LOGOS = {
     let attemptId = null;
     let loadFailed = false;
     let busy = false;
+
+    function resolveTabsBox() {
+        let el = $('filterTabs');
+        if (el) return el;
+        el = document.querySelector('.filter-tabs');
+        if (el) {
+            el.id = 'filterTabs';
+            return el;
+        }
+        el = document.createElement('section');
+        el.className = 'filter-tabs';
+        el.id = 'filterTabs';
+        netRow.parentNode.insertBefore(el, netRow);
+        return el;
+    }
 
     function newToken() {
         const bytes = new Uint8Array(16);
@@ -72,11 +86,11 @@ const LOGOS = {
             let data = null;
             try { data = await res.json(); } catch (err) { data = null; }
             if (!data || typeof data !== 'object') {
-                return { success: false, unsure: true, message: 'The server did not answer properly (' + res.status + '). Please check your history before trying again.' };
+                return { success: false, unsure: true, message: 'Network issue. Check your history before you try again.' };
             }
             return data;
         } catch (err) {
-            return { success: false, unsure: true, message: 'Network problem. Please check your history before trying again.' };
+            return { success: false, unsure: true, message: 'Network issue. Check your history before you try again.' };
         } finally {
             clearTimeout(timer);
         }
@@ -122,7 +136,7 @@ const LOGOS = {
             $('userName').textContent = ud.full_name || 'User';
             balance = parseFloat(String(ud.user_balance || 0).replace(/,/g, '')) || 0;
         } catch (err) {
-            toast('Unable to load your account details.', 'err');
+            toast('We could not load your account. Check your network and try again.', 'err');
         }
         $('sumBalance').textContent = money(balance);
     }
@@ -183,11 +197,11 @@ const LOGOS = {
         planList.innerHTML = '';
         if (!activeNet) {
             if (loadFailed) {
-                renderEmpty('fa-triangle-exclamation', 'Plans not loaded', 'We could not load the data plans. Please check your connection and refresh the page.');
+                renderEmpty('fa-triangle-exclamation', 'Plans not loaded', 'Network issue. Check your network and open this page again.');
             } else if (!hasAnyPlans()) {
-                renderEmpty('fa-box-open', 'No plans yet', 'No data plan is on sale right now. Please check again later.');
+                renderEmpty('fa-box-open', 'No plans now', 'No data plan is available now. Please check again later.');
             } else {
-                renderEmpty('fa-circle-xmark', 'Not Available', 'This plan type is not available right now. Please try another plan.');
+                renderEmpty('fa-circle-xmark', 'Not available', 'This plan type is not available now. Try another one.');
             }
             return;
         }
@@ -244,18 +258,31 @@ const LOGOS = {
         buyBtn.hidden = !(selectedPlan && phoneValid() && pin.valid());
     }
 
+    function localizeMessage(raw) {
+        const m = String(raw || '').toLowerCase();
+        if (!m) return '';
+        if (/pin/.test(m)) return 'Your PIN is wrong. Please try again.';
+        if (/insufficient|balance|fund/.test(m)) return 'Your wallet money is not enough. Please add money to your wallet.';
+        if (/too many|limit|duplicate|already/.test(m)) return 'This request was already sent. Wait a little and check your history.';
+        if (/session|sign in|log ?in|password/.test(m)) return 'Please log in again and try.';
+        if (/phone|number/.test(m)) return 'The phone number is not correct. Please check it.';
+        return '';
+    }
+
     function failureMessage(result) {
         const raw = String(result && result.message ? result.message : '').trim();
-        if (result && (result.unsure || result.pending) && raw) return raw;
-        if (raw && KEEP_MESSAGE.test(raw)) return raw;
+        if (result && result.unsure) return 'Network issue. Check your history before you try again.';
+        if (result && result.pending) return 'Your purchase is still processing. Check your history before you try again.';
+        const known = localizeMessage(raw);
+        if (known) return known;
         const net = NETWORKS.find((n) => n.key === activeNet);
-        return 'This plan is not working for ' + phoneInput.value + (net ? ' on ' + net.name : '') + ' right now. Please try another plan.';
+        return 'This plan is not working for ' + phoneInput.value + (net ? ' (' + net.name + ')' : '') + ' now. Please try another plan.';
     }
 
     async function submit() {
         if (busy || !selectedPlan) return;
         if (Number(selectedPlan.price) > balance) {
-            toast('Your wallet balance is not enough for this plan. Please fund your wallet.', 'err');
+            toast('Your wallet money is not enough. Please add money to your wallet.', 'err');
             return;
         }
         busy = true;
@@ -288,7 +315,7 @@ const LOGOS = {
         }
 
         if (result.success) {
-            toast(result.message || 'Purchase successful.', 'ok');
+            toast('Purchase successful.', 'ok');
             phoneInput.value = '';
             pin.clear();
             selectedPlan = null;
@@ -314,7 +341,7 @@ const LOGOS = {
             extraTabs = extras;
             if (!catalog) {
                 loadFailed = extraTabs.length === 0;
-                if (loadFailed) toast('Data plans could not be loaded. Please check your connection.', 'err');
+                if (loadFailed) toast('Network issue. We could not load plans. Check your network and try again.', 'err');
                 sources = { easy: {}, simple: {} };
             } else {
                 sources = { easy: catalog.easy || {}, simple: catalog.simple || {} };
