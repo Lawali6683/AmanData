@@ -2,84 +2,61 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>Buy Data - AmanData</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="ui2.css">
-    <style>
-        .net-row {
-            display: grid !important;
-            grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
-            flex-wrap: nowrap !important;
-            gap: 8px !important;
-            width: 100% !important;
-            box-sizing: border-box !important;
-        }
-        .net-row > * {
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            width: 100% !important;
-            min-width: 0 !important;
-            max-width: 100% !important;
-            height: auto !important;
-            flex: none !important;
-            margin: 0 !important;
-            padding: 12px 8px !important;
-            box-sizing: border-box !important;
-            border-radius: 20px !important;
-        }
-        .net-row > * img {
-            display: block !important;
-            width: 100% !important;
-            max-width: 100% !important;
-            height: auto !important;
-            aspect-ratio: 1 / 1 !important;
-            object-fit: contain !important;
-            background: #ffffff !important;
-            border-radius: 14px !important;
-            padding: 6px !important;
-            box-sizing: border-box !important;
-        }
-        .filter-tabs {
-            display: flex !important;
-            flex-wrap: nowrap !important;
-            gap: 8px !important;
-            overflow-x: auto !important;
-            -webkit-overflow-scrolling: touch;
-            scrollbar-width: none;
-        }
-        .filter-tabs::-webkit-scrollbar { display: none; }
-        .filter-tabs .tab-btn {
-            flex: 0 0 auto !important;
-            white-space: nowrap !important;
-        }
-    </style>
+    <link rel="stylesheet" href="buydata.css">
 </head>
 <body>
-    <div class="app-container" id="appContainer">
+    <div class="app-container bd-app" id="appContainer">
         <header>
             <button type="button" class="btn-back" id="btnBack" aria-label="Back"><i class="fa-solid fa-arrow-left"></i></button>
             <img src="https://i.imgur.com/bNK9ccG.png" class="page-logo" alt="AmanData Logo">
             <span class="header-spacer"></span>
         </header>
 
-        <p class="hello">Hello, <strong id="userName">User</strong></p>
-
-        <section class="summary-card">
-            <div class="summary-label">Wallet Balance</div>
-            <div class="summary-balance">₦<span id="sumBalance">0.00</span></div>
+        <section class="bd-hero">
+            <div class="bd-hero-text">
+                <span class="bd-hello">Hello, <strong id="userName">User</strong></span>
+                <span class="bd-hero-title">Buy Data</span>
+            </div>
+            <div class="bd-wallet">
+                <span class="bd-wallet-label">Wallet</span>
+                <strong class="bd-wallet-amount">₦<span id="sumBalance">0.00</span></strong>
+            </div>
         </section>
 
-        <section class="filter-tabs" id="filterTabs"></section>
+        <section class="bd-tabs" id="filterTabs"></section>
 
-        <div class="net-row" id="netRow"></div>
-        <main class="history-list" id="planList"></main>
+        <section class="bd-block">
+            <h2 class="bd-step"><span class="bd-step-no">1</span>Network</h2>
+            <div class="bd-nets" id="netRow"></div>
+        </section>
+
+        <section class="bd-block">
+            <h2 class="bd-step"><span class="bd-step-no">2</span>Plan type</h2>
+            <div class="bd-pills" id="typeRow"></div>
+        </section>
+
+        <section class="bd-block">
+            <h2 class="bd-step"><span class="bd-step-no">3</span>Validity</h2>
+            <div class="bd-pills" id="dayRow"></div>
+        </section>
+
+        <section class="bd-block">
+            <h2 class="bd-step"><span class="bd-step-no">4</span>Choose plan</h2>
+            <main class="bd-plans" id="planList"></main>
+        </section>
 
         <section class="form-card hidden" id="buyForm">
             <h3 class="form-title">Buy Data</h3>
             <div class="detail-rows">
                 <div class="detail-row"><span class="detail-row-label">Network</span><span class="detail-row-val" id="fNetwork">-</span></div>
+                <div class="detail-row"><span class="detail-row-label">Type</span><span class="detail-row-val" id="fType">-</span></div>
                 <div class="detail-row"><span class="detail-row-label">Plan</span><span class="detail-row-val" id="fPlan">-</span></div>
                 <div class="detail-row"><span class="detail-row-label">Validity</span><span class="detail-row-val" id="fDay">-</span></div>
                 <div class="detail-row"><span class="detail-row-label">Amount</span><span class="detail-row-val" id="fPrice">-</span></div>
