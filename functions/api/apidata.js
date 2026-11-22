@@ -1,4 +1,8 @@
 const API = 'https://bilalsadasub.com/api/v1/plans/';
+const PROVIDER_TIMEOUT_MS = 15000;
+const DB_TIMEOUT_MS = 15000;
+const AUTH_TIMEOUT_MS = 10000;
+const MAX_HIDE_RATIO = 0.6;
 
 const examGroup = (name) => {
     const n = String(name || '').toUpperCase();
@@ -20,6 +24,7 @@ const SERVICES = {
         ],
         column: (g) => g,
         uidOf: (e) => String(e.plan_id),
+        belongs: () => true,
         savedFor: (row, g, parse) => parse(row[g]),
         fetchGroup: async (g, get) => (await get('data?network=' + g.live)).map((p) => ({
             uid: String(p.plan_id),
@@ -39,6 +44,7 @@ const SERVICES = {
         ],
         column: () => 'alltv_plan',
         uidOf: (e) => String(e.cable_name) + ':' + String(e.plan_id),
+        belongs: (e, g) => e.cable_name === g,
         savedFor: (row, g, parse) => parse(row.alltv_plan).filter((e) => e.cable_name === g),
         fetchGroup: async (g, get) => (await get('cable?cable=' + g.live)).map((p) => ({
             uid: g.key + ':' + String(p.plan_id),
@@ -59,6 +65,7 @@ const SERVICES = {
         ],
         column: (g) => g,
         uidOf: (e) => String(e.exam_id),
+        belongs: () => true,
         savedFor: (row, g, parse) => parse(row[g]),
         fetchGroup: async (g, get) => (await get('exams')).filter((p) => examGroup(p.exam_name) === g.key).map((p) => ({
             uid: String(p.exam_id),
@@ -78,7 +85,7 @@ class AppError extends Error {
 }
 
 const json = (body, status = 200) =>
-    new Response(JSON.stringify(body), { status: status, headers: { 'Content-Type': 'application/json' } });
+    new Response(JSON.stringify(body), { status: status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
 
 const round2 = (n) => Math.round(n * 100) / 100;
 const snippet = (text) => String(text === undefined || text === null ? '' : text).replace(/\s+/g, ' ').slice(0, 300);
@@ -90,6 +97,7 @@ const parseList = (v) => {
     if (typeof v === 'string') { try { v = JSON.parse(v); } catch (err) { v = []; } }
     return Array.isArray(v) ? v : [];
 };
+const isTimeout = (err) => Boolean(err && (err.name === 'TimeoutError' || err.name === 'AbortError'));
 
 const pickList = (data) => {
     if (Array.isArray(data)) return data;
@@ -111,8 +119,9 @@ const bilalHeaders = (env) => {
 async function bilalFetch(env, path) {
     let res;
     try {
-        res = await fetch(API + path, { headers: bilalHeaders(env) });
+        res = await fetch(API + path, { headers: bilalHeaders(env), signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS) });
     } catch (err) {
+        if (isTimeout(err)) throw new AppError('The provider took too long to answer (' + path + '). Try again in a minute.', 504);
         throw new AppError('Could not connect to Bilal (' + path + '): ' + snippet(err && err.message), 502);
     }
     const text = await res.text();
@@ -154,10 +163,11 @@ async function checkAdmin(root, key, token) {
         res = await fetch(root + '/rest/v1/rpc/is_admin_user', {
             method: 'POST',
             headers: { apikey: key, Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
-            body: '{}'
+            body: '{}',
+            signal: AbortSignal.timeout(AUTH_TIMEOUT_MS)
         });
     } catch (err) {
-        return { status: 500, message: 'Could not reach Supabase to verify your access: ' + snippet(err && err.message) };
+        return { status: 502, message: 'Could not reach Supabase to verify your access: ' + snippet(err && err.message) };
     }
     if (res.status === 401) {
         return { status: 401, message: 'Supabase rejected your session. Sign in again. If this keeps happening, the app login and this API may use different Supabase projects: set AUTH_SUPABASE_URL and AUTH_SUPABASE_KEY.' };
@@ -171,7 +181,7 @@ async function checkAdmin(root, key, token) {
     return null;
 }
 
-export async function onRequestPost({ request, env }) {
+async function handle({ request, env }) {
     const root = cleanRoot(env.SUPABASE_URL);
     const key = env.SUPABASE_SERVICE_ROLE_KEY;
     const authRoot = cleanRoot(env.AUTH_SUPABASE_URL || env.SUPABASE_URL);
@@ -201,14 +211,16 @@ export async function onRequestPost({ request, env }) {
             res = await fetch(root + '/rest/v1/' + path, {
                 method: opts.method || 'GET',
                 body: opts.body,
-                headers: { apikey: key, Authorization: 'Bearer ' + key, 'Content-Type': 'application/json', Prefer: 'return=minimal' }
+                headers: { apikey: key, Authorization: 'Bearer ' + key, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+                signal: AbortSignal.timeout(DB_TIMEOUT_MS)
             });
         } catch (err) {
             throw new AppError('Could not reach the database: ' + snippet(err && err.message), 502);
         }
         const text = await res.text();
         if (!res.ok) throw new AppError('Database ' + res.status + ' on ' + path.split('?')[0] + ': ' + snippet(text), 500);
-        return text ? JSON.parse(text) : null;
+        if (!text) return null;
+        try { return JSON.parse(text); } catch (err) { throw new AppError('Database sent an unreadable answer on ' + path.split('?')[0] + '.', 502); }
     }
 
     if (body.action === 'diagnose') {
@@ -216,7 +228,7 @@ export async function onRequestPost({ request, env }) {
         const tables = {};
         for (const name of names) {
             try {
-                const res = await fetch(root + '/rest/v1/' + name + '?select=*&limit=1', { headers: { apikey: key, Authorization: 'Bearer ' + key } });
+                const res = await fetch(root + '/rest/v1/' + name + '?select=*&limit=1', { headers: { apikey: key, Authorization: 'Bearer ' + key }, signal: AbortSignal.timeout(DB_TIMEOUT_MS) });
                 const text = await res.text();
                 tables[name] = res.ok ? 'ok' : res.status + ': ' + snippet(text);
             } catch (err) {
@@ -290,6 +302,48 @@ export async function onRequestPost({ request, env }) {
 
             const rows = await sb(svc.table + '?select=*&limit=1');
             const row = rows && rows[0] ? rows[0] : {};
+
+            const columns = {};
+            const dirty = {};
+            let hiddenNow = 0;
+            let shownAgain = 0;
+            svc.groups.forEach((g, i) => {
+                const result = results[i];
+                if (!result || !result.length) return;
+                const col = svc.column(g.key);
+                if (!columns[col]) columns[col] = parseList(row[col]);
+                const ids = {};
+                result.forEach((it) => { ids[it.uid] = true; });
+                const mine = columns[col].filter((e) => e && svc.belongs(e, g.key));
+                const missing = mine.filter((e) => !ids[svc.uidOf(e)]);
+                if (mine.length >= 4 && missing.length / mine.length > MAX_HIDE_RATIO) {
+                    warning += ' ' + g.label + ': too many plans are missing at the provider, so nothing was hidden. Check the provider.';
+                    return;
+                }
+                mine.forEach((e) => {
+                    const gone = !ids[svc.uidOf(e)];
+                    if (gone && e.hidden !== true) {
+                        e.hidden = true;
+                        dirty[col] = true;
+                        hiddenNow += 1;
+                    } else if (!gone && e.hidden === true) {
+                        delete e.hidden;
+                        dirty[col] = true;
+                        shownAgain += 1;
+                    }
+                });
+            });
+            if (Object.keys(dirty).length) {
+                const hidePatch = {};
+                Object.keys(dirty).forEach((col) => { hidePatch[col] = columns[col]; });
+                try {
+                    await saveRow(svc.table, hidePatch);
+                    Object.keys(hidePatch).forEach((col) => { row[col] = hidePatch[col]; });
+                } catch (err) {
+                    warning += ' Could not hide removed plans: ' + err.message;
+                }
+            }
+
             const live = {};
             const saved = {};
             svc.groups.forEach((g, i) => {
@@ -297,7 +351,15 @@ export async function onRequestPost({ request, env }) {
                 saved[g.key] = {};
                 svc.savedFor(row, g.key, parseList).forEach((e) => { saved[g.key][svc.uidOf(e)] = Number(e.price); });
             });
-            return json({ success: true, groups: svc.groups.map((g) => ({ key: g.key, label: g.label })), live: live, saved: saved, warning: warning.trim() || undefined });
+            return json({
+                success: true,
+                groups: svc.groups.map((g) => ({ key: g.key, label: g.label })),
+                live: live,
+                saved: saved,
+                hidden_now: hiddenNow,
+                shown_again: shownAgain,
+                warning: warning.trim() || undefined
+            });
         }
 
         if (body.action === 'save') {
@@ -329,10 +391,36 @@ export async function onRequestPost({ request, env }) {
             return json({ success: true, message: Object.keys(prices).length + ' price(s) saved successfully.', prices: prices });
         }
 
+        if (body.action === 'remove') {
+            const group = svc.groups.find((g) => g.key === String(body.group || ''));
+            const uids = Array.isArray(body.uids) ? body.uids.map((u) => String(u)) : [];
+            if (!group || !uids.length || uids.length > 500) return json({ success: false, message: 'Invalid request.' }, 400);
+
+            const col = svc.column(group.key);
+            const rows = await sb(svc.table + '?select=*&limit=1');
+            const list = parseList(rows && rows[0] ? rows[0][col] : []);
+            const kept = list.filter((e) => !(e && svc.belongs(e, group.key) && uids.indexOf(svc.uidOf(e)) !== -1));
+            const removed = list.length - kept.length;
+            if (!removed) return json({ success: true, message: 'Nothing to remove.', removed: 0 });
+
+            const patch = {};
+            patch[col] = kept;
+            await saveRow(svc.table, patch);
+            return json({ success: true, message: removed + ' plan(s) removed from sale.', removed: removed });
+        }
+
         return json({ success: false, message: 'Invalid request.' }, 400);
     } catch (err) {
         const status = err && err.status ? err.status : 500;
         const message = err instanceof AppError ? err.message : 'Something went wrong: ' + snippet(err && err.message);
         return json({ success: false, message: message }, status);
+    }
+}
+
+export async function onRequestPost(context) {
+    try {
+        return await handle(context);
+    } catch (err) {
+        return json({ success: false, message: 'Server error: ' + snippet(err && err.message) }, 500);
     }
 }
