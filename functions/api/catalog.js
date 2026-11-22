@@ -58,7 +58,7 @@ async function bestEffort(env, table) {
 }
 
 function priced(list) {
-    return list.filter((p) => p && Number(p.price) > 0);
+    return list.filter((p) => p && p.hidden !== true && Number(p.price) > 0);
 }
 
 function usablePlans(list) {
