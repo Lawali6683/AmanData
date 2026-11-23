@@ -29,6 +29,9 @@ const LOGOS = {
         { key: '9mobile_data', name: '9MOBILE', logo: LOGOS['9mobile'] }
     ];
     const TYPE_ORDER = ['sme', 'gifting', 'coop', 'smart'];
+    const TYPE_ICONS = { sme: 'fa-bolt', gifting: 'fa-gift', coop: 'fa-users', smart: 'fa-microchip' };
+    const BUCKET_ICONS = { daily: 'fa-sun', weekly: 'fa-calendar-week', monthly: 'fa-calendar-days', long: 'fa-hourglass-half', other: 'fa-clock' };
+    const BUCKET_HINTS = { daily: '1 to 2 days', weekly: '3 to 14 days', monthly: '15 to 31 days', long: 'More than 31 days', other: 'Other validity' };
     const BUCKETS = [
         { key: 'daily', label: 'Daily' },
         { key: 'weekly', label: 'Weekly' },
@@ -47,12 +50,12 @@ const LOGOS = {
     const planList = $('planList');
     const netRow = $('netRow');
     const tabsBox = resolveTabsBox();
-    const typeRow = ensureRow('typeRow', netRow);
-    const dayRow = ensureRow('dayRow', typeRow);
+    const summaryBox = resolveSummaryBox();
     const buyForm = $('buyForm');
     const phoneInput = $('phone');
     const buyBtn = $('btnBuy');
     const pin = pinBoxes($('pinRow'));
+    const sheet = buildSheet();
 
     let uuid = null;
     let balance = 0;
@@ -62,6 +65,7 @@ const LOGOS = {
     let activeNet = null;
     let activeType = null;
     let activeBucket = null;
+    let sheetStep = null;
     let selectedPlan = null;
     let attemptId = null;
     let loadFailed = false;
@@ -79,14 +83,37 @@ const LOGOS = {
         return el;
     }
 
-    function ensureRow(id, anchor) {
-        let node = $(id);
-        if (node) return node;
-        node = document.createElement('div');
-        node.id = id;
-        node.className = 'bd-pills';
-        anchor.parentNode.insertBefore(node, anchor.nextSibling);
-        return node;
+    function resolveSummaryBox() {
+        let el = $('bdSummary');
+        if (el) return el;
+        el = document.createElement('div');
+        el.className = 'bd-summary';
+        el.id = 'bdSummary';
+        el.hidden = true;
+        planList.parentNode.insertBefore(el, planList);
+        return el;
+    }
+
+    function buildSheet() {
+        const overlay = document.createElement('div');
+        overlay.className = 'bd-sheet-overlay';
+        overlay.innerHTML =
+            '<div class="bd-sheet" role="dialog" aria-modal="true">' +
+            '<div class="bd-sheet-handle"></div>' +
+            '<div class="bd-sheet-head">' +
+            '<button type="button" class="bd-sheet-btn js-back" aria-label="Back"><i class="fa-solid fa-arrow-left"></i></button>' +
+            '<div class="bd-sheet-titles"><span class="bd-sheet-step"></span><h3 class="bd-sheet-title"></h3></div>' +
+            '<button type="button" class="bd-sheet-btn js-close" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>' +
+            '</div><div class="bd-sheet-list"></div></div>';
+        document.body.appendChild(overlay);
+        return {
+            overlay: overlay,
+            back: overlay.querySelector('.js-back'),
+            close: overlay.querySelector('.js-close'),
+            step: overlay.querySelector('.bd-sheet-step'),
+            title: overlay.querySelector('.bd-sheet-title'),
+            list: overlay.querySelector('.bd-sheet-list')
+        };
     }
 
     function setVisible(node, visible) {
@@ -288,18 +315,40 @@ const LOGOS = {
         return netPlans(tab, net).find((p) => String(p.plan_id) === String(id)) || null;
     }
 
+    function itemsOfNet() {
+        return activeNet ? enrich(netPlans(activeTab, activeNet)) : [];
+    }
+
+    function bucketsOfType(typeKey) {
+        return orderedBuckets(itemsOfNet().filter((i) => i.type.key === typeKey));
+    }
+
+    function syncFilters() {
+        if (!activeNet) {
+            activeType = null;
+            activeBucket = null;
+            return;
+        }
+        const types = orderedTypes(itemsOfNet());
+        if (!types.some((t) => t.key === activeType)) {
+            activeType = null;
+            activeBucket = null;
+        }
+        if (!activeType && types.length === 1) activeType = types[0].key;
+        if (!activeType) return;
+        const buckets = bucketsOfType(activeType);
+        if (!buckets.some((b) => b.key === activeBucket)) activeBucket = null;
+        if (!activeBucket && buckets.length === 1) activeBucket = buckets[0].key;
+    }
+
+    function isComplete() {
+        return Boolean(activeNet && activeType && activeBucket);
+    }
+
     function clearSelection() {
         selectedPlan = null;
         attemptId = null;
         buyForm.classList.add('hidden');
-    }
-
-    function syncFilters() {
-        const items = activeNet ? enrich(netPlans(activeTab, activeNet)) : [];
-        const types = orderedTypes(items);
-        if (!types.some((t) => t.key === activeType)) activeType = types[0] ? types[0].key : null;
-        const buckets = orderedBuckets(items.filter((i) => i.type.key === activeType));
-        if (!buckets.some((b) => b.key === activeBucket)) activeBucket = buckets[0] ? buckets[0].key : null;
     }
 
     function renderTabs() {
@@ -328,56 +377,42 @@ const LOGOS = {
             btn.className = 'bd-net' + (n.key === activeNet ? ' active' : '');
             btn.setAttribute('aria-label', n.name);
             btn.innerHTML = '<img src="' + n.logo + '" alt="' + escapeHtml(n.name) + '">';
-            btn.addEventListener('click', () => {
-                activeNet = n.key;
-                clearSelection();
-                syncFilters();
-                renderAll();
-            });
+            btn.addEventListener('click', () => pickNetwork(n.key));
             netRow.appendChild(btn);
         });
     }
 
-    function renderPills(row, list, activeKey, onPick) {
-        row.innerHTML = '';
-        setVisible(row, list.length > 0);
-        list.forEach((entry) => {
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            btn.className = 'bd-pill' + (entry.key === activeKey ? ' active' : '');
-            btn.innerHTML = '<span class="bd-pill-label">' + escapeHtml(entry.label) + '</span><span class="bd-pill-count">' + entry.count + '</span>';
-            btn.addEventListener('click', () => onPick(entry.key));
-            row.appendChild(btn);
-        });
+    function renderSummary() {
+        if (!isComplete()) {
+            summaryBox.hidden = true;
+            summaryBox.innerHTML = '';
+            return;
+        }
+        const net = NETWORKS.find((n) => n.key === activeNet);
+        const type = orderedTypes(itemsOfNet()).find((t) => t.key === activeType);
+        const bucket = BUCKETS.find((b) => b.key === activeBucket);
+        const canChange = orderedTypes(itemsOfNet()).length > 1 || bucketsOfType(activeType).length > 1;
+        summaryBox.innerHTML =
+            '<div class="bd-chips">' +
+            '<span class="bd-chip"><img src="' + net.logo + '" alt="">' + escapeHtml(net.name) + '</span>' +
+            '<span class="bd-chip">' + escapeHtml(type ? type.label : '') + '</span>' +
+            '<span class="bd-chip">' + escapeHtml(bucket ? bucket.label : '') + '</span></div>' +
+            (canChange ? '<button type="button" class="bd-change">Change</button>' : '');
+        summaryBox.hidden = false;
+        const change = summaryBox.querySelector('.bd-change');
+        if (change) change.addEventListener('click', () => openSheet());
     }
 
-    function renderTypes() {
-        const items = activeNet ? enrich(netPlans(activeTab, activeNet)) : [];
-        renderPills(typeRow, orderedTypes(items), activeType, (key) => {
-            activeType = key;
-            clearSelection();
-            syncFilters();
-            renderAll();
-        });
-    }
-
-    function renderBuckets() {
-        const items = activeNet ? enrich(netPlans(activeTab, activeNet)).filter((i) => i.type.key === activeType) : [];
-        renderPills(dayRow, orderedBuckets(items), activeBucket, (key) => {
-            activeBucket = key;
-            clearSelection();
-            renderAll();
-        });
-    }
-
-    function renderEmpty(icon, title, desc) {
+    function renderEmpty(icon, title, desc, actionLabel, action) {
         planList.innerHTML = '<div class="empty-state"><i class="fa-solid ' + icon + ' empty-icon"></i>' +
-            '<h3 class="empty-title">' + escapeHtml(title) + '</h3><p class="empty-desc">' + escapeHtml(desc) + '</p></div>';
+            '<h3 class="empty-title">' + escapeHtml(title) + '</h3><p class="empty-desc">' + escapeHtml(desc) + '</p>' +
+            (actionLabel ? '<button type="button" class="bd-prompt-btn">' + escapeHtml(actionLabel) + '</button>' : '') + '</div>';
+        if (actionLabel) planList.querySelector('.bd-prompt-btn').addEventListener('click', action);
     }
 
     function renderPlans() {
         planList.innerHTML = '';
-        if (!activeNet) {
+        if (!firstNet(activeTab)) {
             if (loadFailed) {
                 renderEmpty('fa-triangle-exclamation', 'Plans not loaded', 'Network issue. Check your network and open this page again.');
             } else if (!hasAnyPlans()) {
@@ -387,7 +422,15 @@ const LOGOS = {
             }
             return;
         }
-        const items = enrich(netPlans(activeTab, activeNet))
+        if (!activeNet) {
+            renderEmpty('fa-hand-pointer', 'Choose a network', 'Tap a network above to see the plans.');
+            return;
+        }
+        if (!isComplete()) {
+            renderEmpty('fa-list-check', 'Choose your plan', 'Tap the button to pick the plan type and validity.', 'Choose plan', () => openSheet());
+            return;
+        }
+        const items = itemsOfNet()
             .filter((i) => i.type.key === activeType && i.bucket === activeBucket)
             .sort((a, b) => Number(a.plan.price) - Number(b.plan.price));
         if (!items.length) {
@@ -411,20 +454,126 @@ const LOGOS = {
     function renderAll() {
         renderTabs();
         renderNets();
-        renderTypes();
-        renderBuckets();
+        renderSummary();
         renderPlans();
+    }
+
+    function optionButton(icon, title, meta, count, active, onPick) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'bd-opt' + (active ? ' active' : '');
+        btn.innerHTML =
+            '<span class="bd-opt-icon"><i class="fa-solid ' + icon + '"></i></span>' +
+            '<span class="bd-opt-text"><span class="bd-opt-title">' + escapeHtml(title) + '</span><span class="bd-opt-meta">' + escapeHtml(meta) + '</span></span>' +
+            '<span class="bd-opt-end"><span class="bd-opt-count">' + count + '</span><i class="fa-solid fa-chevron-right"></i></span>';
+        btn.addEventListener('click', onPick);
+        return btn;
+    }
+
+    function renderSheet() {
+        if (!sheetStep || !activeNet) {
+            closeSheet();
+            return;
+        }
+        const net = NETWORKS.find((n) => n.key === activeNet);
+        const types = orderedTypes(itemsOfNet());
+        const multi = types.length > 1;
+        sheet.list.innerHTML = '';
+        if (sheetStep === 'type') {
+            sheet.step.textContent = net.name + ' · Step 1 of 2';
+            sheet.title.textContent = 'Choose plan type';
+            sheet.back.hidden = true;
+            types.forEach((t) => {
+                sheet.list.appendChild(optionButton(TYPE_ICONS[t.key] || 'fa-sim-card', t.label, t.count + (t.count === 1 ? ' plan' : ' plans'), t.count, t.key === activeType, () => pickType(t.key)));
+            });
+            return;
+        }
+        const buckets = bucketsOfType(activeType);
+        sheet.step.textContent = multi ? net.name + ' · Step 2 of 2' : net.name;
+        sheet.title.textContent = 'Choose validity';
+        sheet.back.hidden = !multi;
+        buckets.forEach((b) => {
+            sheet.list.appendChild(optionButton(BUCKET_ICONS[b.key] || 'fa-clock', b.label, BUCKET_HINTS[b.key] || '', b.count, b.key === activeBucket, () => pickBucket(b.key)));
+        });
+    }
+
+    function openSheet() {
+        syncFilters();
+        if (!activeNet) return;
+        const types = orderedTypes(itemsOfNet());
+        let step = null;
+        if (types.length > 1) step = 'type';
+        else if (activeType && bucketsOfType(activeType).length > 1) step = 'bucket';
+        if (!step) return;
+        sheetStep = step;
+        renderSheet();
+        sheet.overlay.classList.add('open');
+        document.body.classList.add('bd-lock');
+    }
+
+    function closeSheet() {
+        sheetStep = null;
+        sheet.overlay.classList.remove('open');
+        document.body.classList.remove('bd-lock');
+    }
+
+    function scrollToPlans() {
+        setTimeout(() => {
+            const target = summaryBox.hidden ? planList : summaryBox;
+            if (target.scrollIntoView) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 180);
+    }
+
+    function finishPick() {
+        closeSheet();
+        renderAll();
+        scrollToPlans();
+    }
+
+    function pickNetwork(key) {
+        if (key === activeNet) {
+            openSheet();
+            return;
+        }
+        activeNet = key;
+        activeType = null;
+        activeBucket = null;
+        clearSelection();
+        syncFilters();
+        renderAll();
+        if (isComplete()) scrollToPlans();
+        else openSheet();
+    }
+
+    function pickType(key) {
+        activeType = key;
+        activeBucket = null;
+        clearSelection();
+        syncFilters();
+        if (activeBucket) {
+            finishPick();
+            return;
+        }
+        sheetStep = 'bucket';
+        renderSheet();
+        renderAll();
+    }
+
+    function pickBucket(key) {
+        activeBucket = key;
+        clearSelection();
+        finishPick();
     }
 
     function reconcile() {
         const tabs = availableTabs();
         if (!tabs.some((t) => t.key === activeTab)) activeTab = tabs[0] ? tabs[0].key : 'easy';
-        if (!activeNet || !netPlans(activeTab, activeNet).length) {
-            const first = firstNet(activeTab);
-            activeNet = first ? first.key : null;
-        }
+        const available = NETWORKS.filter((n) => netPlans(activeTab, n.key).length);
+        if (activeNet && !available.some((n) => n.key === activeNet)) activeNet = null;
+        if (!activeNet && available.length === 1) activeNet = available[0].key;
         syncFilters();
         renderAll();
+        if (sheetStep) renderSheet();
     }
 
     function selectPlan(p) {
@@ -444,11 +593,11 @@ const LOGOS = {
 
     function setTab(tab) {
         activeTab = tab;
-        const first = firstNet(tab);
-        activeNet = first ? first.key : null;
+        activeNet = null;
         activeType = null;
         activeBucket = null;
         clearSelection();
+        closeSheet();
         reconcile();
     }
 
@@ -589,6 +738,10 @@ const LOGOS = {
         }
     }
 
+    sheet.close.addEventListener('click', () => { closeSheet(); renderAll(); });
+    sheet.overlay.addEventListener('click', (e) => { if (e.target === sheet.overlay) { closeSheet(); renderAll(); } });
+    sheet.back.addEventListener('click', () => { sheetStep = 'type'; renderSheet(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && sheetStep) { closeSheet(); renderAll(); } });
     $('btnBack').addEventListener('click', () => { if (window.history.length > 1) window.history.back(); else window.location.href = 'dashboard.html'; });
     phoneInput.addEventListener('input', () => { phoneInput.value = phoneInput.value.replace(/\D/g, ''); attemptId = null; checkForm(); });
     $('pinRow').addEventListener('input', checkForm);
